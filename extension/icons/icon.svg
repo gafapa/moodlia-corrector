@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Moodle Correction Assistant icon">
+  <defs>
+    <linearGradient id="background" x1="18" y1="14" x2="110" y2="114" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2453a6"/>
+      <stop offset="1" stop-color="#0f8b6f"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#background)"/>
+  <path d="M36 32h38c7.7 0 14 6.3 14 14v8H72c-12.2 0-22 9.8-22 22v20H36c-7.7 0-14-6.3-14-14V46c0-7.7 6.3-14 14-14Z" fill="#ffffff"/>
+  <path d="M38 51h30" stroke="#2453a6" stroke-width="7" stroke-linecap="round"/>
+  <path d="M38 67h20" stroke="#2453a6" stroke-width="7" stroke-linecap="round"/>
+  <path d="M76 88 62 74l8-8 6 6 20-22 9 8-29 30Z" fill="#ffffff"/>
+  <path d="M76 88 62 74l8-8 6 6 20-22 9 8-29 30Z" fill="#0f8b6f"/>
+</svg>

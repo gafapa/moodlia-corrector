@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Corrector de Moodle</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Corrector de Moodle</h1>
+        <p id="status">Listo.</p>
+      </header>
+
+      <section>
+        <h2>Indicaciones adicionales</h2>
+        <textarea id="extraInstructions" placeholder="Ej.: valora especialmente la claridad, penaliza si no hay evidencias del uso de IA..."></textarea>
+        <label for="extraFiles">Archivos adicionales</label>
+        <input id="extraFiles" type="file" multiple />
+        <p id="extraFilesSummary">Sin archivos adicionales.</p>
+      </section>
+
+      <details>
+        <summary>Datos detectados</summary>
+        <textarea id="assignmentPreview" readonly></textarea>
+      </details>
+
+      <section>
+        <h2>Sugerencia de IA</h2>
+        <textarea id="correctionPreview"></textarea>
+      </section>
+
+      <footer>
+        <button id="requestCorrection" type="button">Corregir con IA</button>
+      </footer>
+    </main>
+
+    <script src="./popup.js"></script>
+  </body>
+</html>
