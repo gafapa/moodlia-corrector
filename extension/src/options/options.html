@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MoodlIA Corrector AI settings</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">MoodlIA Corrector</p>
+        <h1>AI connection</h1>
+        <p>Connect an AI provider directly. No separate AI Runtime extension is required.</p>
+      </header>
+
+      <form id="ai-settings">
+        <label>
+          Provider
+          <select id="provider" name="provider">
+            <option value="ollama">Ollama on this computer</option>
+            <option value="openai-compatible">OpenAI-compatible API</option>
+          </select>
+        </label>
+
+        <label>
+          API address
+          <input id="baseUrl" name="baseUrl" type="url" required autocomplete="url" />
+        </label>
+
+        <label>
+          Model
+          <input id="model" name="model" required autocomplete="off" placeholder="for example, llama3.2 or gpt-4.1-mini" />
+        </label>
+
+        <label id="api-key-field">
+          API key
+          <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="Required for remote APIs" />
+          <small>The key is kept only for the current Chrome session and is never sent to Moodle.</small>
+        </label>
+
+        <p id="status" role="status" aria-live="polite"></p>
+        <button type="submit">Save connection</button>
+      </form>
+
+      <aside>
+        <h2>Before correcting</h2>
+        <p>Confirm that your institution authorises the selected AI provider to process student work. Review every suggestion before saving the Moodle grading form.</p>
+      </aside>
+    </main>
+    <script src="./options.js"></script>
+  </body>
+</html>

@@ -1,59 +1,96 @@
 const APP_INFO = {
   id: 'moodle-correction-assistant',
-  name: 'Moodle Correction Assistant',
-  version: '0.1.41',
+  name: 'MoodlIA Corrector',
+  version: '0.1.43',
 };
 
 const createRequestId = () => crypto.randomUUID();
-const AI_RUNTIME_EXTENSION_NAMES = ['AI Runtime', 'AI Proxy Bridge'];
-const ALLOWED_MOODLE_HOSTS = new Set(['platega.edu.xunta.gal']);
 const MOODLE_GRADER_PATH = '/mod/assign/view.php';
 const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-const CHAT_START_TIMEOUT_MS = 30_000;
-const LOCAL_CHAT_START_TIMEOUT_MS = 180_000;
-const AI_RUNTIME_CONFIG_STORAGE_KEY = 'mca.aiRuntimeConfig';
+const AI_CONFIG_STORAGE_KEY = 'mca.aiConfig';
+const AI_SECRET_STORAGE_KEY = 'mca.aiSecret';
 const diagnostics = [];
-let aiRuntimeAppConfigCache = {};
+let aiConfigCache = {};
+let aiSecretCache = {};
 
-const sanitizeAiRuntimeConfig = (config = {}) => ({
-  ...(config?.provider ? { provider: config.provider } : {}),
-  ...(config?.model ? { model: config.model } : {}),
-});
+const supportedAiProviders = new Set(['ollama', 'openai-compatible']);
+const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
 
-const loadAiRuntimeConfig = async () => {
-  if (!chrome.storage?.local) {
-    return aiRuntimeAppConfigCache;
+const normalizeAiBaseUrl = (baseUrl, provider = 'ollama') => {
+  const fallback = provider === 'ollama' ? 'http://127.0.0.1:11434' : 'https://api.openai.com/v1';
+  const parsed = new URL(String(baseUrl || fallback).trim());
+
+  if (parsed.protocol !== 'https:' && !(provider === 'ollama' && parsed.protocol === 'http:' && loopbackHosts.has(parsed.hostname))) {
+    throw new Error('Use HTTPS for remote AI providers. Ollama may use localhost over HTTP.');
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('The AI provider URL cannot include credentials, a query string, or a fragment.');
   }
 
-  const stored = await chrome.storage.local.get(AI_RUNTIME_CONFIG_STORAGE_KEY);
-  aiRuntimeAppConfigCache = sanitizeAiRuntimeConfig(stored[AI_RUNTIME_CONFIG_STORAGE_KEY] || aiRuntimeAppConfigCache);
-  return aiRuntimeAppConfigCache;
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
 };
 
-const saveAiRuntimeConfig = async (config = {}) => {
-  aiRuntimeAppConfigCache = sanitizeAiRuntimeConfig(config);
+const sanitizeAiConfig = (config = {}) => {
+  const provider = supportedAiProviders.has(config?.provider) ? config.provider : 'ollama';
+  return {
+    provider,
+    baseUrl: normalizeAiBaseUrl(config?.baseUrl, provider),
+    model: String(config?.model || '').trim(),
+  };
+};
+
+const sanitizeAiSecret = (config = {}) => ({
+  ...(typeof config?.apiKey === 'string' && config.apiKey.trim() ? { apiKey: config.apiKey.trim() } : {}),
+});
+
+const loadAiConfig = async () => {
+  if (!chrome.storage?.local) {
+    return aiConfigCache;
+  }
+
+  const stored = await chrome.storage.local.get(AI_CONFIG_STORAGE_KEY);
+  aiConfigCache = sanitizeAiConfig(stored[AI_CONFIG_STORAGE_KEY] || aiConfigCache);
+  return aiConfigCache;
+};
+
+const loadAiSecret = async () => {
+  if (!chrome.storage?.session) {
+    return aiSecretCache;
+  }
+
+  const stored = await chrome.storage.session.get(AI_SECRET_STORAGE_KEY);
+  aiSecretCache = sanitizeAiSecret(stored[AI_SECRET_STORAGE_KEY] || aiSecretCache);
+  return aiSecretCache;
+};
+
+const saveAiConfig = async (config = {}) => {
+  aiConfigCache = sanitizeAiConfig({ ...aiConfigCache, ...config });
 
   if (chrome.storage?.local) {
     await chrome.storage.local.set({
-      [AI_RUNTIME_CONFIG_STORAGE_KEY]: aiRuntimeAppConfigCache,
+      [AI_CONFIG_STORAGE_KEY]: aiConfigCache,
     });
   }
 
-  return aiRuntimeAppConfigCache;
+  if (Object.hasOwn(config, 'apiKey')) {
+    aiSecretCache = sanitizeAiSecret(config);
+    if (chrome.storage?.session) {
+      await chrome.storage.session.set({ [AI_SECRET_STORAGE_KEY]: aiSecretCache });
+    }
+  }
+
+  return aiConfigCache;
 };
 
-const isAllowedMoodleDomain = (url) => ALLOWED_MOODLE_HOSTS.has(url.hostname);
-
 const isSupportedGraderPage = (url) =>
-  url.pathname === MOODLE_GRADER_PATH && url.searchParams.get('action') === 'grader';
+  url.pathname.endsWith(MOODLE_GRADER_PATH) && url.searchParams.get('action') === 'grader';
 
 const isSupportedGraderUrl = (url = '') => {
   try {
     const currentUrl = new URL(url);
     return (
       currentUrl.protocol === 'https:' &&
-      isAllowedMoodleDomain(currentUrl) &&
       isSupportedGraderPage(currentUrl)
     );
   } catch {
@@ -78,8 +115,8 @@ const updateActionForTab = (tabId, url = '') => {
   chrome.action.setTitle({
     tabId,
     title: enabled
-      ? 'Moodle Correction Assistant'
-      : 'Moodle Correction Assistant only runs on Moodle grader pages',
+      ? 'MoodlIA Corrector'
+      : 'MoodlIA Corrector only runs on Moodle assignment grader pages',
   });
 };
 
@@ -91,7 +128,7 @@ const addDiagnostic = (stage, detail = {}) => {
   };
   diagnostics.unshift(entry);
   diagnostics.splice(30);
-  console.log('[Moodle Correction Assistant]', stage, detail);
+  console.log('[MoodlIA Corrector]', stage, detail);
   return entry;
 };
 
@@ -672,13 +709,10 @@ const buildCorrectionRepairPrompt = (assignmentData, invalidResponseText) => {
 
 const buildAiAssignmentPayload = (assignmentData) => {
   return {
-    page: assignmentData.page,
-    courseName: assignmentData.courseName,
-    studentName: assignmentData.studentName,
+    page: { language: assignmentData.page?.language || '' },
     assignmentTitle: assignmentData.assignmentTitle,
     assignmentDescription: {
       source: assignmentData.linkedAssignmentDescription?.text ? 'linked-description' : 'inline-page',
-      url: assignmentData.assignmentDescriptionLink?.url || '',
       text: assignmentData.linkedAssignmentDescription?.text || assignmentData.assignmentPrompt || '',
     },
     correctionMethod: assignmentData.correctionMethod || 'manual',
@@ -691,14 +725,11 @@ const buildAiAssignmentPayload = (assignmentData) => {
       onlineText: assignmentData.submissionText || '',
       files: (assignmentData.submissionFiles || []).map((file) => ({
         id: file.id,
-        name: file.name,
-        url: file.url || '',
         mimeType: file.mimeType || '',
         sizeBytes: file.sizeBytes || null,
       })),
       extraFiles: (assignmentData.extraFiles || []).map((file) => ({
         id: file.id,
-        name: file.name,
         mimeType: file.mimeType || '',
         sizeBytes: file.sizeBytes || null,
         source: file.source || 'manual-upload',
@@ -719,7 +750,20 @@ const arrayBufferToBase64 = (buffer) => {
   return btoa(binary);
 };
 
-const fetchSubmissionFileAttachments = async (submissionFiles = []) => {
+const normalizeMoodleAttachmentUrl = (fileUrl, pageUrl) => {
+  const page = new URL(String(pageUrl || ''));
+  const candidate = new URL(String(fileUrl || ''), page);
+  if (page.protocol !== 'https:' || candidate.protocol !== 'https:' || candidate.origin !== page.origin) {
+    throw new Error('Submitted files must use HTTPS and the Moodle page origin.');
+  }
+  if (candidate.username || candidate.password) {
+    throw new Error('Submitted file URLs cannot include credentials.');
+  }
+  candidate.hash = '';
+  return candidate.href;
+};
+
+const fetchSubmissionFileAttachments = async (submissionFiles = [], pageUrl = '') => {
   const attachments = [];
   let totalBytes = 0;
 
@@ -732,8 +776,10 @@ const fetchSubmissionFileAttachments = async (submissionFiles = []) => {
     }
 
     try {
-      const response = await fetch(file.url, {
+      const attachmentUrl = normalizeMoodleAttachmentUrl(file.url, pageUrl);
+      const response = await fetch(attachmentUrl, {
         credentials: 'include',
+        redirect: 'error',
       });
 
       if (!response.ok) {
@@ -1077,7 +1123,194 @@ const selectExplicitRouteFromCapabilities = (capabilities, appConfig = {}) => {
   };
 };
 
+const getDirectAiStatus = async () => {
+  const config = await loadAiConfig();
+  const secret = await loadAiSecret();
+  const requiresApiKey = config.provider === 'openai-compatible';
+  const configured = Boolean(config.model) && (!requiresApiKey || Boolean(secret.apiKey));
+
+  return {
+    appConfig: {
+      ...config,
+      configured,
+      requiresApiKey,
+    },
+    providers: [
+      {
+        provider: 'ollama',
+        available: config.provider === 'ollama' && configured,
+        supports: { chat: true },
+        models: config.provider === 'ollama' && config.model ? [{ id: config.model, name: config.model }] : [],
+      },
+      {
+        provider: 'openai-compatible',
+        available: config.provider === 'openai-compatible' && configured,
+        supports: { chat: true },
+        models:
+          config.provider === 'openai-compatible' && config.model ? [{ id: config.model, name: config.model }] : [],
+      },
+    ],
+  };
+};
+
+const formatDirectAttachments = (files = []) => {
+  const textAttachments = files
+    .filter((file) => typeof file?.textContent === 'string' && file.textContent.trim())
+    .map((file, index) => `Attachment ${index + 1} (${file.mimeType || 'unknown type'})\n${file.textContent.slice(0, 12000)}`);
+  const skippedAttachmentCount = files.filter((file) => !file?.textContent).length;
+
+  return [
+    ...textAttachments,
+    ...(skippedAttachmentCount
+      ? [`${skippedAttachmentCount} binary attachment(s) were not sent to the AI provider.`]
+      : []),
+  ].join('\n\n');
+};
+
+const createDirectMessages = (assignmentData, files, repairText = '') => {
+  const prompt = repairText
+    ? buildCorrectionRepairPrompt(assignmentData, repairText)
+    : buildCorrectionPrompt(assignmentData);
+  const attachmentContext = formatDirectAttachments(files);
+
+  return [
+    {
+      role: 'system',
+      content: 'You are an educational assessment assistant. Produce a structured grading suggestion for a teacher to review.',
+    },
+    {
+      role: 'user',
+      content: attachmentContext ? `${prompt}\n\nAttached text:\n${attachmentContext}` : prompt,
+    },
+  ];
+};
+
+const extractDirectAiText = (payload, provider) => {
+  if (provider === 'ollama') {
+    return String(payload?.message?.content || '').trim();
+  }
+
+  const content = payload?.choices?.[0]?.message?.content;
+  if (typeof content === 'string') {
+    return content.trim();
+  }
+  if (Array.isArray(content)) {
+    return content.map((part) => part?.text || '').join('').trim();
+  }
+  return '';
+};
+
+const createDirectChatRequest = (config, secret, messages) => {
+  if (!config.model) {
+    throw new Error('Choose a model in MoodlIA Corrector settings before requesting a correction.');
+  }
+
+  const provider = config.provider;
+  const endpoint = provider === 'ollama' ? `${config.baseUrl}/api/chat` : `${config.baseUrl}/chat/completions`;
+  const headers = { 'Content-Type': 'application/json' };
+  let body;
+
+  if (provider === 'ollama') {
+    body = {
+      model: config.model,
+      messages,
+      stream: false,
+      format: 'json',
+      options: { temperature: 0.2 },
+    };
+  } else {
+    if (!secret.apiKey) {
+      throw new Error('Add an API key in MoodlIA Corrector settings before using an OpenAI-compatible provider.');
+    }
+    headers.Authorization = `Bearer ${secret.apiKey}`;
+    body = {
+      model: config.model,
+      messages,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+    };
+  }
+
+  return { endpoint, headers, body };
+};
+
+const requestDirectChat = async (config, secret, messages) => {
+  const provider = config.provider;
+  const request = createDirectChatRequest(config, secret, messages);
+  const response = await fetch(request.endpoint, {
+    method: 'POST',
+    redirect: 'error',
+    headers: request.headers,
+    body: JSON.stringify(request.body),
+  });
+  const responseText = await response.text();
+  let payload = null;
+
+  try {
+    payload = JSON.parse(responseText);
+  } catch {
+    // A useful provider error is still surfaced below without parsing it.
+  }
+
+  if (!response.ok) {
+    const message = payload?.error?.message || payload?.message || responseText.slice(0, 600) || `HTTP ${response.status}`;
+    throw new Error(`${provider} request failed: ${message}`);
+  }
+
+  const text = extractDirectAiText(payload, provider);
+  if (!text) {
+    throw new Error(`${provider} returned an empty correction.`);
+  }
+
+  return {
+    text,
+    usage: payload?.usage,
+    provider,
+    model: config.model,
+  };
+};
+
+const requestDirectAiCorrection = async (assignmentData) => {
+  const config = await loadAiConfig();
+  const secret = await loadAiSecret();
+  const files = [
+    ...(await fetchSubmissionFileAttachments(assignmentData.submissionFiles || [], assignmentData.page?.url)),
+    ...normalizeExtraFileAttachments(assignmentData.extraFiles || []),
+  ];
+
+  addDiagnostic('directAi.correction.start', {
+    provider: config.provider,
+    model: config.model || null,
+    attachments: files.length,
+  });
+
+  const response = await requestDirectChat(config, secret, createDirectMessages(assignmentData, files));
+  let parsed = parseCorrectionResponse(response.text, assignmentData);
+
+  if (!isCorrectionComplete(parsed, assignmentData)) {
+    try {
+      const repair = await requestDirectChat(config, secret, createDirectMessages(assignmentData, files, response.text));
+      const repaired = parseCorrectionResponse(repair.text, assignmentData);
+      if (isCorrectionComplete(repaired, assignmentData)) {
+        parsed = repaired;
+      }
+    } catch (error) {
+      addDiagnostic('directAi.correction.repairFailed', { message: error.message || String(error) });
+    }
+  }
+
+  addDiagnostic('directAi.correction.done', {
+    provider: response.provider,
+    model: response.model,
+    textLength: response.text.length,
+    complete: isCorrectionComplete(parsed, assignmentData),
+  });
+
+  return { ...response, parsed };
+};
+
 const requestAiCorrection = async (assignmentData) => {
+  return await requestDirectAiCorrection(assignmentData);
   addDiagnostic('correction.request.received', {
     hasAssignment: Boolean(assignmentData),
     files: assignmentData?.submissionFiles?.length || 0,
@@ -1123,7 +1356,7 @@ const requestAiCorrection = async (assignmentData) => {
     ...storedAppConfig,
   });
   const files = [
-    ...(await fetchSubmissionFileAttachments(assignmentData.submissionFiles || [])),
+    ...(await fetchSubmissionFileAttachments(assignmentData.submissionFiles || [], assignmentData.page?.url)),
     ...normalizeExtraFileAttachments(assignmentData.extraFiles || []),
   ];
   const chatRequestId = createRequestId();
@@ -1221,6 +1454,8 @@ const withAiRuntime = async (callback) => {
 };
 
 const getAiRuntimeStatus = async () => {
+  return await getDirectAiStatus();
+
   const aiExtensionInfo = await getAiExtensionInfo();
   const aiExtensionId = aiExtensionInfo?.id || '';
 
@@ -1270,6 +1505,8 @@ const getAiRuntimeStatus = async () => {
 };
 
 const setAiRuntimeConfig = async (config) => {
+  return await saveAiConfig(config || {});
+
   const aiExtensionInfo = await getAiExtensionInfo();
   const aiExtensionId = aiExtensionInfo?.id || '';
 
@@ -1297,6 +1534,9 @@ const setAiRuntimeConfig = async (config) => {
 };
 
 const openAiRuntimeOptions = async () => {
+  await chrome.runtime.openOptionsPage();
+  return true;
+
   const aiExtensionInfo = await getAiExtensionInfo();
 
   if (!aiExtensionInfo) {
@@ -1587,8 +1827,8 @@ const isCorrectionComplete = (correction, assignmentData = {}) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'mca.detectAiProxyBridge') {
-    void getAiExtensionId()
-      .then((extensionId) => sendResponse({ ok: true, extensionId }))
+    void getDirectAiStatus()
+      .then((status) => sendResponse({ ok: true, extensionId: status.appConfig.configured ? 'direct-ai' : '' }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }

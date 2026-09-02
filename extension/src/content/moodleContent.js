@@ -1,6 +1,5 @@
 const MOODLE_ASSIGNMENT_PATH = '/mod/assign/';
 const MOODLE_GRADER_PATH = '/mod/assign/view.php';
-const ALLOWED_MOODLE_HOSTS = new Set(['platega.edu.xunta.gal']);
 const PANEL_WIDTH = 420;
 const FLOATING_BUTTON_ID = 'mca-floating-button-host';
 const PANEL_ID = 'mca-side-panel-host';
@@ -9,8 +8,8 @@ const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const APP_INFO = {
   id: 'moodle-correction-assistant',
-  name: 'Moodle Correction Assistant',
-  version: '0.1.41',
+  name: 'MoodlIA Corrector',
+  version: '0.1.43',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -33,17 +32,14 @@ let currentCorrection = null;
 let originalPageStyles = null;
 let aiRuntimeStatus = null;
 
-const isAllowedMoodleDomain = (url) => ALLOWED_MOODLE_HOSTS.has(url.hostname);
-
 const isSupportedGraderPage = (url) =>
-  url.pathname === MOODLE_GRADER_PATH && url.searchParams.get('action') === 'grader';
+  url.pathname.endsWith(MOODLE_GRADER_PATH) && url.searchParams.get('action') === 'grader';
 
 const isSupportedGraderUrl = (url = window.location.href) => {
   try {
     const currentUrl = new URL(url);
     return (
       currentUrl.protocol === 'https:' &&
-      isAllowedMoodleDomain(currentUrl) &&
       isSupportedGraderPage(currentUrl)
     );
   } catch {

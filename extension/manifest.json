@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "MoodlIA Corrector",
-  "version": "0.1.41",
-  "description": "Helps teachers review Moodle assignments and apply AI-assisted correction suggestions.",
+  "version": "0.1.43",
+  "description": "Helps teachers review Moodle assignments and apply teacher-approved AI correction suggestions.",
   "minimum_chrome_version": "116",
-  "permissions": ["activeTab", "management", "tabs", "storage"],
-  "host_permissions": ["https://platega.edu.xunta.gal/mod/assign/view.php*"],
+  "permissions": ["activeTab", "tabs", "storage"],
+  "host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "background": {
     "service_worker": "src/background.js"
   },
@@ -17,7 +17,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://platega.edu.xunta.gal/mod/assign/view.php*"],
+      "matches": ["https://*/*"],
       "js": ["src/content/moodleContent.js"],
       "run_at": "document_idle"
     }
@@ -31,5 +31,9 @@
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
   }
 }

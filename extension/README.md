@@ -1,17 +1,19 @@
 # MoodlIA Corrector
 
-Chrome extension that extracts Moodle grading context, sends it to AI Runtime, and applies the teacher-reviewed result back into the Moodle grading form.
+Chrome extension that extracts Moodle grading context, sends it directly to the AI provider selected by the teacher or institution, and applies the teacher-reviewed result back into the Moodle grading form.
 
 ## Load in Chrome
 
 1. Open `chrome://extensions`.
 2. Enable developer mode.
 3. Click **Load unpacked**.
-4. Select this project folder.
-5. Copy this extension ID.
-6. Open AI Runtime options and authorize this extension ID as a trusted caller.
+4. Select the `extension` folder from this project.
+5. Open the extension details and select **Extension options**.
+6. Choose Ollama or an OpenAI-compatible API, then provide the endpoint and model. Remote APIs also require an API key for the current Chrome session.
 
-The extension detects the installed AI Runtime extension automatically through the Chrome management API.
+The API key is retained only in Chrome session storage. Provider, endpoint, and model are saved as non-secret preferences.
+
+Remote providers must use HTTPS, and AI requests reject redirects. Moodle submission files are fetched only from the HTTPS origin of the active grading page. AI prompts omit the student's name, course name, Moodle URLs, and original filenames; assignment evidence, rubric content, and readable submitted content are still sent to the provider selected by the teacher.
 
 ## Versioning
 
@@ -19,7 +21,7 @@ Increase `manifest.json` version with every extension change.
 
 ## Current Flow
 
-1. Open a Moodle assignment grading page.
+1. Open any HTTPS Moodle assignment grading page (`/mod/assign/view.php?action=grader`), including sites installed below a subdirectory.
 2. Open the assistant panel and review the detected Moodle data.
 3. Optional: paste an external correction JSON in step 0 and click **Apply JSON to Moodle**.
 4. Optional: configure AI and click **Correct with AI** to request a structured JSON suggestion.
