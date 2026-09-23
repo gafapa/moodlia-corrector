@@ -18,3 +18,9 @@ npm run check
 ```
 
 The suite validates manifest assets, Moodle grader-page and attachment-origin restrictions, direct AI transport and configuration sanitization, correction parsing, rubric normalization, fallback behavior, privacy minimization, and prompt constraints.
+
+## License
+
+Copyright (C) 2026 Pablo Gallego.
+
+This project is free software released under the GNU General Public License version 3 or later. See `LICENSE`.
