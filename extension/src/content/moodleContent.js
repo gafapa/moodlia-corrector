@@ -9,7 +9,7 @@ const MAX_TOTAL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.1.43',
+  version: '0.1.45',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -52,7 +52,7 @@ const getVisibleText = (element) => {
     return '';
   }
 
-  return element.innerText.replace(/\s+/g, ' ').trim();
+  return String(element.innerText ?? element.textContent ?? '').replace(/\s+/g, ' ').trim();
 };
 
 const getVisibleTextWithoutAssistant = (element) => {
@@ -134,8 +134,13 @@ const extractSubmissionFiles = () => {
   ];
 
   const seen = new Set();
-
   return links
+    .filter((link) => {
+      if (!link.closest('.assignsubmission_file, .fileuploadsubmission') && !/\/assignsubmission_file\//i.test(link.href)) return false;
+      if (seen.has(link.href)) return false;
+      seen.add(link.href);
+      return true;
+    })
     .map((link, index) => {
       const originalName =
         getVisibleText(link) || link.getAttribute('title') || link.href.split('/').pop() || 'File';
@@ -147,14 +152,6 @@ const extractSubmissionFiles = () => {
         originalName,
         url: link.href,
       };
-    })
-    .filter((file) => {
-      const key = `${file.name}|${file.url}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
     });
 };
 
@@ -286,65 +283,119 @@ const isSameOriginUrl = (url) => {
   }
 };
 
+const resolveDocumentUrl = (value, pageUrl) => {
+  try { return new URL(value, pageUrl); } catch { return null; }
+};
+
 const extractAssignmentDescriptionLink = () => {
-  const links = [...document.querySelectorAll('a[href]')];
-  const candidates = links
-    .map((link) => {
-      const url = toAbsoluteUrl(link.getAttribute('href'));
-      const text = getVisibleText(link);
-      const title = link.getAttribute('title') || '';
-      const label = `${text} ${title}`.trim();
-      let score = 0;
+  const currentUrl = new URL(location.href);
+  const links = [...document.querySelectorAll('[data-region="assignment-info"] a[href], .breadcrumb a[href], a[href]')];
+  for (const link of links) {
+    const url = resolveDocumentUrl(link.getAttribute('href'), currentUrl);
+    if (!url || url.origin !== currentUrl.origin || !url.pathname.endsWith(MOODLE_GRADER_PATH) ||
+        url.searchParams.get('id') !== currentUrl.searchParams.get('id') ||
+        url.searchParams.has('userid') || url.searchParams.has('action') && url.searchParams.get('action') !== 'view') continue;
+    return { label: getVisibleText(link) || link.getAttribute('title') || '', url: url.href };
+  }
+  currentUrl.search = `?id=${encodeURIComponent(currentUrl.searchParams.get('id') || '')}`;
+  currentUrl.hash = '';
+  return { label: '', url: currentUrl.href };
+};
 
-      if (!url || url === location.href || !isSameOriginUrl(url)) {
-        return null;
-      }
+const cleanAssignmentTitle = (value = '') => String(value).replace(/^(?:Tarea|Tarefa|Assignment|Actividade)\s*:\s*/i, '').trim();
 
-      if (/\/mod\/assign\/view\.php/i.test(url)) {
-        score += 6;
-      }
+const extractAssignmentTitle = (doc = document, pageUrl = location.href) => {
+  const currentUrl = new URL(pageUrl);
+  for (const link of doc.querySelectorAll('[data-region="assignment-info"] a[href], .breadcrumb a[href], [data-region="grading-navigation"] a[href]')) {
+    const url = resolveDocumentUrl(link.getAttribute('href'), pageUrl);
+    if (url && url.origin === currentUrl.origin && url.pathname.endsWith(MOODLE_GRADER_PATH) &&
+        url.searchParams.get('id') === currentUrl.searchParams.get('id') && !url.searchParams.has('userid') &&
+        (!url.searchParams.has('action') || url.searchParams.get('action') === 'view')) {
+      const title = cleanAssignmentTitle(getVisibleText(link));
+      if (title) return title;
+    }
+  }
+  const selectors = ['.activity-header h2', '.activity-header h1', '.page-header-headings h2', '#region-main .activityname'];
+  if (currentUrl.searchParams.get('action') !== 'grader') selectors.push('#region-main h2', '.page-header-headings h1', 'h1');
+  for (const selector of selectors) {
+    const title = cleanAssignmentTitle(getVisibleText(doc.querySelector(selector)));
+    if (title) return title;
+  }
+  return '';
+};
 
-      if (/[?&]id=\d+/i.test(url)) {
-        score += 1;
-      }
+const assignmentDescriptionSelectors = ['#intro', '.activity-description', '.intro', '[data-region="assignment-description"]', '.introattachments'];
 
-      if (/descripci[o\u00f3]n|description|enunciado|instrucciones|assignment|tarea/i.test(label)) {
-        score += 8;
-      }
+const getAssignmentFileType = (extension) => ({
+  '.odt': 'Documento de texto editable (ODT)', '.docx': 'Documento de Word (DOCX)', '.doc': 'Documento de Word (DOC)',
+  '.pdf': 'Documento PDF', '.ods': 'Hoja de cálculo (ODS)', '.xlsx': 'Hoja de cálculo (XLSX)', '.xls': 'Hoja de cálculo (XLS)',
+  '.odp': 'Presentación (ODP)', '.pptx': 'Presentación (PPTX)', '.ppt': 'Presentación (PPT)',
+  '.zip': 'Archivo comprimido (ZIP)', '.txt': 'Archivo de texto', '.csv': 'Datos CSV',
+  '.png': 'Imagen PNG', '.jpg': 'Imagen JPEG', '.jpeg': 'Imagen JPEG', '.webp': 'Imagen WebP', '.gif': 'Imagen GIF', '.svg': 'Imagen SVG',
+  '.mp4': 'Vídeo MP4', '.mp3': 'Audio MP3',
+}[extension] || (extension ? `Archivo ${extension.slice(1).toUpperCase()}` : 'Archivo enlazado'));
 
-      if (/grade|calificar|corregir|user|attempt|download|pluginfile/i.test(url)) {
-        score -= 5;
-      }
+const extractAssignmentFiles = (doc = document, pageUrl = location.href) => {
+  const seen = new Set();
+  const files = [];
+  for (const container of doc.querySelectorAll(assignmentDescriptionSelectors.join(', '))) {
+    for (const element of container.querySelectorAll('a[href], img[src]')) {
+      const url = resolveDocumentUrl(element.getAttribute('href') || element.getAttribute('src'), pageUrl);
+      if (!url || !['http:', 'https:'].includes(url.protocol)) continue;
+      let name;
+      try { name = decodeURIComponent(url.pathname.split('/').pop() || ''); } catch { name = url.pathname.split('/').pop() || ''; }
+      const extension = getFileExtension(name);
+      const introFile = /\/pluginfile\.php\/[^/]+\/mod_assign\/intro(?:attachment)?\//i.test(url.pathname);
+      const download = element.getAttribute('download');
+      if (!introFile && !download && !/\.(odt|docx?|pdf|ods|xlsx?|odp|pptx?|zip|txt|csv|png|jpe?g|webp|gif|svg|mp4|mp3)$/i.test(extension)) continue;
+      const key = new URL(url);
+      key.hash = '';
+      key.searchParams.delete('forcedownload');
+      if (seen.has(key.href)) continue;
+      seen.add(key.href);
+      const label = getVisibleText(element) || element.getAttribute('alt') || element.getAttribute('title') || '';
+      files.push({
+        id: `assignment-file-${files.length + 1}`, name: download || name || label || 'Archivo del enunciado',
+        label, url: url.href, extension, typeDescription: getAssignmentFileType(extension),
+        source: 'assignment-description', embedded: element.tagName === 'IMG', contentRead: false,
+      });
+    }
+  }
+  return files;
+};
 
-      return score > 0
-        ? {
-            label: text || title || url,
-            url,
-            score,
-          }
-        : null;
-    })
-    .filter(Boolean)
-    .sort((left, right) => right.score - left.score);
-
-  const best = candidates[0];
-  return best ? { label: best.label, url: best.url } : null;
+const createAssignmentFileList = (files = []) => {
+  const list = document.createElement('ul');
+  list.className = 'plain-list';
+  list.dataset.assignmentFiles = 'true';
+  if (!files.length) {
+    const item = document.createElement('li');
+    item.textContent = 'No se han detectado archivos en la descripción de la tarea.';
+    list.appendChild(item);
+  }
+  for (const file of files) {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    link.href = file.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = file.name;
+    const description = document.createElement('p');
+    description.textContent = `${file.typeDescription}. ${file.embedded ? 'Imagen incluida en el enunciado.' : file.label || 'Archivo enlazado desde el enunciado.'}`;
+    const state = document.createElement('p');
+    state.className = 'hint';
+    state.textContent = 'Enlace detectado; el contenido del archivo no se ha leído ni incorporado a la corrección.';
+    item.append(link, description, state);
+    list.appendChild(item);
+  }
+  return list;
 };
 
 const extractDescriptionFromDocument = (doc) => {
-  const selectors = [
-    '#intro',
-    '.activity-description',
-    '.activity-information',
-    '.box.generalbox',
-    '[role="main"] .generalbox',
-    '[role="main"]',
-  ];
-
-  for (const selector of selectors) {
+  for (const selector of assignmentDescriptionSelectors) {
     const element = doc.querySelector(selector);
     const text = getVisibleText(element);
-    if (text && text.length > 40) {
+    if (text) {
       return text.slice(0, 12000);
     }
   }
@@ -357,9 +408,13 @@ const fetchAssignmentDescription = async (descriptionLink) => {
     return null;
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
   try {
     const response = await fetch(descriptionLink.url, {
       credentials: 'include',
+      redirect: 'error',
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -372,12 +427,13 @@ const fetchAssignmentDescription = async (descriptionLink) => {
 
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const title = getVisibleText(doc.querySelector('h1, .page-header-headings h1')) || descriptionLink.label;
+    const title = extractAssignmentTitle(doc, descriptionLink.url) || cleanAssignmentTitle(descriptionLink.label);
 
     return {
       ...descriptionLink,
       title,
       text: extractDescriptionFromDocument(doc),
+      files: extractAssignmentFiles(doc, descriptionLink.url),
     };
   } catch (error) {
     return {
@@ -385,7 +441,7 @@ const fetchAssignmentDescription = async (descriptionLink) => {
       text: '',
       error: error.message || String(error),
     };
-  }
+  } finally { clearTimeout(timer); }
 };
 
 const getPageContext = () => ({
@@ -834,21 +890,22 @@ const extractAssignmentData = async () => {
   const finalFeedbackBox = findCommentBox();
   const gradeInput = findGradeInput();
   const rubric = correctionMethod.rubric;
-  const inlinePrompt = findFirstText([
-    '#intro',
-    '.activity-description',
-    '.intro',
-    '[role="main"] .generalbox',
-  ]);
+  const inlinePrompt = extractDescriptionFromDocument(document);
+  const assignmentFiles = extractAssignmentFiles(document);
+  for (const file of linkedDescription?.files || []) {
+    if (!assignmentFiles.some((existing) => existing.url === file.url)) assignmentFiles.push(file);
+  }
+  assignmentFiles.forEach((file, index) => { file.id = `assignment-file-${index + 1}`; });
 
   return {
     page: getPageContext(),
     courseName: extractCourseName(),
     studentName: extractStudentName(),
-    assignmentTitle: findFirstText(['h1', '.page-header-headings h1', '.activityname']),
+    assignmentTitle: extractAssignmentTitle() || linkedDescription?.title || cleanAssignmentTitle(descriptionLink?.label),
     assignmentDescriptionLink: descriptionLink,
     linkedAssignmentDescription: linkedDescription,
     assignmentPrompt: linkedDescription?.text || inlinePrompt,
+    assignmentFiles,
     correctionMethod: correctionMethod.type,
     submissionStatus: getFieldRows(document).slice(0, 30),
     submissionFiles,
@@ -1697,7 +1754,7 @@ const normalizeCorrectionResponse = (parsed, assignmentData = {}) => {
   return {
     needsRepair: false,
     studentFeedback,
-    score: hasNumericGradeControl(assignmentData) && Number.isFinite(Number(parsed.score)) ? Number(parsed.score) : null,
+    score: hasNumericGradeControl(assignmentData) && parsed.score !== null && parsed.score !== '' && parsed.score !== undefined && Number.isFinite(Number(parsed.score)) ? Number(parsed.score) : null,
     maxScore: getExpectedMaxScore(assignmentData),
     rubricSelections: normalizeRubricSelections(assignmentData, rubricSelections, studentFeedback),
   };
@@ -1719,220 +1776,30 @@ const getCorrectionCompleteness = (correction, assignmentData = {}) => {
   };
 };
 
-const connectPageAiRuntime = (extensionId) => {
-  addPanelDiagnostic('pageAi.connect.start', { extensionId });
-  const port = chrome.runtime.connect(extensionId, { name: 'ai-runtime-v1' });
-  const pending = new Map();
-  const chats = new Map();
-  let disconnected = false;
-
-  const postToPort = (message, stage) => {
-    if (disconnected) {
-      return false;
-    }
-
-    try {
-      port.postMessage(message);
-      return true;
-    } catch (error) {
-      addPanelDiagnostic('pageAi.postMessage.error', {
-        stage,
-        message: error.message || String(error),
-      });
-      return false;
-    }
-  };
-
-  port.onMessage.addListener((message) => {
-    if (message?.type === 'runtime.error' && !message.requestId) {
-      const error = new Error(message.error?.message || 'AI runtime request failed.');
-      addPanelDiagnostic('pageAi.error', { error: message.error || null });
-
-      for (const deferred of pending.values()) {
-        deferred.reject(error);
-      }
-      pending.clear();
-
-      for (const chat of chats.values()) {
-        chat.reject(error);
-      }
-      chats.clear();
-      return;
-    }
-
-    if (!message?.requestId) {
-      return;
-    }
-
-    const chat = chats.get(message.requestId);
-    if (chat) {
-      if (message.type === 'runtime.chat.heartbeat') {
-        chat.heartbeatCount += 1;
-        if (chat.heartbeatCount === 1 || chat.heartbeatCount % 6 === 0) {
-          addPanelDiagnostic('pageAi.chat.heartbeat', {
-            requestId: message.requestId,
-            count: chat.heartbeatCount,
-          });
-        }
-        return;
-      }
-
-      if (message.type === 'runtime.chat.started') {
-        chat.provider = message.provider;
-        chat.model = message.model;
-        addPanelDiagnostic('pageAi.chat.started', {
-          requestId: message.requestId,
-          provider: message.provider,
-          model: message.model,
-        });
-        return;
-      }
-
-      if (message.type === 'runtime.chat.delta') {
-        chat.text += message.delta || '';
-        return;
-      }
-
-      if (message.type === 'runtime.chat.done') {
-        chats.delete(message.requestId);
-        addPanelDiagnostic('pageAi.chat.done', { requestId: message.requestId });
-        chat.resolve({
-          provider: chat.provider,
-          model: chat.model,
-          text: chat.text,
-          usage: message.usage,
-        });
-        return;
-      }
-
-      if (message.type === 'runtime.chat.error' || message.type === 'runtime.error') {
-        chats.delete(message.requestId);
-        addPanelDiagnostic('pageAi.chat.error', {
-          requestId: message.requestId,
-          error: message.error || null,
-        });
-        chat.reject(new Error(message.error?.message || JSON.stringify(message.error) || 'AI request failed.'));
-        return;
-      }
-    }
-
-    const deferred = pending.get(message.requestId);
-    if (!deferred) {
-      return;
-    }
-
-    pending.delete(message.requestId);
-    if (message.type === 'runtime.error' || message.type === 'runtime.chat.error') {
-      deferred.reject(new Error(message.error?.message || JSON.stringify(message.error) || 'AI runtime request failed.'));
-      return;
-    }
-
-    deferred.resolve(message);
-  });
-
-  port.onDisconnect.addListener(() => {
-    disconnected = true;
-    const message = chrome.runtime.lastError?.message || 'AI Runtime disconnected.';
-    addPanelDiagnostic('pageAi.disconnect', { message });
-    for (const deferred of pending.values()) {
-      deferred.reject(new Error(message));
-    }
-    pending.clear();
-    for (const chat of chats.values()) {
-      chat.reject(new Error(message));
-    }
-    chats.clear();
-  });
-
-  const sendRequest = (message, timeoutMs = 30_000) => {
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        pending.delete(message.requestId);
-        reject(new Error('AI runtime request timed out.'));
-      }, timeoutMs);
-
-      pending.set(message.requestId, {
-        resolve: (value) => {
-          clearTimeout(timeoutId);
-          resolve(value);
-        },
-        reject: (error) => {
-          clearTimeout(timeoutId);
-          reject(error);
-        },
-      });
-
-      if (!postToPort(message, message.type)) {
-        pending.delete(message.requestId);
-        clearTimeout(timeoutId);
-        reject(new Error('AI Runtime disconnected.'));
-      }
-    });
-  };
-
-  const chat = (message) => {
-    return new Promise((resolve, reject) => {
-      chats.set(message.requestId, {
-        resolve: (value) => {
-          resolve(value);
-        },
-        reject: (error) => {
-          reject(error);
-        },
-        text: '',
-        provider: message.provider,
-        model: message.model,
-        heartbeatCount: 0,
-      });
-
-      if (!postToPort(message, message.type)) {
-        chats.delete(message.requestId);
-        reject(new Error('AI Runtime disconnected.'));
-      }
-    });
-  };
-
-  return {
-    sendRequest,
-    chat,
-    disconnect: () => {
-      if (!disconnected) {
-        disconnected = true;
-        port.disconnect();
-      }
-    },
-  };
-};
-
-const selectPageAiRoute = (capabilities, appConfig = {}) => {
-  const availableProviders = (capabilities.providers || []).filter(
-    (provider) => provider.available && provider.supports?.chat,
-  );
-  const provider = availableProviders.find((candidate) => candidate.provider === 'ollama') || null;
-
-  if (!provider) {
-    throw new Error('AI Runtime has no available Ollama chat provider.');
-  }
-
-  return {
-    provider: provider.provider,
-    ...(appConfig.provider === 'ollama' && appConfig.model
-      ? { model: appConfig.model }
-      : {}),
-  };
-};
-
+let activeCorrectionRequestId = null;
 const requestAiCorrectionFromPage = async (assignmentData) => {
-  const response = await sendBackgroundMessage({
-    type: 'mca.correctAssignment',
-    assignmentData,
-  });
+  if (activeCorrectionRequestId) throw new Error('Ya hay una corrección en curso.');
+  const requestId = crypto.randomUUID();
+  activeCorrectionRequestId = requestId;
+  try {
+    const response = await sendBackgroundMessage({
+      type: 'mca.correctAssignment',
+      assignmentData,
+      requestId,
+    });
 
-  if (!response?.ok) {
-    throw new Error(response?.error || 'La corrección con IA ha fallado.');
-  }
+    if (!response?.ok) {
+      throw new Error(response?.error || 'La corrección con IA ha fallado.');
+    }
 
-  return response.correction;
+    return response.correction;
+  } finally { activeCorrectionRequestId = null; }
+};
+
+const cancelCorrectionFromPage = async () => {
+  if (!activeCorrectionRequestId) return;
+  const response = await sendBackgroundMessage({ type: 'mca.cancelCorrection', requestId: activeCorrectionRequestId });
+  if (!response?.ok) throw new Error(response?.error || 'No se ha podido cancelar.');
 };
 
 const createTextBlock = (text, emptyText = 'No detectado') => {
@@ -2025,6 +1892,7 @@ const renderAssignmentSummary = (container, assignmentData) => {
       assignmentData.linkedAssignmentDescription?.error ||
       'No detectado',
   );
+  addSection('Archivos de la descripción de la tarea', createAssignmentFileList(assignmentData.assignmentFiles), { open: true });
   addSection(
     'Texto de entrega en línea',
     assignmentData.submissionText || 'No se ha detectado texto de entrega en línea.',
@@ -2812,7 +2680,7 @@ const createSidePanel = () => {
       <section class="section">
         <h3 class="section-title">IA</h3>
         <div class="runtime-card">
-          <p class="runtime-state" data-runtime-state>Comprobando la IA...</p>
+          <p class="runtime-state" data-runtime-state role="status" aria-live="polite">Comprobando la IA...</p>
           <div class="runtime-row">
             <label for="mca-provider">Proveedor</label>
             <select id="mca-provider" data-provider></select>
@@ -2858,6 +2726,7 @@ const createSidePanel = () => {
     <footer class="footer">
       <p class="footer-note">Revisa antes de guardar. La extensión no envía el formulario.</p>
       <button class="action-button" type="button" data-correct>Corregir con IA</button>
+      <button class="action-button secondary" type="button" data-cancel-correction hidden style="display:none">Cancelar</button>
     </footer>
   `;
 
@@ -2865,6 +2734,7 @@ const createSidePanel = () => {
 
   panel.querySelector('[data-close]').addEventListener('click', closePanel);
   panel.querySelector('[data-correct]').addEventListener('click', () => void requestCorrectionFromPanel());
+  panel.querySelector('[data-cancel-correction]').addEventListener('click', () => void cancelCorrectionFromPage().catch((error) => setPanelStatus(error.message)));
   panel.querySelector('[data-apply-correction]').addEventListener('click', () => void applyCorrectionFromPanel());
   panel.querySelector('[data-runtime-refresh]').addEventListener('click', () => void refreshAiRuntimeStatus());
   panel.querySelector('[data-runtime-options]').addEventListener('click', () => void openAiRuntimeOptions());
@@ -2888,6 +2758,7 @@ const getPanelElements = () => {
     externalCorrection: root.querySelector('[data-external-correction]'),
     correction: root.querySelector('[data-correction]'),
     correctButton: root.querySelector('[data-correct]'),
+    cancelButton: root.querySelector('[data-cancel-correction]'),
     applyCorrectionButton: root.querySelector('[data-apply-correction]'),
     extraInstructions: root.querySelector('[data-extra-instructions]'),
     extraFiles: root.querySelector('[data-extra-files]'),
@@ -3068,7 +2939,8 @@ const updateDetectedList = (assignmentData) => {
     ],
     ['Instrucciones', assignmentData.assignmentPrompt ? `${assignmentData.assignmentPrompt.length} caracteres` : 'No detectadas'],
     ['Texto en línea', assignmentData.submissionText ? `${assignmentData.submissionText.length} caracteres` : 'No detectado'],
-    ['Archivos', `${assignmentData.submissionFiles.length} archivo(s)`],
+    ['Archivos entregados', `${assignmentData.submissionFiles.length} archivo(s)`],
+    ['Archivos del enunciado', `${assignmentData.assignmentFiles?.length || 0} archivo(s)`],
     ['Rúbrica', `${assignmentData.rubric.length} criterio(s)`],
     [
       'Controles de rúbrica',
@@ -3269,7 +3141,7 @@ const renderAiRuntimeControls = () => {
     return;
   }
 
-  const availableProviders = aiRuntimeStatus.providers.filter((item) => item.available);
+  const availableProviders = aiRuntimeStatus.providers.filter((item) => item.reachable || item.available);
   provider.disabled = availableProviders.length === 0;
   provider.append(new Option('Automático', ''));
 
@@ -3304,7 +3176,9 @@ const renderAiRuntimeControls = () => {
   runtimeState.textContent =
     availableProviders.length > 0
       ? `Listo. ${availableProviders.length} proveedor(es) disponible(s).`
-      : 'La IA está autorizada, pero no hay proveedores disponibles.';
+      : aiRuntimeStatus.appConfig?.reason || 'No se ha podido conectar con la IA. Abre Opciones.';
+  if (aiRuntimeStatus.appConfig?.reason) runtimeState.textContent = aiRuntimeStatus.appConfig.reason;
+  else if (!aiRuntimeStatus.appConfig?.configured) runtimeState.textContent = 'Servidor conectado. Selecciona un modelo para corregir.';
 };
 
 const refreshAiRuntimeStatus = async () => {
@@ -3336,8 +3210,8 @@ const refreshAiRuntimeStatus = async () => {
 const saveAiRuntimeSelection = async (providerChanged) => {
   const { provider, model } = getPanelElements();
   const config = {
-    provider: provider.value || undefined,
-    model: provider.value && model.value && !providerChanged ? model.value : undefined,
+    ...(provider.value ? { provider: provider.value } : {}),
+    ...(model.value && !providerChanged ? { model: model.value } : {}),
   };
 
   const response = await sendBackgroundMessage({
@@ -3371,7 +3245,7 @@ const requestCorrectionFromPanel = async () => {
     await refreshPanelData();
   }
 
-  const { correction, correctButton } = getPanelElements();
+  const { correction, correctButton, cancelButton } = getPanelElements();
   const assignmentForCorrection = await buildPanelAssignmentData();
   setPanelStatus('Solicitando corrección a la IA...');
   addPanelDiagnostic('correction.click', {
@@ -3381,6 +3255,8 @@ const requestCorrectionFromPanel = async () => {
     rubricCriteria: assignmentForCorrection.rubric.length,
   });
   correctButton.disabled = true;
+  cancelButton.hidden = false;
+  cancelButton.style.display = '';
 
   try {
     addPanelDiagnostic('correction.pageAi.start');
@@ -3402,6 +3278,8 @@ const requestCorrectionFromPanel = async () => {
     addPanelDiagnostic('correction.error', { message });
   } finally {
     correctButton.disabled = false;
+    cancelButton.hidden = true;
+    cancelButton.style.display = 'none';
   }
 };
 
@@ -3454,6 +3332,12 @@ const initializeAssistantUi = () => {
 
 if (isSupportedGraderUrl()) {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'mca.cancelCorrectionFromPage') {
+      void cancelCorrectionFromPage()
+        .then(() => sendResponse({ ok: true }))
+        .catch((error) => sendResponse({ ok: false, error: error.message }));
+      return true;
+    }
     if (message?.type === 'mca.extractAssignment') {
       void extractAssignmentData()
         .then((assignmentData) => sendResponse({ ok: true, assignmentData }))
@@ -3471,7 +3355,7 @@ if (isSupportedGraderUrl()) {
     if (message?.type === 'mca.requestCorrection') {
       void waitForGradingPanelReady()
         .then(() =>
-          message.assignmentData?.rubric?.length ? message.assignmentData : extractAssignmentData(),
+          message.assignmentData || extractAssignmentData(),
         )
         .then((assignmentData) => {
           currentAssignmentData = assignmentData;

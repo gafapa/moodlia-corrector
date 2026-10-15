@@ -1,4 +1,4 @@
-# Chrome Web Store listing — MoodlIA Corrector 0.1.43
+# Chrome Web Store listing — MoodlIA Corrector 0.1.45
 
 ## Product details
 
@@ -58,6 +58,7 @@ Use these answers in the Chrome Web Store Privacy practices tab.
 - **Encryption:** Yes. Remote provider endpoints must use HTTPS. Local Ollama traffic remains on the teacher's own device.
 - **Limited Use:** Confirm compliance. The data is used only to provide the requested correction suggestion and is not sold, used for advertising, or used for unrelated purposes.
 - **Remote hosted code:** No. The extension does not fetch or execute remotely hosted JavaScript or WebAssembly.
+- **Additional permissions:** `offscreen` provides a local document context for bundled PDF/DOCX parsing. `declarativeNetRequestWithHostAccess` removes the Origin header only from this extension's loopback HTTP requests so local Ollama can be used without changing the host configuration. These session rules do not modify requests initiated by Moodle or other websites.
 - **Permissions justification:** The `https://*/*` host permission is used only to recognise Moodle assignment grader pages at `/mod/assign/view.php?action=grader` on the Moodle site chosen by the teacher. `storage` keeps non-secret provider preferences locally and holds a remote API key in session storage only.
 
 ## Test instructions for reviewers

@@ -16,3 +16,6 @@ input, select, button { min-height: 42px; border: 1px solid #bfc9d9; border-radi
 button { border: 0; background: #2453a6; color: #fff; cursor: pointer; font-weight: 700; }
 small, #status, aside p { color: #59677a; font-weight: 400; }
 #status { min-height: 1.4em; }
+[hidden] { display: none !important; }
+button:disabled { opacity: .6; cursor: wait; }
+:focus-visible { outline: 3px solid #2453a6; outline-offset: 3px; }

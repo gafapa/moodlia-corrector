@@ -114,7 +114,7 @@ const detectAiProxyBridge = async () => {
   }
 
   if (!response.extensionId) {
-    setStatus('La IA no está instalada o está desactivada.');
+    setStatus('La conexión con la IA no está disponible. Revisa Opciones.');
     return;
   }
 
@@ -174,25 +174,34 @@ const applyCorrection = async () => {
 };
 
 const requestCorrection = async () => {
-  if (!currentAssignmentData) {
-    await extractAssignment();
+  const requestButton = document.querySelector('#requestCorrection');
+  const cancelButton = document.querySelector('#cancelCorrection');
+  requestButton.disabled = true;
+  cancelButton.hidden = false;
+  try {
+    if (!currentAssignmentData) {
+      await extractAssignment();
+    }
+
+    const assignmentData = await buildAssignmentDataForCorrection();
+    setStatus('Solicitando corrección a la IA...');
+    const response = await sendToActiveTab({
+      type: 'mca.requestCorrection',
+      assignmentData,
+    });
+
+    if (!response?.ok) {
+      throw new Error(response?.error || 'La corrección con IA ha fallado.');
+    }
+
+    currentCorrection = response.correction;
+    correctionPreview.value = JSON.stringify(currentCorrection.parsed || currentCorrection.text, null, 2);
+    await applyCorrection();
+    setStatus(`Corrección aplicada (${currentCorrection.provider}/${currentCorrection.model}).`);
+  } finally {
+    requestButton.disabled = false;
+    cancelButton.hidden = true;
   }
-
-  const assignmentData = await buildAssignmentDataForCorrection();
-  setStatus('Solicitando corrección a la IA...');
-  const response = await sendToActiveTab({
-    type: 'mca.requestCorrection',
-    assignmentData,
-  });
-
-  if (!response?.ok) {
-    throw new Error(response?.error || 'La corrección con IA ha fallado.');
-  }
-
-  currentCorrection = response.correction;
-  correctionPreview.value = JSON.stringify(currentCorrection.parsed || currentCorrection.text, null, 2);
-  await applyCorrection();
-  setStatus(`Corrección aplicada (${currentCorrection.provider}/${currentCorrection.model}).`);
 };
 
 const runAction = (action) => {
@@ -202,6 +211,10 @@ const runAction = (action) => {
 };
 
 document.querySelector('#requestCorrection').addEventListener('click', () => runAction(requestCorrection));
+document.querySelector('#cancelCorrection').addEventListener('click', () => runAction(async () => {
+  const response = await sendToActiveTab({ type: 'mca.cancelCorrectionFromPage' });
+  if (!response?.ok) throw new Error(response?.error || 'No se ha podido cancelar.');
+}));
 extraFiles.addEventListener('change', updateExtraFilesSummary);
 
 runAction(detectAiProxyBridge);

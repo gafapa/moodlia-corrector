@@ -15,6 +15,12 @@ The API key is retained only in Chrome session storage. Provider, endpoint, and 
 
 Remote providers must use HTTPS, and AI requests reject redirects. Moodle submission files are fetched only from the HTTPS origin of the active grading page. AI prompts omit the student's name, course name, Moodle URLs, and original filenames; assignment evidence, rubric content, and readable submitted content are still sent to the provider selected by the teacher.
 
+Use **Test connection** to verify generation with fictional data. The panel checks the server and installed models; a saved configuration alone is not reported as ready. **Cancel** aborts a running correction. Local Ollama access is handled inside the extension without changing the computer's environment or CORS configuration.
+
+**Supervision** includes the detected task title and a separate list of files from the task description, with filename, format, and link description. These reference links are detected without reading their file contents; they are not counted as student submissions.
+
+PDF/DOCX extraction runs locally. Images and scanned PDF pages require a vision-capable model. Unsupported, unreadable, or oversized evidence stops grading with an explicit error. See the project README for processing limits and browser verification commands.
+
 ## Versioning
 
 Increase `manifest.json` version with every extension change.

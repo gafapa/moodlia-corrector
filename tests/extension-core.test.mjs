@@ -23,6 +23,9 @@ test('manifest references existing extension assets', async () => {
   }
   await fs.access(path.join(root, 'extension', 'src', 'options', 'options.js'));
   await fs.access(path.join(root, 'extension', 'src', 'options', 'options.css'));
+  for (const asset of ['src/attachments/reader.html', 'src/attachments/reader.js', 'lib/pdf.mjs', 'lib/pdf.worker.mjs', 'lib/fflate.mjs']) {
+    await fs.access(path.join(root, 'extension', asset));
+  }
 });
 
 test('grader URL policy accepts Moodle assignment grader pages on any HTTPS Moodle site', async () => {
@@ -148,6 +151,93 @@ test('generated correction prompt fixes language, schema, and evidence constrain
   assert.doesNotMatch(prompt, /Sensitive course name|Sensitive student name|private-grader|student-name\.txt/);
 });
 
+test('partial settings updates preserve a stored endpoint after a worker restart', async () => {
+  const localData = { 'mca.aiConfig': { provider: 'openai-compatible', baseUrl: 'https://school.example/v1', model: 'old' } };
+  const api = await loadBackgroundApi({ localData });
+  await api.saveAiConfig({ model: 'new', provider: undefined });
+  assert.equal(localData['mca.aiConfig'].baseUrl, 'https://school.example/v1');
+  assert.equal(localData['mca.aiConfig'].model, 'new');
+  assert.equal(localData['mca.aiConfig'].provider, 'openai-compatible');
+});
+
+test('keys are bound to their destination and cleared on destination changes', async () => {
+  const localData = {};
+  const sessionData = {};
+  const api = await loadBackgroundApi({ localData, sessionData });
+  const config = await api.saveAiConfig({ provider: 'openai-compatible', baseUrl: 'https://first.example/v1', model: 'model', apiKey: 'fictional-key' });
+  assert.equal((await api.loadBoundAiSecret(config)).apiKey, 'fictional-key');
+  await api.saveAiConfig({ model: 'second-model' });
+  assert.equal((await api.loadBoundAiSecret(config)).apiKey, 'fictional-key');
+  const changed = await api.saveAiConfig({ baseUrl: 'https://second.example/v1' });
+  assert.equal((await api.loadBoundAiSecret(changed)).apiKey, undefined);
+  assert.equal(JSON.stringify(localData).includes('fictional-key'), false);
+});
+
+test('connection status checks the server and rejects a missing model', async () => {
+  const localData = { 'mca.aiConfig': { provider: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'missing' } };
+  let requestedUrl;
+  const api = await loadBackgroundApi({ localData, fetchImpl: async (url) => {
+    requestedUrl = url;
+    return Response.json({ models: [{ name: 'installed' }] });
+  } });
+  const status = await api.getDirectAiStatus();
+  assert.equal(requestedUrl, 'http://127.0.0.1:11434/api/tags');
+  assert.equal(status.appConfig.reachable, true);
+  assert.equal(status.providers[0].available, false);
+  assert.match(status.appConfig.reason, /not listed/);
+  await api.saveAiConfig({ model: 'installed' });
+  assert.equal((await api.getDirectAiStatus()).providers[0].available, true);
+  const offline = await loadBackgroundApi({ localData, fetchImpl: async () => { throw new Error('offline'); } });
+  assert.equal((await offline.getDirectAiStatus()).providers[0].available, false);
+});
+
+test('AI transport times out and cancels while reading the response body', async () => {
+  const api = await loadBackgroundApi({ fetchImpl: async (_url, init) => ({
+    ok: true,
+    text: () => new Promise((resolve, reject) => {
+      if (init.signal.aborted) reject(init.signal.reason);
+      else init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true });
+    }),
+  }) });
+  await assert.rejects(api.fetchAiResource('http://127.0.0.1:11434/api/chat', {}, { timeoutMs: 15 }), /timed out/);
+  const controller = new AbortController();
+  const pending = api.fetchAiResource('http://127.0.0.1:11434/api/chat', {}, { signal: controller.signal });
+  controller.abort(new Error('Cancelled by teacher'));
+  await assert.rejects(pending, /Cancelled by teacher/);
+});
+
+test('images use native provider schemas and text evidence is not silently truncated', async () => {
+  const files = [{ textContent: 'x'.repeat(13000), images: [{ mimeType: 'image/png', base64Data: 'image-data' }] }];
+  const api = await loadBackgroundApi();
+  const ollama = api.createDirectMessages(sampleAssignment(), files);
+  assert.equal(ollama[1].images[0], 'image-data');
+  assert.ok(ollama[1].content.includes('x'.repeat(13000)));
+  const compatible = api.createDirectMessages(sampleAssignment(), files, '', 'openai-compatible');
+  assert.equal(compatible[1].content[1].image_url.url, 'data:image/png;base64,image-data');
+  await assert.rejects(api.prepareDirectAttachments([{ textContent: 'x'.repeat(60001) }]), /text character/);
+  assert.throws(() => api.normalizeExtraFileAttachments([{ sizeBytes: 5 * 1024 * 1024 }]), /exceed/);
+});
+
+test('an incomplete correction is rejected after repair instead of applying fallback grades', async () => {
+  let requests = 0;
+  const api = await loadBackgroundApi({
+    localData: { 'mca.aiConfig': { provider: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'test-model' } },
+    fetchImpl: async () => { requests++; return Response.json({ message: { content: 'Invalid correction' } }); },
+  });
+  await assert.rejects(api.requestDirectAiCorrection(sampleAssignment()), /incomplete correction/);
+  assert.equal(requests, 2);
+});
+
+test('missing rubric evidence and null scores are never treated as a complete AI correction', async () => {
+  const api = await loadBackgroundApi();
+  const assignment = sampleAssignment();
+  const missing = api.parseCorrectionResponse('{"finalComment":"Reviewed","score":8,"rubricSelections":[]}', assignment);
+  assert.equal(api.isCorrectionComplete(missing, assignment), false);
+  const nullGrade = api.parseCorrectionResponse('{"finalComment":"Reviewed","score":null}', { ...assignment, rubric: [] });
+  assert.equal(nullGrade.score, null);
+  assert.equal(api.isCorrectionComplete(nullGrade, { ...assignment, rubric: [] }), false);
+});
+
 function sampleAssignment() {
   return {
     page: { language: 'gl' },
@@ -167,14 +257,17 @@ function sampleAssignment() {
   };
 }
 
-async function loadBackgroundApi({ fetchImpl = fetch } = {}) {
+async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionData = {} } = {}) {
   const source = await fs.readFile(path.join(root, 'extension', 'src', 'background.js'), 'utf8');
   const event = { addListener() {} };
   const chrome = {
     action: { enable() {}, disable() {}, setTitle() {} },
     management: { getAll(callback) { callback([]); } },
     runtime: { lastError: null, onMessage: event, connect() { throw new Error('Not available in unit tests.'); } },
-    storage: { local: { async get() { return {}; }, async set() {} }, session: { async get() { return {}; }, async set() {} } },
+    storage: {
+      local: { async get(key) { return { [key]: localData[key] }; }, async set(value) { Object.assign(localData, value); } },
+      session: { async get(key) { return { [key]: sessionData[key] }; }, async set(value) { Object.assign(sessionData, value); } },
+    },
     tabs: {
       create(_options, callback) { callback?.({ id: 1 }); },
       get(_tabId, callback) { callback({ id: 1, url: '' }); },
@@ -183,7 +276,7 @@ async function loadBackgroundApi({ fetchImpl = fetch } = {}) {
       query(_options, callback) { callback([]); }
     }
   };
-  const sandbox = { AbortController, Buffer, URL, chrome, clearTimeout, console, crypto, fetch: fetchImpl, setTimeout };
+  const sandbox = { AbortController, Buffer, URL, chrome, clearTimeout, clearInterval, console, crypto, fetch: fetchImpl, setTimeout, setInterval };
   sandbox.globalThis = sandbox;
   const exports = [
     'buildCorrectionPrompt',
@@ -193,7 +286,8 @@ async function loadBackgroundApi({ fetchImpl = fetch } = {}) {
     'normalizeMoodleAttachmentUrl',
     'parseCorrectionResponse',
     'requestDirectChat',
-    'sanitizeAiConfig'
+    'sanitizeAiConfig', 'saveAiConfig', 'loadBoundAiSecret', 'getDirectAiStatus', 'createDirectMessages',
+    'prepareDirectAttachments', 'fetchAiResource', 'requestDirectAiCorrection', 'normalizeExtraFileAttachments'
   ].join(',');
   vm.runInNewContext(`${source}\nglobalThis.__testApi = {${exports}};`, sandbox, { filename: 'background.js' });
   return sandbox.__testApi;

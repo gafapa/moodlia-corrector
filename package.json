@@ -1,15 +1,25 @@
 {
   "name": "moodlia-corrector",
-  "version": "0.1.43",
+  "version": "0.1.45",
   "private": true,
   "description": "Chrome extension for teacher-reviewed AI assistance on Moodle grading pages.",
   "type": "module",
   "scripts": {
+    "build": "node scripts/build-attachments.mjs",
+    "package": "npm run build && node scripts/package-extension.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check extension/src/background.js && node --check extension/src/content/moodleContent.js && node --check extension/src/popup/popup.js && node --check extension/src/options/options.js && npm test"
+    "test:browser": "node tests/browser-check.mjs",
+    "check": "npm run build && node --check extension/src/background.js && node --check extension/src/content/moodleContent.js && node --check extension/src/popup/popup.js && node --check extension/src/options/options.js && node --check extension/src/attachments/reader.js && npm test"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.16"
   },
-  "license": "GPL-3.0-or-later"
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "fflate": "0.8.3",
+    "pdfjs-dist": "6.4.299"
+  },
+  "devDependencies": {
+    "playwright": "1.64.0"
+  }
 }

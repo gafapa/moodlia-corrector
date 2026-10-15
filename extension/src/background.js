@@ -1,10 +1,9 @@
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.1.43',
+  version: '0.1.45',
 };
 
-const createRequestId = () => crypto.randomUUID();
 const MOODLE_GRADER_PATH = '/mod/assign/view.php';
 const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
@@ -13,6 +12,10 @@ const AI_SECRET_STORAGE_KEY = 'mca.aiSecret';
 const diagnostics = [];
 let aiConfigCache = {};
 let aiSecretCache = {};
+const activeCorrections = new Map();
+const AI_TIMEOUT_MS = 300_000;
+const STATUS_TIMEOUT_MS = 10_000;
+let configWriteQueue = Promise.resolve();
 
 const supportedAiProviders = new Set(['ollama', 'openai-compatible']);
 const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -42,6 +45,7 @@ const sanitizeAiConfig = (config = {}) => {
 
 const sanitizeAiSecret = (config = {}) => ({
   ...(typeof config?.apiKey === 'string' && config.apiKey.trim() ? { apiKey: config.apiKey.trim() } : {}),
+  ...(typeof config?.baseUrl === 'string' ? { baseUrl: config.baseUrl } : {}),
 });
 
 const loadAiConfig = async () => {
@@ -60,27 +64,89 @@ const loadAiSecret = async () => {
   }
 
   const stored = await chrome.storage.session.get(AI_SECRET_STORAGE_KEY);
-  aiSecretCache = sanitizeAiSecret(stored[AI_SECRET_STORAGE_KEY] || aiSecretCache);
+  aiSecretCache = sanitizeAiSecret(stored[AI_SECRET_STORAGE_KEY] || {});
   return aiSecretCache;
 };
 
-const saveAiConfig = async (config = {}) => {
-  aiConfigCache = sanitizeAiConfig({ ...aiConfigCache, ...config });
-
-  if (chrome.storage?.local) {
-    await chrome.storage.local.set({
-      [AI_CONFIG_STORAGE_KEY]: aiConfigCache,
-    });
-  }
-
-  if (Object.hasOwn(config, 'apiKey')) {
-    aiSecretCache = sanitizeAiSecret(config);
-    if (chrome.storage?.session) {
-      await chrome.storage.session.set({ [AI_SECRET_STORAGE_KEY]: aiSecretCache });
+const saveAiConfig = (config = {}) => {
+  const write = configWriteQueue.catch(() => {}).then(async () => {
+    const previous = await loadAiConfig();
+    const patch = Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined));
+    const next = sanitizeAiConfig({ ...previous, ...patch });
+    const destinationChanged = previous.provider !== next.provider || previous.baseUrl !== next.baseUrl;
+    // Clear secrets before changing destination, even if the subsequent write fails.
+    if (destinationChanged || Object.hasOwn(patch, 'apiKey')) {
+      aiSecretCache = sanitizeAiSecret({ ...patch, baseUrl: next.baseUrl });
+      if (chrome.storage?.session) {
+        await chrome.storage.session.set({ [AI_SECRET_STORAGE_KEY]: aiSecretCache });
+      }
     }
-  }
+    aiConfigCache = next;
 
-  return aiConfigCache;
+    if (chrome.storage?.local) {
+      await chrome.storage.local.set({
+        [AI_CONFIG_STORAGE_KEY]: aiConfigCache,
+      });
+    }
+
+    return aiConfigCache;
+  });
+  configWriteQueue = write;
+  return write;
+};
+
+const loadBoundAiSecret = async (config) => {
+  const secret = await loadAiSecret();
+  return secret.baseUrl === config.baseUrl ? secret : {};
+};
+
+const fetchAiResource = async (url, init = {}, { signal, timeoutMs = AI_TIMEOUT_MS } = {}) => {
+  const controller = new AbortController();
+  const cancel = () => controller.abort(signal.reason || new Error('AI request cancelled.'));
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener('abort', cancel, { once: true });
+  const timer = setTimeout(() => controller.abort(new Error(`AI request timed out after ${Math.round(timeoutMs / 1000)} seconds.`)), timeoutMs);
+  // Keep the MV3 worker alive while a local model loads or generates a response.
+  const heartbeat = setInterval(() => { void chrome.runtime.getPlatformInfo?.().catch(() => {}); }, 20_000);
+  try {
+    await ensureLocalOllamaHeaders(url);
+    const response = await fetch(url, { ...init, redirect: 'error', credentials: 'omit', signal: controller.signal });
+    const text = await response.text();
+    if (!response.ok) {
+      let error;
+      try { error = JSON.parse(text)?.error; } catch { /* Use the HTTP status for non-JSON errors. */ }
+      throw new Error(`AI request failed (HTTP ${response.status}): ${typeof error === 'string' ? error : error?.message || response.statusText || 'Provider error'}`);
+    }
+    return JSON.parse(text);
+  } catch (error) {
+    if (controller.signal.aborted) throw controller.signal.reason;
+    if (error instanceof SyntaxError) throw new Error('The AI provider returned an invalid JSON response.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    clearInterval(heartbeat);
+    signal?.removeEventListener('abort', cancel);
+  }
+};
+
+let localHeaderRule;
+const ensureLocalOllamaHeaders = async (url) => {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'http:' || !loopbackHosts.has(parsed.hostname) || !chrome.declarativeNetRequest) return;
+  if (!localHeaderRule) {
+    localHeaderRule = chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [11434],
+      addRules: [{
+        id: 11434, priority: 1,
+        action: { type: 'modifyHeaders', requestHeaders: [{ header: 'origin', operation: 'remove' }] },
+        condition: {
+          regexFilter: '^http://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:[0-9]+)?/',
+          initiatorDomains: [chrome.runtime.id], resourceTypes: ['xmlhttprequest'],
+        },
+      }],
+    }).catch((error) => { localHeaderRule = null; throw error; });
+  }
+  await localHeaderRule;
 };
 
 const isSupportedGraderPage = (url) =>
@@ -130,411 +196,6 @@ const addDiagnostic = (stage, detail = {}) => {
   diagnostics.splice(30);
   console.log('[MoodlIA Corrector]', stage, detail);
   return entry;
-};
-
-const getInstalledExtensions = () => {
-  return new Promise((resolve, reject) => {
-    chrome.management.getAll((extensions) => {
-      const error = chrome.runtime.lastError;
-      if (error) {
-        addDiagnostic('management.getAll.error', { message: error.message });
-        reject(new Error(error.message));
-        return;
-      }
-
-      addDiagnostic('management.getAll.ok', { count: extensions.length });
-      resolve(extensions);
-    });
-  });
-};
-
-const openTab = (url) => {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.create({ url }, (tab) => {
-      const error = chrome.runtime.lastError;
-      if (error) {
-        reject(new Error(error.message));
-        return;
-      }
-
-      resolve(tab);
-    });
-  });
-};
-
-const getAiExtensionId = async () => {
-  const extensions = await getInstalledExtensions();
-  const aiRuntime = extensions.find((extensionInfo) => {
-    const name = extensionInfo.name || '';
-    const description = extensionInfo.description || '';
-
-    return (
-      extensionInfo.enabled &&
-      (AI_RUNTIME_EXTENSION_NAMES.some((extensionName) => name === extensionName || name.includes(extensionName)) ||
-        description.includes('Local AI provider runtime') ||
-        description.includes('Local AI provider gateway'))
-    );
-  });
-
-  addDiagnostic('aiExtension.lookup', {
-    found: Boolean(aiRuntime),
-    id: aiRuntime?.id || null,
-    name: aiRuntime?.name || null,
-  });
-
-  return aiRuntime?.id || '';
-};
-
-const getAiExtensionInfo = async () => {
-  const extensions = await getInstalledExtensions();
-  return (
-    extensions.find((extensionInfo) => {
-      const name = extensionInfo.name || '';
-      const description = extensionInfo.description || '';
-
-      return (
-        extensionInfo.enabled &&
-        (AI_RUNTIME_EXTENSION_NAMES.some((extensionName) => name === extensionName || name.includes(extensionName)) ||
-          description.includes('Local AI provider runtime') ||
-          description.includes('Local AI provider gateway'))
-      );
-    }) || null
-  );
-};
-
-const sendAiRuntimeCall = (extensionId, payload, timeoutMs = 0) => {
-  const requestId = createRequestId();
-  const payloadRequestId = payload.requestId || requestId;
-  const hasTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0;
-
-  addDiagnostic('aiRuntime.call.post', {
-    requestId,
-    payloadRequestId,
-    payloadType: payload.type,
-    extensionId,
-    timeoutMs: hasTimeout ? timeoutMs : null,
-  });
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const timeoutId = hasTimeout
-      ? setTimeout(() => {
-          settled = true;
-          reject(new Error('AI Runtime call timed out.'));
-        }, timeoutMs)
-      : null;
-
-    const settle = (callback, value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      callback(value);
-    };
-
-    chrome.runtime.sendMessage(
-      extensionId,
-      {
-        type: 'runtime.call',
-        requestId,
-        app: APP_INFO,
-        payload: {
-          ...payload,
-          requestId: payloadRequestId,
-        },
-      },
-      (response) => {
-        const error = chrome.runtime.lastError;
-        if (error) {
-          addDiagnostic('aiRuntime.call.lastError', {
-            requestId,
-            payloadType: payload.type,
-            message: error.message,
-          });
-          settle(reject, new Error(error.message));
-          return;
-        }
-
-        addDiagnostic('aiRuntime.call.response', {
-          requestId,
-          payloadType: payload.type,
-          responseType: response?.type || null,
-          hasError: Boolean(response?.error),
-        });
-
-        if (!response || response.type === 'runtime.error' || response.type === 'runtime.chat.error' || response.error) {
-          settle(reject, new Error(response?.error?.message || 'AI Runtime call failed.'));
-          return;
-        }
-
-        settle(resolve, response);
-      },
-    );
-  });
-};
-
-const connectAiRuntime = async (extensionId) => {
-  let port;
-
-  try {
-    addDiagnostic('aiRuntime.connect.start', { extensionId });
-    port = chrome.runtime.connect(extensionId, { name: 'ai-runtime-v1' });
-  } catch {
-    addDiagnostic('aiRuntime.connect.throw', { extensionId });
-    throw new Error('AI Runtime extension is not installed or the ID is invalid.');
-  }
-
-  const pending = new Map();
-  const streaming = new Map();
-  let disconnected = false;
-
-  const postToPort = (message, stage) => {
-    if (disconnected) {
-      return false;
-    }
-
-    try {
-      port.postMessage(message);
-      return true;
-    } catch (error) {
-      addDiagnostic('aiRuntime.postMessage.error', {
-        stage,
-        message: error.message || String(error),
-      });
-      return false;
-    }
-  };
-
-  port.onMessage.addListener((message) => {
-    if (message?.type === 'runtime.error' && !message.requestId) {
-      const error = new Error(message.error?.message || 'AI Runtime request failed.');
-      addDiagnostic('aiRuntime.error', {
-        requestId: null,
-        type: message.type,
-        error: message.error || null,
-      });
-
-      for (const deferred of pending.values()) {
-        deferred.reject(error);
-      }
-      pending.clear();
-
-      for (const stream of streaming.values()) {
-        stream.reject(error);
-      }
-      streaming.clear();
-      return;
-    }
-
-    if (!message?.requestId) {
-      return;
-    }
-
-    if (message.type === 'runtime.chat.heartbeat') {
-      const stream = streaming.get(message.requestId);
-      if (stream) {
-        stream.heartbeatCount += 1;
-        if (stream.heartbeatCount === 1 || stream.heartbeatCount % 6 === 0) {
-          addDiagnostic('aiRuntime.chat.heartbeat', {
-            requestId: message.requestId,
-            count: stream.heartbeatCount,
-          });
-        }
-      }
-      return;
-    }
-
-    if (message.type === 'runtime.chat.started') {
-      addDiagnostic('aiRuntime.chat.started', {
-        requestId: message.requestId,
-        provider: message.provider,
-        model: message.model,
-      });
-      const stream = streaming.get(message.requestId);
-      if (stream) {
-        stream.markStarted?.();
-        stream.provider = message.provider;
-        stream.model = message.model;
-      }
-      return;
-    }
-
-    if (message.type === 'runtime.chat.delta') {
-      const stream = streaming.get(message.requestId);
-      if (stream) {
-        stream.text += message.delta || '';
-      }
-      return;
-    }
-
-    if (message.type === 'runtime.chat.done') {
-      addDiagnostic('aiRuntime.chat.done', {
-        requestId: message.requestId,
-        usage: message.usage || null,
-      });
-      const stream = streaming.get(message.requestId);
-      if (stream) {
-        streaming.delete(message.requestId);
-        stream.resolve({
-          type: 'runtime.chat.result',
-          requestId: message.requestId,
-          provider: stream.provider,
-          model: stream.model,
-          text: stream.text,
-          usage: message.usage,
-        });
-      }
-      return;
-    }
-
-    if (message.type === 'runtime.error' || message.type === 'runtime.chat.error') {
-      addDiagnostic('aiRuntime.error', {
-        requestId: message.requestId,
-        type: message.type,
-        error: message.error || null,
-      });
-      const stream = streaming.get(message.requestId);
-      if (stream) {
-        streaming.delete(message.requestId);
-        stream.reject(new Error(message.error?.message || JSON.stringify(message.error) || 'AI Runtime request failed.'));
-        return;
-      }
-    }
-
-    const deferred = pending.get(message.requestId);
-    if (deferred) {
-      pending.delete(message.requestId);
-      if (message.type === 'runtime.error') {
-        deferred.reject(new Error(message.error?.message || 'AI Runtime request failed.'));
-      } else {
-        deferred.resolve(message);
-      }
-    }
-  });
-
-  port.onDisconnect.addListener(() => {
-    disconnected = true;
-    const error = new Error(chrome.runtime.lastError?.message || 'AI Runtime disconnected.');
-    addDiagnostic('aiRuntime.disconnect', { message: error.message });
-
-    for (const deferred of pending.values()) {
-      deferred.reject(error);
-    }
-    pending.clear();
-
-    for (const stream of streaming.values()) {
-      stream.reject(error);
-    }
-    streaming.clear();
-  });
-
-  const sendRequest = (message, timeoutMs = 15000) => {
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        pending.delete(message.requestId);
-        reject(new Error('AI Runtime request timed out.'));
-      }, timeoutMs);
-
-      pending.set(message.requestId, {
-        resolve: (value) => {
-          clearTimeout(timeoutId);
-          resolve(value);
-        },
-        reject: (error) => {
-          clearTimeout(timeoutId);
-          reject(error);
-        },
-      });
-
-      if (!postToPort(message, message.type)) {
-        pending.delete(message.requestId);
-        clearTimeout(timeoutId);
-        reject(new Error('AI Runtime disconnected.'));
-      }
-    });
-  };
-
-  const chat = (message, options = {}) => {
-    return new Promise((resolve, reject) => {
-      let started = false;
-      const startTimeoutMs = options.startTimeoutMs || CHAT_START_TIMEOUT_MS;
-      const doneTimeoutMs = Number.isFinite(options.doneTimeoutMs) && options.doneTimeoutMs > 0 ? options.doneTimeoutMs : 0;
-
-      const startTimeoutId = setTimeout(() => {
-        const stream = streaming.get(message.requestId);
-        if (!stream || started) {
-          return;
-        }
-
-        streaming.delete(message.requestId);
-        postToPort({ type: 'runtime.abort', requestId: message.requestId }, 'runtime.abort');
-        addDiagnostic('aiRuntime.chat.startTimeout', {
-          requestId: message.requestId,
-          timeoutMs: startTimeoutMs,
-        });
-        reject(new Error('AI Runtime did not start the chat request.'));
-      }, startTimeoutMs);
-
-      const doneTimeoutId = doneTimeoutMs
-        ? setTimeout(() => {
-            const stream = streaming.get(message.requestId);
-            if (!stream) {
-              return;
-            }
-
-            streaming.delete(message.requestId);
-            postToPort({ type: 'runtime.abort', requestId: message.requestId }, 'runtime.abort');
-            addDiagnostic('aiRuntime.chat.doneTimeout', {
-              requestId: message.requestId,
-              timeoutMs: doneTimeoutMs,
-            });
-            reject(new Error('AI Runtime chat request timed out.'));
-          }, doneTimeoutMs)
-        : null;
-
-      streaming.set(message.requestId, {
-        resolve: (value) => {
-          clearTimeout(startTimeoutId);
-          clearTimeout(doneTimeoutId);
-          resolve(value);
-        },
-        reject: (error) => {
-          clearTimeout(startTimeoutId);
-          clearTimeout(doneTimeoutId);
-          reject(error);
-        },
-        text: '',
-        provider: undefined,
-        model: undefined,
-        heartbeatCount: 0,
-        markStarted: () => {
-          started = true;
-          clearTimeout(startTimeoutId);
-        },
-      });
-
-      if (!postToPort(message, message.type)) {
-        streaming.delete(message.requestId);
-        clearTimeout(startTimeoutId);
-        clearTimeout(doneTimeoutId);
-        reject(new Error('AI Runtime disconnected.'));
-      }
-    });
-  };
-
-  return {
-    sendRequest,
-    chat,
-    disconnect: () => {
-      if (!disconnected) {
-        disconnected = true;
-        port.disconnect();
-      }
-    },
-  };
 };
 
 const getLanguageInstruction = (languageCode = '') => {
@@ -763,96 +424,40 @@ const normalizeMoodleAttachmentUrl = (fileUrl, pageUrl) => {
   return candidate.href;
 };
 
-const fetchSubmissionFileAttachments = async (submissionFiles = [], pageUrl = '') => {
+const fetchSubmissionFileAttachments = async (submissionFiles = [], pageUrl, signal) => {
   const attachments = [];
   let totalBytes = 0;
-
-  addDiagnostic('attachments.fetch.start', { count: submissionFiles.length });
-
-  for (const file of submissionFiles) {
-    if (totalBytes >= MAX_TOTAL_ATTACHMENT_BYTES) {
-      addDiagnostic('attachments.fetch.totalLimit', { totalBytes });
-      break;
-    }
-
+  for (const [index, file] of submissionFiles.entries()) {
+    const controller = new AbortController();
+    const cancel = () => controller.abort(signal.reason);
+    if (signal?.aborted) cancel();
+    else signal?.addEventListener('abort', cancel, { once: true });
+    const timer = setTimeout(() => controller.abort(new Error('Attachment download timed out.')), 30_000);
     try {
-      const attachmentUrl = normalizeMoodleAttachmentUrl(file.url, pageUrl);
-      const response = await fetch(attachmentUrl, {
-        credentials: 'include',
-        redirect: 'error',
+      const response = await fetch(normalizeMoodleAttachmentUrl(file.url, pageUrl), {
+        credentials: 'include', redirect: 'error', signal: controller.signal,
       });
-
-      if (!response.ok) {
-        addDiagnostic('attachments.fetch.httpError', {
-          id: file.id,
-          status: response.status,
-        });
-        attachments.push({
-          id: file.id,
-          name: file.name,
-          mimeType: 'text/plain',
-          sizeBytes: 0,
-          textContent: `Could not fetch submitted file ${file.name}: HTTP ${response.status}.`,
-        });
-        continue;
-      }
-
+      if (!response.ok) throw new Error(`Attachment ${index + 1} could not be downloaded (HTTP ${response.status}).`);
       const blob = await response.blob();
       totalBytes += blob.size;
-
       if (blob.size > MAX_ATTACHMENT_BYTES || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-        addDiagnostic('attachments.fetch.skippedLarge', {
-          id: file.id,
-          sizeBytes: blob.size,
-          totalBytes,
-        });
-        attachments.push({
-          id: file.id,
-          name: file.name,
-          mimeType: 'text/plain',
-          sizeBytes: blob.size,
-          textContent: `Submitted file ${file.name} was detected but skipped because it is too large.`,
-        });
-        continue;
+        throw new Error('Submission attachments exceed the 4 MB per file or 10 MB total limit.');
       }
-
-      const mimeType = blob.type || 'application/octet-stream';
-      const attachment = {
-        id: file.id,
-        name: file.name,
-        mimeType,
-        sizeBytes: blob.size,
-      };
-
-      if (mimeType.startsWith('text/') || /\.(txt|csv|md|json|xml|html|css|js|ts|py|java|c|cpp)$/i.test(file.name)) {
+      const attachment = { id: file.id, name: file.name, mimeType: blob.type || 'application/octet-stream', sizeBytes: blob.size };
+      if (attachment.mimeType.startsWith('text/') || /\.(txt|csv|md|json|xml|html|css|js|ts|py|java|c|cpp|log)$/i.test(file.name)) {
         attachment.textContent = await blob.text();
       } else {
         attachment.base64Data = arrayBufferToBase64(await blob.arrayBuffer());
       }
-
       attachments.push(attachment);
-      addDiagnostic('attachments.fetch.ok', {
-        id: file.id,
-        name: file.name,
-        mimeType,
-        sizeBytes: blob.size,
-      });
     } catch (error) {
-      addDiagnostic('attachments.fetch.error', {
-        id: file.id,
-        message: error.message || String(error),
-      });
-      attachments.push({
-        id: file.id,
-        name: file.name,
-        mimeType: 'text/plain',
-        sizeBytes: 0,
-        textContent: `Could not fetch submitted file ${file.name}: ${error.message || String(error)}`,
-      });
+      if (controller.signal.aborted) throw controller.signal.reason;
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', cancel);
     }
   }
-
-  addDiagnostic('attachments.fetch.done', { count: attachments.length });
   return attachments;
 };
 
@@ -869,14 +474,7 @@ const normalizeExtraFileAttachments = (extraFiles = []) => {
     totalBytes += sizeBytes;
 
     if (sizeBytes > MAX_ATTACHMENT_BYTES || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-      attachments.push({
-        id: file.id || `extra-file-${index + 1}`,
-        name: file.name || `extra-file-${index + 1}`,
-        mimeType: 'text/plain',
-        sizeBytes,
-        textContent: `Extra file ${file.name || index + 1} was detected but skipped because it is too large.`,
-      });
-      continue;
+      throw new Error('Extra attachments exceed the 4 MB per file or 10 MB total limit.');
     }
 
     const attachment = {
@@ -891,7 +489,7 @@ const normalizeExtraFileAttachments = (extraFiles = []) => {
     } else if (typeof file.base64Data === 'string') {
       attachment.base64Data = file.base64Data;
     } else {
-      attachment.textContent = `Extra file ${attachment.name} was selected but its content was not available.`;
+      throw new Error(`Extra attachment ${index + 1} has no readable content.`);
     }
 
     attachments.push(attachment);
@@ -901,278 +499,119 @@ const normalizeExtraFileAttachments = (extraFiles = []) => {
   return attachments;
 };
 
-const createChatRequest = (assignmentData, requestId, files, route) => {
-  return {
-    type: 'runtime.chat',
-    requestId,
-    ...(route?.provider ? { provider: route.provider } : {}),
-    ...(route?.model ? { model: route.model } : {}),
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are an educational assessment assistant. You produce structured grading suggestions for a teacher to review.',
-      },
-      {
-        role: 'user',
-        content: buildCorrectionPrompt(assignmentData),
-      },
-    ],
-    options: {
-      responseFormat: 'json',
-      temperature: 0.2,
-    },
-    ...(files.length > 0 ? { files } : {}),
-  };
-};
-
-const createRepairChatRequest = (assignmentData, invalidResponseText, requestId, route) => ({
-  type: 'runtime.chat',
-  requestId,
-  ...(route?.provider ? { provider: route.provider } : {}),
-  ...(route?.model ? { model: route.model } : {}),
-  messages: [
-    {
-      role: 'system',
-      content:
-        'You repair invalid AI grading output into the exact JSON schema required by Moodle Correction Assistant.',
-    },
-    {
-      role: 'user',
-      content: buildCorrectionRepairPrompt(assignmentData, invalidResponseText),
-    },
-  ],
-  options: {
-    responseFormat: 'json',
-    temperature: 0.1,
-  },
-});
-
-const isRetryableAiRouteError = (error) => {
-  const message = error?.message || String(error || '');
-  return /did not start|timed out|disconnected|LOCAL_PROVIDER_OFFLINE|Ollama error:\s*5\d\d|LM Studio error:\s*5\d\d|WebLLM error:\s*5\d\d/i.test(
-    message,
-  );
-};
-
-const runChatCorrection = async (runtime, assignmentData, files, mode, route) => {
-  const chatRequestId = createRequestId();
-  addDiagnostic('correction.chat.post', {
-    requestId: chatRequestId,
-    attachments: files.length,
-    mode,
-    route,
-  });
-
-  const isLocalRoute = route?.provider === 'ollama' || route?.provider === 'webllm' || route?.provider === 'lmstudio';
-  const response = await runtime.chat(createChatRequest(assignmentData, chatRequestId, files, route), {
-    startTimeoutMs: isLocalRoute ? LOCAL_CHAT_START_TIMEOUT_MS : CHAT_START_TIMEOUT_MS,
-  });
-
-  if (response?.type === 'runtime.chat.error' || response?.error) {
-    addDiagnostic('correction.chat.error', {
-      requestId: chatRequestId,
-      error: response?.error?.message || null,
-      mode,
-    });
-    throw new Error(response?.error?.message || 'AI correction request failed.');
-  }
-
-  if (response?.type !== 'runtime.chat.result') {
-    addDiagnostic('correction.chat.unexpected', {
-      requestId: chatRequestId,
-      type: response?.type || null,
-      mode,
-    });
-    throw new Error('AI Runtime returned an unexpected response.');
-  }
-
-  addDiagnostic('correction.chat.result', {
-    requestId: chatRequestId,
-    provider: response.provider,
-    model: response.model,
-    textLength: response.text?.length || 0,
-    mode,
-  });
-
-  return response;
-};
-
-const runChatAcrossRoutes = async (extensionId, assignmentData, files, mode, routes) => {
-  let lastError = null;
-
-  for (const [index, route] of routes.entries()) {
-    let runtime = null;
-
-    try {
-      addDiagnostic('correction.route.try', {
-        mode,
-        index,
-        route,
-      });
-
-      runtime = await connectAiRuntime(extensionId);
-      await runtime.sendRequest({
-        type: 'runtime.handshake',
-        requestId: createRequestId(),
-        app: APP_INFO,
-      });
-
-      return await runChatCorrection(runtime, assignmentData, files, mode, route);
-    } catch (error) {
-      lastError = error;
-      addDiagnostic('correction.route.failed', {
-        mode,
-        index,
-        route,
-        message: error.message || String(error),
-        retryable: isRetryableAiRouteError(error),
-      });
-
-      if (!isRetryableAiRouteError(error)) {
-        throw error;
-      }
-    } finally {
-      runtime?.disconnect();
-    }
-  }
-
-  throw lastError || new Error('No AI route could complete the correction.');
-};
-
-const selectExplicitRoute = async (runtime, appConfig = {}) => {
-  const capabilities = await runtime.sendRequest({
-    type: 'runtime.capabilities',
-    requestId: createRequestId(),
-  });
-
-  const providers = capabilities.providers || [];
-  const availableProviders = providers.filter((provider) => provider.available && provider.supports?.chat);
-  const selectedProvider = availableProviders.find((provider) => provider.provider === 'ollama') || null;
-
-  if (!selectedProvider) {
-    addDiagnostic('correction.route.none', {
-      providers: providers.map((provider) => ({
-        provider: provider.provider,
-        available: provider.available,
-        reason: provider.reason || null,
-      })),
-    });
-    throw new Error('AI Runtime has no available Ollama chat provider.');
-  }
-
-  const selectedModel = appConfig.provider === 'ollama' && appConfig.model ? appConfig.model : undefined;
-
-  const route = {
-    provider: selectedProvider.provider,
-    ...(selectedModel ? { model: selectedModel } : {}),
-  };
-  const routeCandidates = [route];
-
-  addDiagnostic('correction.route.selected', {
-    route,
-    routeCandidates,
-    availableProviders: availableProviders.map((provider) => ({
-      provider: provider.provider,
-      models: provider.models?.length || 0,
-    })),
-  });
-
-  return {
-    selected: route,
-    candidates: routeCandidates,
-  };
-};
-
-const selectExplicitRouteFromCapabilities = (capabilities, appConfig = {}) => {
-  const providers = capabilities.providers || [];
-  const availableProviders = providers.filter((provider) => provider.available && provider.supports?.chat);
-  const selectedProvider = availableProviders.find((provider) => provider.provider === 'ollama') || null;
-
-  if (!selectedProvider) {
-    addDiagnostic('correction.route.none', {
-      providers: providers.map((provider) => ({
-        provider: provider.provider,
-        available: provider.available,
-        reason: provider.reason || null,
-      })),
-    });
-    throw new Error('AI Runtime has no available Ollama chat provider.');
-  }
-
-  const selectedModel = appConfig.provider === 'ollama' && appConfig.model ? appConfig.model : undefined;
-
-  const route = {
-    provider: selectedProvider.provider,
-    ...(selectedModel ? { model: selectedModel } : {}),
-  };
-  const routeCandidates = [route];
-
-  addDiagnostic('correction.route.selected', {
-    route,
-    routeCandidates,
-    availableProviders: availableProviders.map((provider) => ({
-      provider: provider.provider,
-      models: provider.models?.length || 0,
-    })),
-  });
-
-  return {
-    selected: route,
-    candidates: routeCandidates,
-  };
-};
-
 const getDirectAiStatus = async () => {
   const config = await loadAiConfig();
-  const secret = await loadAiSecret();
+  const secret = await loadBoundAiSecret(config);
   const requiresApiKey = config.provider === 'openai-compatible';
   const configured = Boolean(config.model) && (!requiresApiKey || Boolean(secret.apiKey));
-
+  let models = [];
+  let reachable = false;
+  let reason = requiresApiKey && !secret.apiKey ? 'Add an API key for this server in Options.' : '';
+  if (!reason) {
+    try {
+      const payload = await fetchAiResource(
+        `${config.baseUrl}${config.provider === 'ollama' ? '/api/tags' : '/models'}`,
+        { headers: secret.apiKey ? { Authorization: `Bearer ${secret.apiKey}` } : {} },
+        { timeoutMs: STATUS_TIMEOUT_MS },
+      );
+      models = config.provider === 'ollama'
+        ? (payload.models || []).map((item) => ({ id: item.name, name: item.name }))
+        : (payload.data || []).map((item) => ({ id: item.id, name: item.id }));
+      reachable = true;
+      if (config.model && !models.some((item) => item.id === config.model)) {
+        reason = 'The configured model is not listed by this server.';
+      }
+    } catch (error) { reason = error.message || String(error); }
+  }
+  const available = reachable && !reason && configured;
   return {
     appConfig: {
       ...config,
       configured,
       requiresApiKey,
+      hasApiKey: Boolean(secret.apiKey),
+      reachable,
+      reason,
     },
-    providers: [
-      {
-        provider: 'ollama',
-        available: config.provider === 'ollama' && configured,
-        supports: { chat: true },
-        models: config.provider === 'ollama' && config.model ? [{ id: config.model, name: config.model }] : [],
-      },
-      {
-        provider: 'openai-compatible',
-        available: config.provider === 'openai-compatible' && configured,
-        supports: { chat: true },
-        models:
-          config.provider === 'openai-compatible' && config.model ? [{ id: config.model, name: config.model }] : [],
-      },
-    ],
+    providers: [{ provider: config.provider, available, reachable, reason, supports: { chat: true }, models }],
   };
 };
 
 const formatDirectAttachments = (files = []) => {
   const textAttachments = files
     .filter((file) => typeof file?.textContent === 'string' && file.textContent.trim())
-    .map((file, index) => `Attachment ${index + 1} (${file.mimeType || 'unknown type'})\n${file.textContent.slice(0, 12000)}`);
-  const skippedAttachmentCount = files.filter((file) => !file?.textContent).length;
-
-  return [
-    ...textAttachments,
-    ...(skippedAttachmentCount
-      ? [`${skippedAttachmentCount} binary attachment(s) were not sent to the AI provider.`]
-      : []),
-  ].join('\n\n');
+    .map((file, index) => `Attachment ${index + 1} (${file.mimeType || 'unknown type'})\n${file.textContent}`);
+  return textAttachments.join('\n\n');
 };
 
-const createDirectMessages = (assignmentData, files, repairText = '') => {
+let offscreenCreation;
+const ensureAttachmentReader = async () => {
+  if (offscreenCreation) return offscreenCreation;
+  offscreenCreation = (async () => {
+    const path = 'src/attachments/reader.html';
+    const contexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'], documentUrls: [chrome.runtime.getURL(path)] });
+    if (!contexts.length) await chrome.offscreen.createDocument({
+      url: path, reasons: ['DOM_PARSER', 'WORKERS'], justification: 'Read PDF and DOCX submissions locally before grading.',
+    });
+  })();
+  try { await offscreenCreation; } finally { offscreenCreation = null; }
+};
+
+const prepareDirectAttachments = async (files, signal) => {
+  let totalBytes = 0;
+  let totalText = 0;
+  let imageCount = 0;
+  const prepared = [];
+  for (const [index, file] of files.entries()) {
+    if (signal?.aborted) throw signal.reason;
+    totalBytes += file.sizeBytes || 0;
+    if (file.sizeBytes > MAX_ATTACHMENT_BYTES || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error('Attachments exceed the 4 MB per file or 10 MB total limit.');
+    let attachment = file;
+    if (file.base64Data) {
+      await ensureAttachmentReader();
+      const response = await waitForAttachmentReader(chrome.runtime.sendMessage({ target: 'attachment-reader', type: 'mca.readAttachment', file }), signal);
+      if (!response?.ok) throw new Error(`Attachment ${index + 1}: ${response?.error || 'Could not read file.'}`);
+      attachment = { mimeType: file.mimeType, sizeBytes: file.sizeBytes, ...response.attachment };
+    }
+    if (!attachment.textContent?.trim() && !attachment.images?.length) throw new Error(`Attachment ${index + 1} has no readable content.`);
+    totalText += attachment.textContent?.length || 0;
+    imageCount += attachment.images?.length || 0;
+    if (totalText > 60_000 || imageCount > 12) throw new Error('Attachments exceed the 60,000 text character or 12 image limit. Split the submission before correcting.');
+    prepared.push(attachment);
+  }
+  return prepared;
+};
+
+const waitForAttachmentReader = (promise, signal) => new Promise((resolve, reject) => {
+  const cancel = () => finish(reject, signal.reason || new Error('AI request cancelled.'));
+  const timer = setTimeout(() => finish(reject, new Error('Local attachment extraction timed out.')), 60_000);
+  const finish = (callback, value) => {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
+    callback(value);
+  };
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener('abort', cancel, { once: true });
+  promise.then((value) => finish(resolve, value), (error) => finish(reject, error));
+});
+
+const testAiConnection = async (options = {}) => {
+  const config = await loadAiConfig();
+  const secret = await loadBoundAiSecret(config);
+  const startedAt = Date.now();
+  const response = await requestDirectChat(config, secret, [{ role: 'user', content: 'Connection test with fictional data only. Return exactly this JSON object: {"status":"ok"}.' }], options);
+  if (parseJsonResponse(response.text)?.status !== 'ok') throw new Error('The provider responded but did not return the expected test JSON.');
+  return { provider: response.provider, model: response.model, elapsedMs: Date.now() - startedAt };
+};
+
+const createDirectMessages = (assignmentData, files, repairText = '', provider = 'ollama') => {
   const prompt = repairText
     ? buildCorrectionRepairPrompt(assignmentData, repairText)
     : buildCorrectionPrompt(assignmentData);
   const attachmentContext = formatDirectAttachments(files);
 
+  const images = files.flatMap((file) => file.images || []);
+  const content = attachmentContext ? `${prompt}\n\nAttached text:\n${attachmentContext}` : prompt;
   return [
     {
       role: 'system',
@@ -1180,7 +619,10 @@ const createDirectMessages = (assignmentData, files, repairText = '') => {
     },
     {
       role: 'user',
-      content: attachmentContext ? `${prompt}\n\nAttached text:\n${attachmentContext}` : prompt,
+      content: provider === 'openai-compatible' && images.length
+        ? [{ type: 'text', text: content }, ...images.map((image) => ({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.base64Data}` } }))]
+        : content,
+      ...(provider === 'ollama' && images.length ? { images: images.map((image) => image.base64Data) } : {}),
     },
   ];
 };
@@ -1234,28 +676,15 @@ const createDirectChatRequest = (config, secret, messages) => {
   return { endpoint, headers, body };
 };
 
-const requestDirectChat = async (config, secret, messages) => {
+const requestDirectChat = async (config, secret, messages, options = {}) => {
   const provider = config.provider;
   const request = createDirectChatRequest(config, secret, messages);
-  const response = await fetch(request.endpoint, {
+  const payload = await fetchAiResource(request.endpoint, {
     method: 'POST',
     redirect: 'error',
     headers: request.headers,
     body: JSON.stringify(request.body),
-  });
-  const responseText = await response.text();
-  let payload = null;
-
-  try {
-    payload = JSON.parse(responseText);
-  } catch {
-    // A useful provider error is still surfaced below without parsing it.
-  }
-
-  if (!response.ok) {
-    const message = payload?.error?.message || payload?.message || responseText.slice(0, 600) || `HTTP ${response.status}`;
-    throw new Error(`${provider} request failed: ${message}`);
-  }
+  }, options);
 
   const text = extractDirectAiText(payload, provider);
   if (!text) {
@@ -1270,13 +699,21 @@ const requestDirectChat = async (config, secret, messages) => {
   };
 };
 
-const requestDirectAiCorrection = async (assignmentData) => {
+const requestDirectAiCorrection = async (assignmentData, options = {}) => {
   const config = await loadAiConfig();
-  const secret = await loadAiSecret();
-  const files = [
-    ...(await fetchSubmissionFileAttachments(assignmentData.submissionFiles || [], assignmentData.page?.url)),
+  const secret = await loadBoundAiSecret(config);
+  createDirectChatRequest(config, secret, []);
+  const rawFiles = [
+    ...(await fetchSubmissionFileAttachments(assignmentData.submissionFiles || [], assignmentData.page?.url, options.signal)),
     ...normalizeExtraFileAttachments(assignmentData.extraFiles || []),
   ];
+  const files = await prepareDirectAttachments(rawFiles, options.signal);
+  if (config.provider === 'ollama' && files.some((file) => file.images?.length)) {
+    const modelInfo = await fetchAiResource(`${config.baseUrl}/api/show`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: config.model }),
+    }, { ...options, timeoutMs: STATUS_TIMEOUT_MS });
+    if (!modelInfo.capabilities?.includes('vision')) throw new Error('The selected Ollama model does not support images. Choose a vision model.');
+  }
 
   addDiagnostic('directAi.correction.start', {
     provider: config.provider,
@@ -1284,17 +721,19 @@ const requestDirectAiCorrection = async (assignmentData) => {
     attachments: files.length,
   });
 
-  const response = await requestDirectChat(config, secret, createDirectMessages(assignmentData, files));
+  const response = await requestDirectChat(config, secret, createDirectMessages(assignmentData, files, '', config.provider), options);
   let parsed = parseCorrectionResponse(response.text, assignmentData);
 
   if (!isCorrectionComplete(parsed, assignmentData)) {
     try {
-      const repair = await requestDirectChat(config, secret, createDirectMessages(assignmentData, files, response.text));
+      const repair = await requestDirectChat(config, secret, createDirectMessages(assignmentData, files, response.text, config.provider), options);
       const repaired = parseCorrectionResponse(repair.text, assignmentData);
       if (isCorrectionComplete(repaired, assignmentData)) {
         parsed = repaired;
+        response.text = repair.text;
       }
     } catch (error) {
+      if (options.signal?.aborted) throw options.signal.reason;
       addDiagnostic('directAi.correction.repairFailed', { message: error.message || String(error) });
     }
   }
@@ -1305,256 +744,17 @@ const requestDirectAiCorrection = async (assignmentData) => {
     textLength: response.text.length,
     complete: isCorrectionComplete(parsed, assignmentData),
   });
-
+  if (!isCorrectionComplete(parsed, assignmentData)) throw new Error('The AI returned an incomplete correction after retrying. No grades were applied.');
   return { ...response, parsed };
 };
 
-const requestAiCorrection = async (assignmentData) => {
-  return await requestDirectAiCorrection(assignmentData);
-  addDiagnostic('correction.request.received', {
-    hasAssignment: Boolean(assignmentData),
-    files: assignmentData?.submissionFiles?.length || 0,
-    extraFiles: assignmentData?.extraFiles?.length || 0,
-    hasExtraInstructions: Boolean(assignmentData?.extraInstructions),
-    rubricCriteria: assignmentData?.rubric?.length || 0,
-    rubricLevelControls: assignmentData?.gradingControls?.rubricCriteriaWithLevelControls || 0,
-    rubricCommentBoxes: assignmentData?.gradingControls?.rubricCriteriaWithCommentBoxes || 0,
-    finalFeedback: Boolean(assignmentData?.gradingControls?.finalFeedback),
-  });
+const requestAiCorrection = (assignmentData, options) => requestDirectAiCorrection(assignmentData, options);
 
-  const aiExtensionId = await getAiExtensionId();
-
-  if (!aiExtensionId) {
-    addDiagnostic('correction.request.noAiExtension');
-    throw new Error('AI Runtime is not installed or is disabled.');
-  }
-
-  const pageStatus = await sendAiRuntimeCall(
-    aiExtensionId,
-    {
-      type: 'runtime.pageStatus',
-      requestId: createRequestId(),
-    },
-    30_000,
-  );
-  addDiagnostic('correction.pageStatus.ok', {
-    authorized: Boolean(pageStatus.status?.authorized),
-    appConfig: pageStatus.status?.appConfig || {},
-  });
-
-  const capabilities = await sendAiRuntimeCall(
-    aiExtensionId,
-    {
-      type: 'runtime.capabilities',
-      requestId: createRequestId(),
-    },
-    30_000,
-  );
-  const storedAppConfig = await loadAiRuntimeConfig();
-  const routeSelection = selectExplicitRouteFromCapabilities(capabilities, {
-    ...(pageStatus.status?.appConfig || {}),
-    ...storedAppConfig,
-  });
-  const files = [
-    ...(await fetchSubmissionFileAttachments(assignmentData.submissionFiles || [], assignmentData.page?.url)),
-    ...normalizeExtraFileAttachments(assignmentData.extraFiles || []),
-  ];
-  const chatRequestId = createRequestId();
-
-  addDiagnostic('correction.chat.post', {
-    requestId: chatRequestId,
-    attachments: files.length,
-    mode: 'runtime-call',
-    route: routeSelection.selected,
-  });
-
-  const response = await sendAiRuntimeCall(
-    aiExtensionId,
-    createChatRequest(assignmentData, chatRequestId, files, routeSelection.selected),
-  );
-
-  addDiagnostic('correction.chat.result', {
-    requestId: chatRequestId,
-    provider: response.provider,
-    model: response.model,
-    textLength: response.text?.length || 0,
-    mode: 'runtime-call',
-  });
-
-  let parsed = parseCorrectionResponse(response.text, assignmentData);
-  const completeness = getCorrectionCompleteness(parsed, assignmentData);
-
-  if (!isCorrectionComplete(parsed, assignmentData)) {
-    const repairRequestId = createRequestId();
-    addDiagnostic('correction.repair.start', {
-      requestId: repairRequestId,
-      originalRequestId: chatRequestId,
-      ...completeness,
-    });
-
-    try {
-      const repairResponse = await sendAiRuntimeCall(
-        aiExtensionId,
-        createRepairChatRequest(assignmentData, response.text, repairRequestId, routeSelection.selected),
-      );
-      const repairedParsed = parseCorrectionResponse(repairResponse.text, assignmentData);
-      const repairedCompleteness = getCorrectionCompleteness(repairedParsed, assignmentData);
-
-      addDiagnostic('correction.repair.result', {
-        requestId: repairRequestId,
-        textLength: repairResponse.text?.length || 0,
-        ...repairedCompleteness,
-      });
-
-      if (isCorrectionComplete(repairedParsed, assignmentData)) {
-        parsed = repairedParsed;
-      }
-    } catch (error) {
-      addDiagnostic('correction.repair.failed', {
-        requestId: repairRequestId,
-        message: error.message || String(error),
-      });
-    }
-  }
-
-  return {
-    provider: response.provider,
-    model: response.model,
-    text: response.text,
-    parsed,
-    usage: response.usage,
-  };
-};
-
-const withAiRuntime = async (callback) => {
-  const aiExtensionInfo = await getAiExtensionInfo();
-  const aiExtensionId = aiExtensionInfo?.id || '';
-
-  if (!aiExtensionId) {
-    throw new Error('AI Runtime is not installed or is disabled.');
-  }
-
-  const runtime = await connectAiRuntime(aiExtensionId);
-
-  try {
-    const handshake = await runtime.sendRequest({
-      type: 'runtime.handshake',
-      requestId: createRequestId(),
-      app: APP_INFO,
-    });
-
-    if (!handshake?.ok) {
-      throw new Error(handshake?.error?.message || 'AI Runtime rejected the handshake.');
-    }
-
-    return await callback(runtime, handshake, aiExtensionInfo);
-  } finally {
-    runtime.disconnect();
-  }
-};
-
-const getAiRuntimeStatus = async () => {
-  return await getDirectAiStatus();
-
-  const aiExtensionInfo = await getAiExtensionInfo();
-  const aiExtensionId = aiExtensionInfo?.id || '';
-
-  if (!aiExtensionId) {
-    throw new Error('AI Runtime is not installed or is disabled.');
-  }
-
-  const pageStatus = await sendAiRuntimeCall(
-    aiExtensionId,
-    {
-      type: 'runtime.pageStatus',
-      requestId: createRequestId(),
-    },
-    30_000,
-  );
-  const capabilities = await sendAiRuntimeCall(
-    aiExtensionId,
-    {
-      type: 'runtime.capabilities',
-      requestId: createRequestId(),
-    },
-    30_000,
-  );
-
-  const storedAppConfig = await loadAiRuntimeConfig();
-
-  return {
-    runtime: {
-      extensionId: aiExtensionId,
-      version: pageStatus.status?.version,
-    },
-    policy: {
-      origin: pageStatus.status?.origin,
-      enabled: pageStatus.status?.authorized,
-    },
-    appConfig: {
-      ...(pageStatus.status?.appConfig || {}),
-      ...storedAppConfig,
-    },
-    providers: capabilities.providers || [],
-    extension: {
-      id: aiExtensionInfo.id,
-      name: aiExtensionInfo.name,
-      optionsUrl: aiExtensionInfo.optionsUrl,
-    },
-  };
-};
-
-const setAiRuntimeConfig = async (config) => {
-  return await saveAiConfig(config || {});
-
-  const aiExtensionInfo = await getAiExtensionInfo();
-  const aiExtensionId = aiExtensionInfo?.id || '';
-
-  if (!aiExtensionId) {
-    throw new Error('AI Runtime is not installed or is disabled.');
-  }
-
-  const response = await sendAiRuntimeCall(
-    aiExtensionId,
-    {
-      type: 'runtime.appConfig.update',
-      requestId: createRequestId(),
-      config: {
-        ...(config?.provider ? { provider: config.provider } : {}),
-        ...(config?.model ? { model: config.model } : {}),
-      },
-    },
-    30_000,
-  );
-
-  return await saveAiRuntimeConfig({
-    ...sanitizeAiRuntimeConfig(config),
-    ...sanitizeAiRuntimeConfig(response.config || {}),
-  });
-};
-
+const getAiRuntimeStatus = () => getDirectAiStatus();
+const setAiRuntimeConfig = (config) => saveAiConfig(config || {});
 const openAiRuntimeOptions = async () => {
   await chrome.runtime.openOptionsPage();
   return true;
-
-  const aiExtensionInfo = await getAiExtensionInfo();
-
-  if (!aiExtensionInfo) {
-    throw new Error('AI Runtime is not installed or is disabled.');
-  }
-
-  if (aiExtensionInfo.optionsUrl) {
-    await openTab(aiExtensionInfo.optionsUrl);
-    return true;
-  }
-
-  return await withAiRuntime(async (runtime) => {
-    await runtime.sendRequest({
-      type: 'runtime.openOptions',
-      requestId: createRequestId(),
-    });
-    return true;
-  });
 };
 
 const parseJsonResponse = (text) => {
@@ -1772,6 +972,14 @@ const normalizeCorrectionResponse = (parsed, assignmentData = {}) => {
 
   const studentFeedback = getFinalComment(parsed);
   const rubricSelections = getRubricSelectionsInput(parsed);
+  const rubricInputComplete = getRubricCriteriaWithLevels(assignmentData).every((criterion, index) => {
+    const selection = findRubricSelectionForCriterion(rubricSelections, criterion, index);
+    const level = selection.levelIndex ?? selection.level_index ?? selection.level;
+    const feedback = selection.criterionFeedback || selection.finalFeedback || selection.feedback || selection.comment;
+    return level !== null && level !== undefined && Number.isInteger(Number(level)) &&
+      getValidRubricLevelIndexes(criterion).includes(Number(level)) &&
+      (!selection.criterionId || selection.criterionId === criterion.id) && typeof feedback === 'string' && Boolean(feedback.trim());
+  });
   const hasExpectedShape =
     Object.prototype.hasOwnProperty.call(parsed, 'finalComment') ||
     Object.prototype.hasOwnProperty.call(parsed, 'finalFeedback') ||
@@ -1796,9 +1004,9 @@ const normalizeCorrectionResponse = (parsed, assignmentData = {}) => {
   }
 
   return {
-    needsRepair: false,
+    needsRepair: !rubricInputComplete,
     studentFeedback,
-    score: hasNumericGradeControl(assignmentData) && Number.isFinite(Number(parsed.score)) ? Number(parsed.score) : null,
+    score: hasNumericGradeControl(assignmentData) && parsed.score !== null && parsed.score !== '' && parsed.score !== undefined && Number.isFinite(Number(parsed.score)) ? Number(parsed.score) : null,
     maxScore: getExpectedMaxScore(assignmentData),
     rubricSelections: normalizeRubricSelections(assignmentData, rubricSelections, studentFeedback),
   };
@@ -1814,6 +1022,7 @@ const getCorrectionCompleteness = (correction, assignmentData = {}) => {
   return {
     hasStudentFeedback: Boolean(correction?.studentFeedback?.trim?.()),
     hasSupportedSchema: correction?.needsRepair !== true,
+    hasValidScore: !hasNumericGradeControl(assignmentData) || Number.isFinite(correction?.score) && correction.score >= 0 && (getExpectedMaxScore(assignmentData) === null || correction.score <= getExpectedMaxScore(assignmentData)),
     expectedRubricCount,
     actualRubricCount,
     hasCompleteRubric: expectedRubricCount === 0 || actualRubricCount >= expectedRubricCount,
@@ -1822,10 +1031,31 @@ const getCorrectionCompleteness = (correction, assignmentData = {}) => {
 
 const isCorrectionComplete = (correction, assignmentData = {}) => {
   const completeness = getCorrectionCompleteness(correction, assignmentData);
-  return completeness.hasSupportedSchema && completeness.hasStudentFeedback && completeness.hasCompleteRubric;
+  return completeness.hasSupportedSchema && completeness.hasStudentFeedback && completeness.hasCompleteRubric && completeness.hasValidScore;
 };
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.target === 'attachment-reader') return false;
+  const requestKey = `${sender.tab?.id ?? 'extension'}:${message?.requestId || 'default'}`;
+  if (message?.type === 'mca.cancelCorrection') {
+    const controller = activeCorrections.get(requestKey);
+    controller?.abort(new Error('AI request cancelled.'));
+    sendResponse({ ok: true, cancelled: Boolean(controller) });
+    return false;
+  }
+  if (message?.type === 'mca.testAiConnection') {
+    if (activeCorrections.has(requestKey)) {
+      sendResponse({ ok: false, error: 'A connection test is already running.' });
+      return false;
+    }
+    const controller = new AbortController();
+    activeCorrections.set(requestKey, controller);
+    void testAiConnection({ signal: controller.signal })
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }))
+      .finally(() => activeCorrections.delete(requestKey));
+    return true;
+  }
   if (message?.type === 'mca.detectAiProxyBridge') {
     void getDirectAiStatus()
       .then((status) => sendResponse({ ok: true, extensionId: status.appConfig.configured ? 'direct-ai' : '' }))
@@ -1860,9 +1090,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === 'mca.correctAssignment') {
-    void requestAiCorrection(message.assignmentData)
+    if (activeCorrections.has(requestKey)) {
+      sendResponse({ ok: false, error: 'A correction is already running.' });
+      return false;
+    }
+    const controller = new AbortController();
+    activeCorrections.set(requestKey, controller);
+    const timer = setTimeout(() => controller.abort(new Error('Correction timed out after 10 minutes.')), 600_000);
+    void requestAiCorrection(message.assignmentData, { signal: controller.signal })
       .then((correction) => sendResponse({ ok: true, correction }))
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
+      .catch((error) => sendResponse({ ok: false, error: error.message }))
+      .finally(() => { clearTimeout(timer); activeCorrections.delete(requestKey); });
     return true;
   }
 

@@ -10,7 +10,7 @@
     <main>
       <header>
         <h1>Corrector de Moodle</h1>
-        <p id="status">Listo.</p>
+        <p id="status" role="status" aria-live="polite">Comprobando conexión...</p>
       </header>
 
       <section>
@@ -33,6 +33,7 @@
 
       <footer>
         <button id="requestCorrection" type="button">Corregir con IA</button>
+        <button id="cancelCorrection" type="button" hidden>Cancelar</button>
       </footer>
     </main>
 
