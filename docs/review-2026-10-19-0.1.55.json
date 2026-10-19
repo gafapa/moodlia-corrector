@@ -1,0 +1,16 @@
+{
+  "version": "0.1.55",
+  "unit_tests_passed": 25,
+  "browser_checks_passed": 32,
+  "archive_files": 222,
+  "archive_matches_source": true,
+  "archive_sha256": "25c08a25f0e85441b1b3baa9ac20fc197e7b9c635b409fc9a71e313a1d1eaefe",
+  "teacher_criteria_scopes": [
+    "course",
+    "assignment",
+    "case"
+  ],
+  "legacy_global_instructions_preserved": true,
+  "publication": "local_candidate",
+  "live_moodle_tab_changed": false
+}

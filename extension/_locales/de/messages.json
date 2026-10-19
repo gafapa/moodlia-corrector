@@ -1,0 +1,1258 @@
+{
+  "m4969e7a2bd2b": {
+    "message": "Moodle-Korrektur öffnen",
+    "description": "Open Moodle Corrector"
+  },
+  "mb97683eda2a3": {
+    "message": "KI aktualisieren",
+    "description": "Refresh AI"
+  },
+  "m28b602646521": {
+    "message": "JSON auf Moodle anwenden",
+    "description": "Apply JSON to Moodle"
+  },
+  "m3f87f261fa17": {
+    "message": "Hier erscheinen der Noten- und Feedbackvorschlag.",
+    "description": "Your proposed grade and feedback will appear here."
+  },
+  "m392d7668f0af": {
+    "message": "Zusätzliche Dateien",
+    "description": "Additional files"
+  },
+  "m7f017b4205a7": {
+    "message": "Referenzdateien der Aufgabe",
+    "description": "Assignment reference files"
+  },
+  "mae7d1d00ebcf": {
+    "message": "Abgegebene Dateien",
+    "description": "Submitted files"
+  },
+  "mebe916eb1d68": {
+    "message": "Dateien für die KI",
+    "description": "Files for AI"
+  },
+  "m9f088dbebd6c": {
+    "message": "Erweitert",
+    "description": "Advanced"
+  },
+  "ma9af7d765193": {
+    "message": "Moodle-Website hinzufügen oder gespeicherte Websites verwalten. Die Korrektur wird auf der Moodle-Seite geöffnet.",
+    "description": "Add a Moodle site or manage saved sites. Open correction from its Moodle page."
+  },
+  "m9fd728c66c9a": {
+    "message": "Hinzufügen",
+    "description": "Add"
+  },
+  "m7187353ffba7": {
+    "message": "Website hinzufügen",
+    "description": "Add site"
+  },
+  "ma3782c04c806": {
+    "message": "Moodle-Website hinzufügen",
+    "description": "Add a Moodle site"
+  },
+  "m10421935232f": {
+    "message": "Modelle suchen",
+    "description": "Search models"
+  },
+  "m53da50440de9": {
+    "message": "Einfache direkte Bewertung",
+    "description": "Simple direct grading"
+  },
+  "m99b4a9ed361b": {
+    "message": "Notenfeld",
+    "description": "Grade field"
+  },
+  "m19766ed6ccb2": {
+    "message": "Abbrechen",
+    "description": "Cancel"
+  },
+  "mf730c75d143a": {
+    "message": "Test abbrechen",
+    "description": "Cancel test"
+  },
+  "m7d9eb7acb13e": {
+    "message": "Schließen",
+    "description": "Close"
+  },
+  "mabf166f52ed9": {
+    "message": "Abschließendes Feedback",
+    "description": "Final feedback"
+  },
+  "m13b65a393b6e": {
+    "message": "Feedback je Kriterium",
+    "description": "Feedback by criterion"
+  },
+  "m0d9bcf484aa3": {
+    "message": "KI wird geprüft...",
+    "description": "Checking AI..."
+  },
+  "m4141d1b02d1c": {
+    "message": "Aktuelle Seite wird geprüft...",
+    "description": "Checking the current page..."
+  },
+  "ma7d36afc9e93": {
+    "message": "Erweiterte KI-Einstellungen",
+    "description": "Advanced AI settings"
+  },
+  "m377c481d3c31": {
+    "message": "KI-Einstellungen",
+    "description": "AI settings"
+  },
+  "m549d8b0e27bd": {
+    "message": "KI-Einstellungen gespeichert.",
+    "description": "AI settings saved."
+  },
+  "m51e719fc193d": {
+    "message": "Aufgabenkontext",
+    "description": "Assignment context"
+  },
+  "m073ee421f541": {
+    "message": "Bewertungsfelder",
+    "description": "Grading controls"
+  },
+  "mccdd99a36ccf": {
+    "message": "Bewertungsraster-Felder",
+    "description": "Rubric controls"
+  },
+  "mcfcb2a968eb1": {
+    "message": "Frühere Anweisungen in diese Aufgabe kopieren",
+    "description": "Copy previous instructions to this assignment"
+  },
+  "m64dc41e11b9c": {
+    "message": "Bewertung",
+    "description": "Grading"
+  },
+  "m164258a25bdc": {
+    "message": "In Moodle eingetragen. Note und Feedback vor dem Speichern prüfen.",
+    "description": "Applied to Moodle. Review the grade and feedback before saving."
+  },
+  "m08100e05f001": {
+    "message": "Korrektur in der Moodle-Seitenleiste geöffnet.",
+    "description": "Corrector opened in the Moodle sidebar."
+  },
+  "m3619a42bf2d9": {
+    "message": "Moodle-Korrektur",
+    "description": "Moodle Corrector"
+  },
+  "m4028e04bb404": {
+    "message": "Mit KI korrigieren",
+    "description": "Correct with AI"
+  },
+  "mef10e39c2780": {
+    "message": "Lehrkraft-Vorgaben",
+    "description": "Teacher criteria"
+  },
+  "m008c8bee6d06": {
+    "message": "Allgemeine Kursvorgaben...",
+    "description": "General course criteria..."
+  },
+  "m450754d0fa49": {
+    "message": "Erkannte Daten bereit.",
+    "description": "Detected data ready."
+  },
+  "mca7062769151": {
+    "message": "Daten und Diagnose",
+    "description": "Data and diagnostics"
+  },
+  "m526e0087cc3f": {
+    "message": "Beschreibung",
+    "description": "Description"
+  },
+  "mea0caffdf46b": {
+    "message": "Verlinkte Aufgabenbeschreibung",
+    "description": "Linked assignment description"
+  },
+  "m756a8ba97dce": {
+    "message": "Erkannt",
+    "description": "Detected"
+  },
+  "m5c953f63728a": {
+    "message": "Moodle-Daten werden erkannt...",
+    "description": "Detecting Moodle data..."
+  },
+  "m268f14bbfe11": {
+    "message": "Diagnose",
+    "description": "Diagnostics"
+  },
+  "m3e7c977b54e1": {
+    "message": "Moodle-Adresse",
+    "description": "Moodle address"
+  },
+  "mdec0329ffee6": {
+    "message": "Zum Beispiel: Klarheit und Belege besonders beachten...",
+    "description": "For example: focus on clarity and supporting evidence..."
+  },
+  "m12f50b006199": {
+    "message": "Die Korrektur öffnet sich auf den Bewertungsseiten dieses Moodles automatisch.",
+    "description": "Corrector will open automatically on this Moodle site's grading pages."
+  },
+  "m7fa3c78b77de": {
+    "message": "Link erkannt",
+    "description": "Link detected"
+  },
+  "m85491768f950": {
+    "message": "Link und Inhalt abgerufen",
+    "description": "Link and content retrieved"
+  },
+  "me9183ae2007c": {
+    "message": "Nicht unterstütztes Format",
+    "description": "Unsupported format"
+  },
+  "mef6b688f0247": {
+    "message": "Websites verwalten",
+    "description": "Manage sites"
+  },
+  "m8dd65d0952ed": {
+    "message": "Leitfaden",
+    "description": "Guide"
+  },
+  "me3256348dd9e": {
+    "message": "Bewertungsleitfaden",
+    "description": "Marking guide"
+  },
+  "mbbd417f39b11": {
+    "message": "Korrekturwerkzeuge",
+    "description": "Corrector tools"
+  },
+  "m11fb682be0a0": {
+    "message": "KI",
+    "description": "AI"
+  },
+  "me8fdb221509d": {
+    "message": "KI nicht verfügbar",
+    "description": "AI unavailable"
+  },
+  "m492358359682": {
+    "message": "Bild in der Aufgabenbeschreibung.",
+    "description": "Image in the assignment description."
+  },
+  "m08a2b2e686f3": {
+    "message": "Zusätzliche Anweisungen",
+    "description": "Additional instructions"
+  },
+  "m51d0b58e29a8": {
+    "message": "Für die Bewertung verwendete Informationen",
+    "description": "Information used for grading"
+  },
+  "m2936eaf22a9b": {
+    "message": "Korrektur-JSON",
+    "description": "Correction JSON"
+  },
+  "m664c7ff1791c": {
+    "message": "JSON des KI-Vorschlags",
+    "description": "AI suggestion JSON"
+  },
+  "mda5d9eef5338": {
+    "message": "Externes JSON",
+    "description": "External JSON"
+  },
+  "me20846d20bcd": {
+    "message": "Bereit.",
+    "description": "Ready."
+  },
+  "m9a01932aa46a": {
+    "message": "Nicht unterstützte Formate werden übersprungen. Lesefehler werden gesondert gemeldet.",
+    "description": "Unsupported formats are skipped. Errors reading supported formats are reported separately."
+  },
+  "m559ca471f368": {
+    "message": "Referenzmaterial (keine Schülerabgabe)",
+    "description": "Assignment reference material (not student work)"
+  },
+  "m8ce8c5d922fd": {
+    "message": "Aufgabenreferenz, keine Schülerabgabe. Wird bei der KI-Korrektur gelesen, sofern Format und Zugriff unterstützt werden.",
+    "description": "Assignment reference, not student work. Read when requesting AI correction if format and access are supported."
+  },
+  "m9caddb2ed538": {
+    "message": "Lehrmaterial gemäß Ihren Anweisungen.",
+    "description": "Teacher material, according to your instructions."
+  },
+  "m5e2c614c23f0": {
+    "message": "Modell",
+    "description": "Model"
+  },
+  "m3840d9d29421": {
+    "message": "Standardmodell",
+    "description": "Default model"
+  },
+  "mf669d0dbc29b": {
+    "message": "KI-Einstellungsmodus",
+    "description": "AI settings mode"
+  },
+  "m56f5c8edefc4": {
+    "message": "Modus: Erkennung ausstehend",
+    "description": "Mode: awaiting detection"
+  },
+  "m885392c76846": {
+    "message": "Methode nicht erkannt",
+    "description": "Method not detected"
+  },
+  "m4228302cfc55": {
+    "message": "Rasterstufen",
+    "description": "Rubric levels"
+  },
+  "m9f4a106271aa": {
+    "message": "Nicht erkannt",
+    "description": "Not detected"
+  },
+  "m493c68b0b005": {
+    "message": "Keine Dateien einzubeziehen.",
+    "description": "No files to include."
+  },
+  "m0b44df5f17bb": {
+    "message": "Keine gespeicherten Websites. Speichern Sie ein Moodle über Website hinzufügen.",
+    "description": "No saved sites. Use Add site to save a Moodle site."
+  },
+  "m4148add63103": {
+    "message": "Punktzahl nicht erkannt",
+    "description": "Score not detected"
+  },
+  "mc1c9f58121fd": {
+    "message": "Kein Bewertungsraster erkannt.",
+    "description": "No rubric detected."
+  },
+  "mbcda643591e8": {
+    "message": "Kein Online-Abgabetext erkannt.",
+    "description": "No online submission text detected."
+  },
+  "mb0f9c93c39bb": {
+    "message": "Keine Dateien in der Aufgabenbeschreibung erkannt.",
+    "description": "No files detected in the assignment description."
+  },
+  "m5395994b02d3": {
+    "message": "Keine abgegebenen Dateien erkannt.",
+    "description": "No submitted files detected."
+  },
+  "mf04e91981423": {
+    "message": "Kein Feedback je Kriterium erkannt",
+    "description": "No criterion comments detected"
+  },
+  "mb872fff6904a": {
+    "message": "Keine Rasterfelder erkannt",
+    "description": "No rubric controls detected"
+  },
+  "mc3a0f69639ef": {
+    "message": "Keine Stufen erkannt.",
+    "description": "No levels detected."
+  },
+  "m41e8f8791e0d": {
+    "message": "Name, Parameter oder Quantisierung",
+    "description": "Name, parameters or quantization"
+  },
+  "m77ab687c78ae": {
+    "message": "Für alle Aufgaben in diesem Kurs.",
+    "description": "For all assignments in this course."
+  },
+  "mf57efd0a398b": {
+    "message": "Für alle Lernenden dieser Aufgabe.",
+    "description": "For all students in this assignment."
+  },
+  "mb9b5bd13f960": {
+    "message": "Moodle-Dateien werden noch erkannt.",
+    "description": "Waiting to detect Moodle files."
+  },
+  "m71687dc11c2d": {
+    "message": "Für diesen Einzelfall",
+    "description": "For this case"
+  },
+  "m64d0ae3992e3": {
+    "message": "Für den Kurs",
+    "description": "For the course"
+  },
+  "mfc3935aeaac4": {
+    "message": "Für die Aufgabe",
+    "description": "For the assignment"
+  },
+  "m6ecb890dde54": {
+    "message": "Verbindungstest mit fiktiven Daten...",
+    "description": "Testing connection with fictional data..."
+  },
+  "m5bcf311b19d8": {
+    "message": "Verbindung testen",
+    "description": "Test connection"
+  },
+  "m472590ae974d": {
+    "message": "Anbieter",
+    "description": "Provider"
+  },
+  "meb4a946baaca": {
+    "message": "Maximale Punktzahl",
+    "description": "Maximum score"
+  },
+  "m2fb44ce208c4": {
+    "message": "Seite gewechselt. Korrektur zurückgesetzt.",
+    "description": "Page changed. Corrector reset."
+  },
+  "mebe08301f7fb": {
+    "message": "Was in dieser Aufgabe bewertet werden soll...",
+    "description": "What to assess in this assignment..."
+  },
+  "maf313fc2c79d": {
+    "message": "Referenz oder Vorlage; keine bewertete Schülerabgabe.",
+    "description": "Reference or template; not assessed as student work."
+  },
+  "md18ee6337d6b": {
+    "message": "Vor dem Speichern prüfen. Die Erweiterung sendet das Formular nicht ab.",
+    "description": "Review before saving. The extension does not submit the form."
+  },
+  "mf13a78500989": {
+    "message": "Bewertungsraster",
+    "description": "Rubric"
+  },
+  "m644c6aae9290": {
+    "message": "Anbieter auswählen",
+    "description": "Select provider"
+  },
+  "m54bc2b187541": {
+    "message": "Server verbunden. Wählen Sie ein Modell zum Korrigieren.",
+    "description": "Server connected. Select a model to correct."
+  },
+  "mf75cd1d20fef": {
+    "message": "Keine zusätzlichen Dateien.",
+    "description": "No additional files."
+  },
+  "m55e4a607bc4a": {
+    "message": "Kein abschließendes Feedback.",
+    "description": "No final feedback."
+  },
+  "mb12da9202e8c": {
+    "message": "Keine Modelle",
+    "description": "No models"
+  },
+  "mbdd2bedf2f4a": {
+    "message": "Website hinzugefügt. Die Korrektur öffnet sich auf ihren Bewertungsseiten automatisch.",
+    "description": "Site added. Corrector will open automatically on its grading pages."
+  },
+  "mdc99e416e7ff": {
+    "message": "Website entfernt. Öffnen Sie die Korrektur in diesem Moodle manuell über das Symbol.",
+    "description": "Site removed. Open Corrector manually from its icon on that Moodle."
+  },
+  "mbbbbfd033636": {
+    "message": "Moodle-Websites",
+    "description": "Moodle sites"
+  },
+  "m510f1f9db44a": {
+    "message": "Gespeicherte Websites",
+    "description": "Saved sites"
+  },
+  "m140a1f0d3ea4": {
+    "message": "KI-Korrektur wird angefordert...",
+    "description": "Requesting AI correction..."
+  },
+  "m986a40924d5a": {
+    "message": "Nur für diese Person und diesen Abgabeversuch.",
+    "description": "Only for this student and this assignment attempt."
+  },
+  "mb7ea04ae1f37": {
+    "message": "KI-Vorschlag",
+    "description": "AI suggestion"
+  },
+  "m85a39ab345d6": {
+    "message": "Ja",
+    "description": "Yes"
+  },
+  "mc15ced6800b1": {
+    "message": "Online-Abgabetext",
+    "description": "Online submission text"
+  },
+  "m9b5e34b288c9": {
+    "message": "Online-Text",
+    "description": "Online text"
+  },
+  "m611316489d06": {
+    "message": "Online-Text · Zu bewertende Schülerarbeit.",
+    "description": "Online text · Student work to assess."
+  },
+  "m9a4ef172bb0e": {
+    "message": "Zu bewertende Schülerarbeit.",
+    "description": "Student work to assess."
+  },
+  "m7e8cd2056da7": {
+    "message": "Titel",
+    "description": "Title"
+  },
+  "mc3f582b10eed": {
+    "message": "Zurück zur Korrektur",
+    "description": "Return to correction"
+  },
+  "mbd4392b7911b": {
+    "message": "Maximum nicht erkannt",
+    "description": "maximum not detected"
+  },
+  "me82ab623705a": {
+    "message": "nicht erkannt",
+    "description": "not detected"
+  },
+  "m99a6b959d456": {
+    "message": "nicht auswählbar",
+    "description": "not selectable"
+  },
+  "ma991b2272b0c": {
+    "message": "KI-Verbindung",
+    "description": "AI connection"
+  },
+  "mcf0883343f4a": {
+    "message": "Protokoll",
+    "description": "Protocol"
+  },
+  "mf4b63d134e7c": {
+    "message": "IP-Adresse oder Hostname",
+    "description": "IP address or hostname"
+  },
+  "m72e9a59f5a1d": {
+    "message": "Port",
+    "description": "Port"
+  },
+  "m79249111e4fc": {
+    "message": "API-Pfad",
+    "description": "API path"
+  },
+  "mf1b3f4a2d220": {
+    "message": "Vollständige API-URL",
+    "description": "Full API URL"
+  },
+  "m9dbfd0478bd5": {
+    "message": "Verfügbare Modelle",
+    "description": "Available models"
+  },
+  "m04903063b2fd": {
+    "message": "Modelle aktualisieren",
+    "description": "Refresh models"
+  },
+  "m6cb8d3b4bdb3": {
+    "message": "Ausgewähltes Modell",
+    "description": "Selected model"
+  },
+  "m16f0ee47f993": {
+    "message": "API-Schlüssel",
+    "description": "API key"
+  },
+  "md9160178c5da": {
+    "message": "Für lokale Server optional",
+    "description": "Optional for local servers"
+  },
+  "m32a118a506b0": {
+    "message": "Gespeicherten Schlüssel löschen",
+    "description": "Remove saved API key"
+  },
+  "mdf24ef128adf": {
+    "message": "Verbindung speichern",
+    "description": "Save connection"
+  },
+  "m01279806c727": {
+    "message": "Vor der Korrektur",
+    "description": "Before correcting"
+  },
+  "m1af2f4973e54": {
+    "message": "KI-Anbieter direkt verbinden. Keine zusätzliche KI-Erweiterung erforderlich.",
+    "description": "Connect an AI provider directly. No separate AI Runtime extension is required."
+  },
+  "mae6eb38ccd6d": {
+    "message": "HTTP ist unverschlüsselt. Außerhalb vertrauenswürdiger Netze HTTPS verwenden. Chrome kann Zugriff auf den gewählten Server anfordern.",
+    "description": "HTTP is unencrypted. Use HTTPS outside a trusted network. Chrome may request access to the server you choose."
+  },
+  "mcfe305a66d50": {
+    "message": "Modell wählen oder genaue Modell-ID eingeben",
+    "description": "Choose above or enter the exact model ID"
+  },
+  "m56f85d867d7c": {
+    "message": "Name, Parameter oder Quantisierung",
+    "description": "Search by name, parameters or quantization"
+  },
+  "mc29c4b6e3594": {
+    "message": "Aktualisieren, um Servermodelle anzuzeigen.",
+    "description": "Refresh to list models from this server."
+  },
+  "m60b0950789cb": {
+    "message": "Modell-IDs können auch manuell eingegeben werden. Die Fähigkeiten hängen vom Server ab.",
+    "description": "You can also enter a model ID manually. Model capabilities depend on the server."
+  },
+  "m16ad4e08cb9f": {
+    "message": "Lokal optional, für entfernte APIs erforderlich. Nur für die aktuelle Chrome-Sitzung gespeichert und nie an Moodle gesendet.",
+    "description": "Optional for local servers; required for remote APIs. The key is kept only for the current Chrome session and is never sent to Moodle."
+  },
+  "m3370a0882ed4": {
+    "message": "Prüfen Sie, ob Ihre Einrichtung den Anbieter für Schülerarbeiten zulässt. Jeden Vorschlag vor dem Speichern in Moodle prüfen.",
+    "description": "Confirm that your institution authorises the selected AI provider to process student work. Review every suggestion before saving the Moodle grading form."
+  },
+  "mbfd4f68723f9": {
+    "message": "Anderer kompatibler lokaler Server",
+    "description": "Other local server (OpenAI-compatible)"
+  },
+  "m84adcf75822a": {
+    "message": "OpenAI-kompatible API",
+    "description": "OpenAI-compatible API"
+  },
+  "mba53e943d53b": {
+    "message": "Verbindung gespeichert. Mit dem Verbindungstest die Generierung prüfen.",
+    "description": "Connection saved. Use Test connection to verify generation."
+  },
+  "m5da3a9bc606e": {
+    "message": "Gespeicherter API-Schlüssel gelöscht.",
+    "description": "Saved API key removed."
+  },
+  "m000bf223c89f": {
+    "message": "Modelle werden geladen...",
+    "description": "Loading available models..."
+  },
+  "m563db52c256a": {
+    "message": "Server verbunden. Verbindungstest zur Prüfung der Generierung ausführen.",
+    "description": "Server connected. Use Test connection to verify generation."
+  },
+  "md87e9d0a55b2": {
+    "message": "Verbindung konfigurieren.",
+    "description": "Configure the connection."
+  },
+  "m93ac37b824f3": {
+    "message": "Der Server liefert keine Modelle. Ein Modell laden und erneut versuchen.",
+    "description": "The server returned no models. Load a model in the server and try again."
+  },
+  "md0564b970146": {
+    "message": "Liste aktualisieren oder Modell-ID manuell eingeben.",
+    "description": "No models listed. Refresh models or enter a model ID manually."
+  },
+  "m90570f8ac5e0": {
+    "message": "Generierungstest mit fiktiven Daten. Das Laden kann bis zu 5 Minuten dauern.",
+    "description": "Testing generation with fictional data. A local model may take up to 5 minutes to load."
+  },
+  "m2096cefba06a": {
+    "message": "Kurs",
+    "description": "Course"
+  },
+  "m153cdaaec561": {
+    "message": "Aufgabe",
+    "description": "Assignment"
+  },
+  "m2a164d541578": {
+    "message": "Lernende Person",
+    "description": "Student"
+  },
+  "m71bf90935fc2": {
+    "message": "Aufgabenstellung",
+    "description": "Reference"
+  },
+  "m8d11f7f3b359": {
+    "message": "Abgabe",
+    "description": "Submission"
+  },
+  "m9c3487427f9f": {
+    "message": "Zusätzlich",
+    "description": "Additional"
+  },
+  "m6e7d50e84f47": {
+    "message": "Ergebnis",
+    "description": "Result"
+  },
+  "mc3812fc4acb8": {
+    "message": "Entfernen",
+    "description": "Remove"
+  },
+  "m1ea442a134b2": {
+    "message": "Nein",
+    "description": "No"
+  },
+  "mf84a01b259a8": {
+    "message": "auswählbar",
+    "description": "Selectable"
+  },
+  "m8027f432a7fb": {
+    "message": "Sprache der Oberfläche",
+    "description": "Interface language"
+  },
+  "m9ce0d857154f": {
+    "message": "Browsersprache",
+    "description": "Browser language"
+  },
+  "m2b07a7bd3b84": {
+    "message": "Moodle-Seiten neu laden, um die Sprache zu übernehmen.",
+    "description": "Reload Moodle pages to apply a language change."
+  },
+  "m393a3fece85b": {
+    "message": "Modus: $value1$",
+    "description": "Mode: $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mcf7c776078ca": {
+    "message": "Modus: $value1$ · $value2$",
+    "description": "Mode: $1 · $2",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m57c0ccfe149a": {
+    "message": "von $value1$",
+    "description": "out of $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m7a4e87fd8432": {
+    "message": "Notenvorschlag: $value1$$value2$",
+    "description": "Proposed grade: $1$2",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "md24475395ec7": {
+    "message": "Kriterium $value1$",
+    "description": "Criterion $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m0162010e5bcf": {
+    "message": "Stufe $value1$",
+    "description": "Level $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "md8cbbbdc35d4": {
+    "message": "Maximale Punktzahl: $value1$",
+    "description": "Maximum score: $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m1dba56a46c16": {
+    "message": "Erkannt ($value1$)",
+    "description": "Detected ($1)",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mad7b35cd9cf9": {
+    "message": "$value1$ von $value2$ Kriterien auswählbar",
+    "description": "$1 of $2 criteria selectable",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m36eaa994abd8": {
+    "message": "$value1$ von $value2$ Kommentarfeldern erkannt",
+    "description": "$1 of $2 comment fields detected",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m61d89954b137": {
+    "message": "$value1$ zusätzliche Datei(en), $value2$ MB.",
+    "description": "$1 additional file(s), $2 MB.",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m0dfd90f41b76": {
+    "message": "$value1$ Datei(en)",
+    "description": "$1 file(s)",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m2dd7be4f5923": {
+    "message": "$value1$ Kriterium/Kriterien",
+    "description": "$1 criterion/criteria",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "ma7a8af264aea": {
+    "message": "Kosten: $value1$",
+    "description": "Cost: $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mc005a25f3c0d": {
+    "message": "$value1$ entfernen",
+    "description": "Remove $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mb309d2614ddf": {
+    "message": "Übersprungen · $value1$",
+    "description": "Skipped · $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mf949d62a8f6a": {
+    "message": "$value1$. Übersprungen: $value2$. $value3$",
+    "description": "$1. Skipped: $2. $3",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      },
+      "value3": {
+        "content": "$3",
+        "example": "Example 3"
+      }
+    }
+  },
+  "md6505e78055e": {
+    "message": "$value1$ einbezogen$value2$ · Werden bei der Korrektur gelesen.",
+    "description": "$1 included$2 · Read when correcting.",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "me67da0af3ea7": {
+    "message": " · $value1$ übersprungen",
+    "description": " · $1 skipped",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m6e9923df7a94": {
+    "message": "Keine Treffer unter $value1$ Modellen. Andere Suche versuchen.",
+    "description": "No matches among $1 models. Try another search.",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m5945f076568b": {
+    "message": "$value1$ von $value2$ Modellen$value3$",
+    "description": "$1 of $2 models$3",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      },
+      "value3": {
+        "content": "$3",
+        "example": "Example 3"
+      }
+    }
+  },
+  "mcab275e6c2af": {
+    "message": " · Ausgewählt: $value1$",
+    "description": " · Selected: $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mc919c0ef74f6": {
+    "message": "$value1$ Modell(e) gefunden. Modell wählen und Verbindung testen.",
+    "description": "$1 model(s) found. Choose a model and test the connection.",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m9dc0c7bfa1cb": {
+    "message": "Generierung geprüft: $value1$ / $value2$ ($value3$ Sekunden).",
+    "description": "Generation verified: $1 / $2 ($3 seconds).",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      },
+      "value3": {
+        "content": "$3",
+        "example": "Example 3"
+      }
+    }
+  },
+  "m1480f220f050": {
+    "message": "Datei $value1$",
+    "description": "File $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "ma5ccceb868ed": {
+    "message": "Eine Moodle-Bewertungsseite über HTTPS öffnen.",
+    "description": "Open an HTTPS Moodle assignment grading page."
+  },
+  "m39db9b04cb92": {
+    "message": "HTTPS-Adresse Ihres Moodles eingeben.",
+    "description": "Enter your Moodle HTTPS address."
+  },
+  "m3882b96c4bf7": {
+    "message": "HTTPS ohne Zugangsdaten in der Adresse verwenden.",
+    "description": "Use HTTPS without credentials in the address."
+  },
+  "m9182b2289f8c": {
+    "message": "Moodle-Basisadresse oder Bewertungsseite eingeben.",
+    "description": "Enter the Moodle base address or a grading page."
+  },
+  "m74674e740b74": {
+    "message": "Zugriff auf dieses Moodle wurde nicht gewährt.",
+    "description": "Access to this Moodle was not granted."
+  },
+  "ma651f345237d": {
+    "message": "Website konnte nicht hinzugefügt werden.",
+    "description": "Could not add the site."
+  },
+  "mff4925e95305": {
+    "message": "Website konnte nicht entfernt werden.",
+    "description": "Could not remove the site."
+  },
+  "m2612dc6563e9": {
+    "message": "Korrekturfenster konnte nicht geöffnet werden.",
+    "description": "Could not open the correction panel."
+  },
+  "m1e2d2e25bab7": {
+    "message": "Person, Aufgabe oder Abgabe hat sich geändert. Daten neu erkennen und Korrektur anfordern.",
+    "description": "The student, assignment or submission changed. Detect the data and request a new correction."
+  },
+  "m2a8c9b4a4966": {
+    "message": "Ungültige Note für diese Aufgabe. Vor dem Anwenden prüfen.",
+    "description": "Invalid grade for this assignment. Review before applying."
+  },
+  "mc316498d364f": {
+    "message": "Die Korrektur muss ein JSON-Objekt sein.",
+    "description": "The correction must be a JSON object."
+  },
+  "m3abf874b3b50": {
+    "message": "Das JSON enthält keine gültige Korrektur.",
+    "description": "The JSON contains no valid correction."
+  },
+  "m861e845c8bf6": {
+    "message": "Das Raster enthält eine ungültige Auswahl. Vor dem Anwenden prüfen.",
+    "description": "The rubric contains an invalid selection. Review before applying."
+  },
+  "me6796b706016": {
+    "message": "Rasterkriterium nicht erkannt. Daten vor dem Anwenden aktualisieren.",
+    "description": "Could not identify a rubric criterion. Refresh the data before applying."
+  },
+  "m3c7dd8012c5d": {
+    "message": "Eine Korrektur läuft bereits.",
+    "description": "A correction is already running."
+  },
+  "m8ab497d062c4": {
+    "message": "KI-Korrektur fehlgeschlagen.",
+    "description": "AI correction failed."
+  },
+  "m7a013ccbd0f5": {
+    "message": "Abbruch fehlgeschlagen.",
+    "description": "Could not cancel."
+  },
+  "mfb0c708c289f": {
+    "message": "Lehrkraft-Vorgaben konnten nicht gespeichert werden.",
+    "description": "Could not save teacher criteria."
+  },
+  "m45a9799b89da": {
+    "message": "Frühere Anweisungen konnten nicht wiederhergestellt werden.",
+    "description": "Could not restore previous instructions."
+  },
+  "m697408432c9a": {
+    "message": "Gespeicherte Vorgaben konnten nicht wiederhergestellt werden.",
+    "description": "Could not restore saved criteria."
+  },
+  "m30be92468041": {
+    "message": "Dieser Kontext wurde in Moodle noch nicht erkannt.",
+    "description": "This context has not been detected in Moodle yet."
+  },
+  "m2e6fcb3d2f29": {
+    "message": "Erweiterte Einstellungen über das Korrekturfenster öffnen.",
+    "description": "Open advanced settings from the correction panel."
+  },
+  "mf6e887765552": {
+    "message": "Einstellungen über die Erweiterung öffnen.",
+    "description": "Open settings from the extension."
+  },
+  "m3234d7382c1e": {
+    "message": "Entfernte APIs erfordern HTTPS.",
+    "description": "Remote API providers require HTTPS."
+  },
+  "mc6007d666221": {
+    "message": "Serverzugriff nicht gewährt. Verbindung nicht gespeichert.",
+    "description": "Server access was not granted. The connection was not saved."
+  },
+  "m8de40f651f1f": {
+    "message": "Serveradresse und Port prüfen.",
+    "description": "Review the server address and port."
+  },
+  "m9714433e418f": {
+    "message": "Server nicht verfügbar. Lokalen API-Server starten und erneut versuchen.",
+    "description": "The server is unavailable. Start its local API server and try again."
+  },
+  "me8cc22a30b8a": {
+    "message": "KI-Einstellungen konnten nicht geladen werden.",
+    "description": "Could not load AI settings."
+  },
+  "m560577a4f08f": {
+    "message": "KI-Einstellungen konnten nicht gespeichert werden.",
+    "description": "Could not save AI settings."
+  },
+  "m7a545fa3b292": {
+    "message": "Modelle konnten nicht aufgelistet werden.",
+    "description": "Could not list models."
+  },
+  "m6dca7611bbc7": {
+    "message": "API-Schlüssel konnte nicht gelöscht werden.",
+    "description": "Could not remove the API key."
+  },
+  "m62d5931ecc13": {
+    "message": "Verbindungstest fehlgeschlagen.",
+    "description": "Connection test failed."
+  },
+  "m19f6d0387028": {
+    "message": "Unbenannte Datei",
+    "description": "Unnamed file"
+  },
+  "mffe10a8f99db": {
+    "message": "Bereit. $value1$ Anbieter verfügbar.",
+    "description": "Ready. $1 provider(s) available.",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m92150cafa089": {
+    "message": "Verbindung geprüft: $value1$ / $value2$.",
+    "description": "Connection verified: $1 / $2.",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m471bc1ad8e5d": {
+    "message": "Erweiterte Einstellungen konnten nicht geöffnet werden.",
+    "description": "Could not open advanced settings."
+  },
+  "mc603c529a1ed": {
+    "message": "Verbindung konnte nicht geprüft werden.",
+    "description": "Could not verify the connection."
+  },
+  "m3cc601a06fa1": {
+    "message": "Vor dem Anwenden ein Korrektur-JSON einfügen.",
+    "description": "Paste correction JSON before applying."
+  },
+  "m11179dfc0766": {
+    "message": "KI-Verbindung fehlgeschlagen. Einstellungen öffnen.",
+    "description": "Could not connect to AI. Open settings."
+  },
+  "mb1c842ef68a9": {
+    "message": "KI nicht erkannt oder keine Fähigkeiten gemeldet.",
+    "description": "AI did not respond with capabilities."
+  },
+  "mfd126937bd70": {
+    "message": "HTTP oder HTTPS wählen.",
+    "description": "Choose HTTP or HTTPS."
+  },
+  "m81f81b464edd": {
+    "message": "Gültige IP-Adresse oder Hostnamen ohne URL-Pfad eingeben.",
+    "description": "Enter a valid IP address or hostname without a URL path."
+  },
+  "m91dfa72468af": {
+    "message": "Port im eigenen Feld eingeben.",
+    "description": "Enter the port in its separate field."
+  },
+  "m89117fc45768": {
+    "message": "Der Port muss zwischen 1 und 65535 liegen.",
+    "description": "Port must be between 1 and 65535."
+  },
+  "mb113812c5104": {
+    "message": "API-Pfad darf keine Abfrage oder Fragment enthalten.",
+    "description": "The API path cannot contain a query string or fragment."
+  },
+  "m230f0e709e4f": {
+    "message": "ZIP Archiv",
+    "description": "ZIP archive"
+  },
+  "m0eaa5cb3ed9f": {
+    "message": "Textdatei",
+    "description": "Text file"
+  },
+  "m20acb97f78d5": {
+    "message": "Aufgabendatei",
+    "description": "Assignment file"
+  },
+  "mb993788d5e47": {
+    "message": "Verlinkte Datei",
+    "description": "Linked file"
+  },
+  "m47c3e221d78a": {
+    "message": "MP3 Audio",
+    "description": "MP3 audio"
+  },
+  "md991badf3f0e": {
+    "message": "CSV Daten",
+    "description": "CSV data"
+  },
+  "m64d53e283824": {
+    "message": "PDF Dokument",
+    "description": "PDF document"
+  },
+  "mb349569facff": {
+    "message": "DOC Dokument",
+    "description": "DOC document"
+  },
+  "m1d6d3a460fb1": {
+    "message": "DOCX Dokument",
+    "description": "DOCX document"
+  },
+  "mfd03e95f5128": {
+    "message": "ODT Dokument",
+    "description": "ODT document"
+  },
+  "m9bef72e7da4b": {
+    "message": "ODS Tabelle",
+    "description": "ODS spreadsheet"
+  },
+  "m63872bf5c0a6": {
+    "message": "XLS Tabelle",
+    "description": "XLS spreadsheet"
+  },
+  "m137140d801e0": {
+    "message": "XLSX Tabelle",
+    "description": "XLSX spreadsheet"
+  },
+  "m073dc2ec13bf": {
+    "message": "GIF Bild",
+    "description": "GIF image"
+  },
+  "m2e55a0ccb99e": {
+    "message": "JPEG Bild",
+    "description": "JPEG image"
+  },
+  "m6ef9788d38d3": {
+    "message": "PNG Bild",
+    "description": "PNG image"
+  },
+  "m8592788575cc": {
+    "message": "SVG Bild",
+    "description": "SVG image"
+  },
+  "m0770804a799c": {
+    "message": "WebP Bild",
+    "description": "WebP image"
+  },
+  "m3799d6b60055": {
+    "message": "ODP Präsentation",
+    "description": "ODP presentation"
+  },
+  "m752b6838a576": {
+    "message": "PPT Präsentation",
+    "description": "PPT presentation"
+  },
+  "m7cade9c685c8": {
+    "message": "PPTX Präsentation",
+    "description": "PPTX presentation"
+  },
+  "m1f5265d4bfbb": {
+    "message": "MP4 Video",
+    "description": "MP4 video"
+  },
+  "extensionName": {
+    "message": "MoodlIA Corrector"
+  },
+  "extensionDescription": {
+    "message": "KI-Feedback für Moodle-Aufgaben, von der Lehrkraft geprüft."
+  }
+}

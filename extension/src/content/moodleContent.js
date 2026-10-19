@@ -1,15 +1,17 @@
+(async () => {
+if (document.getElementById("mca-side-panel-host")) return;
+await MoodliaCorrectorI18n.init();
+if (document.getElementById("mca-side-panel-host")) return;
 const MOODLE_ASSIGNMENT_PATH = '/mod/assign/';
 const MOODLE_GRADER_PATH = '/mod/assign/view.php';
 const PANEL_WIDTH = 420;
 const FLOATING_BUTTON_ID = 'mca-floating-button-host';
 const PANEL_ID = 'mca-side-panel-host';
 const PAGE_STYLE_ID = 'mca-page-layout-style';
-const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.1.45',
+  version: '0.1.65',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -31,6 +33,11 @@ let currentAssignmentData = null;
 let currentCorrection = null;
 let originalPageStyles = null;
 let aiRuntimeStatus = null;
+let aiStatusRevision = 0;
+let gradingPageRevision = 0;
+let panelRefreshTimer = null;
+let savedInstructionsReady = Promise.resolve();
+let instructionsController = null;
 
 const isSupportedGraderPage = (url) =>
   url.pathname.endsWith(MOODLE_GRADER_PATH) && url.searchParams.get('action') === 'grader';
@@ -53,16 +60,6 @@ const getVisibleText = (element) => {
   }
 
   return String(element.innerText ?? element.textContent ?? '').replace(/\s+/g, ' ').trim();
-};
-
-const getVisibleTextWithoutAssistant = (element) => {
-  if (!element) {
-    return '';
-  }
-
-  const clone = element.cloneNode(true);
-  clone.querySelectorAll(`#${FLOATING_BUTTON_ID}, #${PANEL_ID}`).forEach((node) => node.remove());
-  return getVisibleText(clone);
 };
 
 const findFirstText = (selectors) => {
@@ -161,102 +158,6 @@ const getFileExtension = (fileName) => {
   return match ? match[1].toLowerCase() : '';
 };
 
-const readBlobAsBase64 = async (blob) => {
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = '';
-
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-
-  return btoa(binary);
-};
-
-const fetchSubmissionFileAttachments = async (submissionFiles) => {
-  const attachments = [];
-  let totalBytes = 0;
-
-  addPanelDiagnostic('attachments.fetch.start', { count: submissionFiles.length });
-
-  for (const file of submissionFiles) {
-    if (totalBytes >= MAX_TOTAL_ATTACHMENT_BYTES) {
-      addPanelDiagnostic('attachments.fetch.totalLimit', { totalBytes });
-      break;
-    }
-
-    try {
-      const response = await fetch(file.url, { credentials: 'include' });
-      if (!response.ok) {
-        addPanelDiagnostic('attachments.fetch.httpError', { id: file.id, status: response.status });
-        attachments.push({
-          id: file.id,
-          name: file.name,
-          mimeType: 'text/plain',
-          sizeBytes: 0,
-          textContent: `Could not fetch submitted file ${file.name}: HTTP ${response.status}.`,
-        });
-        continue;
-      }
-
-      const blob = await response.blob();
-      totalBytes += blob.size;
-
-      if (blob.size > MAX_ATTACHMENT_BYTES || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-        addPanelDiagnostic('attachments.fetch.skippedLarge', {
-          id: file.id,
-          sizeBytes: blob.size,
-          totalBytes,
-        });
-        attachments.push({
-          id: file.id,
-          name: file.name,
-          mimeType: 'text/plain',
-          sizeBytes: blob.size,
-          textContent: `Submitted file ${file.name} was detected but skipped because it is too large.`,
-        });
-        continue;
-      }
-
-      const mimeType = blob.type || 'application/octet-stream';
-      const attachment = {
-        id: file.id,
-        name: file.name,
-        mimeType,
-        sizeBytes: blob.size,
-      };
-
-      if (mimeType.startsWith('text/') || /\.(txt|csv|md|json|xml|html|css|js|ts|py|java|c|cpp)$/i.test(file.name)) {
-        attachment.textContent = await blob.text();
-      } else {
-        attachment.base64Data = await readBlobAsBase64(blob);
-      }
-
-      attachments.push(attachment);
-      addPanelDiagnostic('attachments.fetch.ok', {
-        id: file.id,
-        name: file.name,
-        mimeType,
-        sizeBytes: blob.size,
-      });
-    } catch (error) {
-      const message = error.message || String(error);
-      addPanelDiagnostic('attachments.fetch.error', { id: file.id, message });
-      attachments.push({
-        id: file.id,
-        name: file.name,
-        mimeType: 'text/plain',
-        sizeBytes: 0,
-        textContent: `Could not fetch submitted file ${file.name}: ${message}`,
-      });
-    }
-  }
-
-  addPanelDiagnostic('attachments.fetch.done', { count: attachments.length });
-  return attachments;
-};
-
 
 const extractOnlineText = () => {
   return findFirstText([
@@ -265,14 +166,6 @@ const extractOnlineText = () => {
     '[id*="assignsubmission_onlinetext"]',
     '.submissiontext',
   ]);
-};
-
-const toAbsoluteUrl = (url) => {
-  try {
-    return new URL(url, location.href).href;
-  } catch {
-    return '';
-  }
 };
 
 const isSameOriginUrl = (url) => {
@@ -327,13 +220,13 @@ const extractAssignmentTitle = (doc = document, pageUrl = location.href) => {
 const assignmentDescriptionSelectors = ['#intro', '.activity-description', '.intro', '[data-region="assignment-description"]', '.introattachments'];
 
 const getAssignmentFileType = (extension) => ({
-  '.odt': 'Documento de texto editable (ODT)', '.docx': 'Documento de Word (DOCX)', '.doc': 'Documento de Word (DOC)',
-  '.pdf': 'Documento PDF', '.ods': 'Hoja de cálculo (ODS)', '.xlsx': 'Hoja de cálculo (XLSX)', '.xls': 'Hoja de cálculo (XLS)',
-  '.odp': 'Presentación (ODP)', '.pptx': 'Presentación (PPTX)', '.ppt': 'Presentación (PPT)',
-  '.zip': 'Archivo comprimido (ZIP)', '.txt': 'Archivo de texto', '.csv': 'Datos CSV',
-  '.png': 'Imagen PNG', '.jpg': 'Imagen JPEG', '.jpeg': 'Imagen JPEG', '.webp': 'Imagen WebP', '.gif': 'Imagen GIF', '.svg': 'Imagen SVG',
-  '.mp4': 'Vídeo MP4', '.mp3': 'Audio MP3',
-}[extension] || (extension ? `Archivo ${extension.slice(1).toUpperCase()}` : 'Archivo enlazado'));
+  '.odt': MoodliaCorrectorI18n.t('Documento de texto editable (ODT)'), '.docx': MoodliaCorrectorI18n.t('Documento de Word (DOCX)'), '.doc': MoodliaCorrectorI18n.t('Documento de Word (DOC)'),
+  '.pdf': MoodliaCorrectorI18n.t('Documento PDF'), '.ods': MoodliaCorrectorI18n.t('Hoja de cálculo (ODS)'), '.xlsx': MoodliaCorrectorI18n.t('Hoja de cálculo (XLSX)'), '.xls': MoodliaCorrectorI18n.t('Hoja de cálculo (XLS)'),
+  '.odp': MoodliaCorrectorI18n.t('Presentación (ODP)'), '.pptx': MoodliaCorrectorI18n.t('Presentación (PPTX)'), '.ppt': MoodliaCorrectorI18n.t('Presentación (PPT)'),
+  '.zip': MoodliaCorrectorI18n.t('Archivo comprimido (ZIP)'), '.txt': MoodliaCorrectorI18n.t('Archivo de texto'), '.csv': MoodliaCorrectorI18n.t('Datos CSV'),
+  '.png': MoodliaCorrectorI18n.t('Imagen PNG'), '.jpg': MoodliaCorrectorI18n.t('Imagen JPEG'), '.jpeg': MoodliaCorrectorI18n.t('Imagen JPEG'), '.webp': MoodliaCorrectorI18n.t('Imagen WebP'), '.gif': MoodliaCorrectorI18n.t('Imagen GIF'), '.svg': MoodliaCorrectorI18n.t('Imagen SVG'),
+  '.mp4': MoodliaCorrectorI18n.t('Vídeo MP4'), '.mp3': MoodliaCorrectorI18n.t('Audio MP3'),
+}[extension] || (extension ? `Archivo ${extension.slice(1).toUpperCase()}` : MoodliaCorrectorI18n.t('Archivo enlazado')));
 
 const extractAssignmentFiles = (doc = document, pageUrl = location.href) => {
   const seen = new Set();
@@ -355,7 +248,7 @@ const extractAssignmentFiles = (doc = document, pageUrl = location.href) => {
       seen.add(key.href);
       const label = getVisibleText(element) || element.getAttribute('alt') || element.getAttribute('title') || '';
       files.push({
-        id: `assignment-file-${files.length + 1}`, name: download || name || label || 'Archivo del enunciado',
+        id: `assignment-file-${files.length + 1}`, name: download || name || label || MoodliaCorrectorI18n.t('Archivo del enunciado'),
         label, url: url.href, extension, typeDescription: getAssignmentFileType(extension),
         source: 'assignment-description', embedded: element.tagName === 'IMG', contentRead: false,
       });
@@ -370,7 +263,7 @@ const createAssignmentFileList = (files = []) => {
   list.dataset.assignmentFiles = 'true';
   if (!files.length) {
     const item = document.createElement('li');
-    item.textContent = 'No se han detectado archivos en la descripción de la tarea.';
+    item.textContent = MoodliaCorrectorI18n.t('No se han detectado archivos en la descripción de la tarea.');
     list.appendChild(item);
   }
   for (const file of files) {
@@ -381,10 +274,10 @@ const createAssignmentFileList = (files = []) => {
     link.rel = 'noopener noreferrer';
     link.textContent = file.name;
     const description = document.createElement('p');
-    description.textContent = `${file.typeDescription}. ${file.embedded ? 'Imagen incluida en el enunciado.' : file.label || 'Archivo enlazado desde el enunciado.'}`;
+    description.textContent = `${file.typeDescription}. ${file.embedded ? 'Imagen incluida en el enunciado.' : file.label || MoodliaCorrectorI18n.t('Archivo enlazado desde el enunciado.')}`;
     const state = document.createElement('p');
     state.className = 'hint';
-    state.textContent = 'Enlace detectado; el contenido del archivo no se ha leído ni incorporado a la corrección.';
+    state.textContent = MoodliaCorrectorI18n.t('Material de referencia del enunciado, no trabajo del alumno. Su contenido se leerá al solicitar la corrección con IA, si el formato y el acceso son compatibles.');
     item.append(link, description, state);
     list.appendChild(item);
   }
@@ -396,7 +289,7 @@ const extractDescriptionFromDocument = (doc) => {
     const element = doc.querySelector(selector);
     const text = getVisibleText(element);
     if (text) {
-      return text.slice(0, 12000);
+      return text;
     }
   }
 
@@ -451,25 +344,76 @@ const getPageContext = () => ({
   detectedAsMoodleAssignment: location.pathname.includes(MOODLE_ASSIGNMENT_PATH),
 });
 
-const extractMaxScore = () => {
-  const gradeInputs = [
-    ...document.querySelectorAll('input[name*="grade" i], input[id*="grade" i]'),
-  ];
-
-  for (const input of gradeInputs) {
-    const max = input.getAttribute('max');
-    if (max && Number.isFinite(Number(max))) {
-      return Number(max);
+const getInstructionContext = () => {
+  const url = new URL(location.href);
+  const basePath = url.pathname.slice(0, url.pathname.lastIndexOf('/mod/assign/'));
+  let courseId = document.body.className.match(/\bcourse-(\d+)\b/)?.[1] || '';
+  if (!courseId) {
+    for (const link of document.querySelectorAll('a[href*="/course/view.php"]')) {
+      try {
+        const course = new URL(link.href);
+        if (course.origin === url.origin && course.pathname === `${basePath}/course/view.php` && /^\d+$/.test(course.searchParams.get('id') || '')) {
+          courseId = course.searchParams.get('id');
+          break;
+        }
+      } catch { /* Ignore malformed course links. */ }
     }
   }
+  return {
+    site: `${url.origin}${basePath}`, courseId,
+    assignmentId: url.searchParams.get('id') || '',
+    userId: document.querySelector('input[name="userid"]')?.value || url.searchParams.get('userid') || '',
+    attemptId: document.querySelector('input[name="attemptnumber"]')?.value || url.searchParams.get('attemptnumber') || '0',
+  };
+};
 
-  const bodyText = getVisibleTextWithoutAssistant(document.body);
-  const match = bodyText.match(/(?:grade|score|nota|puntuaci[o\u00f3]n)\D{0,20}(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)/i);
-  if (match?.[2]) {
-    return Number(match[2].replace(',', '.'));
+// This snapshot stays inside the extension; it is excluded from the AI prompt.
+const getGradingContext = () => {
+  const url = new URL(location.href);
+  return JSON.stringify({
+    revision: gradingPageRevision,
+    page: `${url.origin}${url.pathname}`,
+    assignment: url.searchParams.get('id'),
+    user: url.searchParams.get('userid'),
+    attempt: url.searchParams.get('attemptnumber'),
+    formUser: document.querySelector('input[name="userid"]')?.value || '',
+    student: extractStudentName(),
+    submission: extractSubmissionText(),
+    files: extractSubmissionFiles().map((file) => file.url),
+    maxScore: extractMaxScore(),
+    rubric: extractRubric().map(({ id, levels }) => ({ id, levels: levels.map(({ id, value, text, score, index }) => ({ id, value, text, score, index })) })),
+  });
+};
+
+const assertGradingContext = (expected) => {
+  if (!expected || expected !== getGradingContext()) {
+    throw new Error(MoodliaCorrectorI18n.t('El alumno, la tarea o la entrega han cambiado. Vuelve a extraer los datos y solicita otra corrección.'));
   }
+};
 
+const extractMaxScore = () => {
+  const input = findGradeInput();
+  if (!input) return null;
+  const declared = input.getAttribute('max');
+  if (declared?.trim() && Number.isFinite(Number(declared)) && Number(declared) >= 0) return Number(declared);
+  const labels = [
+    ...[...(input.labels || [])].map(getVisibleText),
+    input.getAttribute('aria-label') || '',
+    ...(input.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean)
+      .map((id) => getVisibleText(document.getElementById(id))),
+  ];
+  for (const label of labels) {
+    const match = label.match(/(?:calificaci[oó]n|cualificaci[oó]n|grade|score|nota|puntuaci[oó]n)\s*(?:sobre|out\s+of|maximum|max\.?|m[aá]xima|\/)\s*[:(]?\s*(\d+(?:[.,]\d+)?)/i);
+    if (match) return Number(match[1].replace(',', '.'));
+  }
   return null;
+};
+
+const describeGradingMode = (assignmentData) => {
+  const labels = { 'simple-direct': MoodliaCorrectorI18n.t('Calificación directa simple'), rubric: MoodliaCorrectorI18n.t('Rúbrica'), 'grading-guide': MoodliaCorrectorI18n.t('Guía de evaluación') };
+  const label = labels[assignmentData?.correctionMethod] || MoodliaCorrectorI18n.t('Método no detectado');
+  if (assignmentData?.correctionMethod !== 'simple-direct') return MoodliaCorrectorI18n.message`Modo: ${label}`;
+  return MoodliaCorrectorI18n.message`Modo: ${label} · ${assignmentData.maxScore === null ? MoodliaCorrectorI18n.t('máximo no detectado') : MoodliaCorrectorI18n.message`sobre ${assignmentData.maxScore}`}`;
 };
 
 const getUniqueElements = (elements) => {
@@ -823,7 +767,7 @@ const extractCorrectionMethod = () => {
   }
 
   return {
-    type: 'manual',
+    type: findGradeInput() ? 'simple-direct' : 'manual',
     rubric: [],
     guide: [],
   };
@@ -832,7 +776,7 @@ const extractCorrectionMethod = () => {
 const extractSubmissionText = () => {
   const onlineText = extractOnlineText();
   if (onlineText) {
-    return onlineText.slice(0, 12000);
+    return onlineText;
   }
 
   return '';
@@ -883,6 +827,7 @@ const waitForGradingPanelReady = (timeoutMs = 30_000) => {
 
 const extractAssignmentData = async () => {
   await waitForGradingPanelReady();
+  const gradingContext = getGradingContext();
   const descriptionLink = extractAssignmentDescriptionLink();
   const linkedDescription = await fetchAssignmentDescription(descriptionLink);
   const submissionFiles = extractSubmissionFiles();
@@ -896,9 +841,12 @@ const extractAssignmentData = async () => {
     if (!assignmentFiles.some((existing) => existing.url === file.url)) assignmentFiles.push(file);
   }
   assignmentFiles.forEach((file, index) => { file.id = `assignment-file-${index + 1}`; });
+  assertGradingContext(gradingContext);
 
   return {
+    gradingContext,
     page: getPageContext(),
+    instructionContext: getInstructionContext(),
     courseName: extractCourseName(),
     studentName: extractStudentName(),
     assignmentTitle: extractAssignmentTitle() || linkedDescription?.title || cleanAssignmentTitle(descriptionLink?.label),
@@ -929,9 +877,12 @@ const extractAssignmentData = async () => {
 };
 
 const findGradeInput = () => {
-  return document.querySelector(
-    'input[name*="grade" i]:not([type="hidden"]), input[id*="grade" i]:not([type="hidden"])',
-  );
+  for (const selector of ['#id_grade', 'input[name="grade"]', '[data-region="grade"] input[name*="grade" i]']) {
+    const candidate = [...document.querySelectorAll(selector)].find((input) =>
+      ['text', 'number'].includes(input.type) && !input.disabled && !input.readOnly);
+    if (candidate) return candidate;
+  }
+  return null;
 };
 
 const findCommentBox = () => {
@@ -1015,28 +966,10 @@ const setTinyMceIframeValue = (element, value) => {
   return true;
 };
 
-const findCriterionElement = (criterionId, fallbackIndex = -1) => {
-  if (criterionId) {
-    const byId = document.getElementById(criterionId);
-    if (byId) {
-      return byId;
-    }
-
-    for (const criterion of getRubricCriterionElements()) {
-      if (
-        criterion.dataset.mcaCriterionId === criterionId ||
-        criterion.getAttribute('data-criterion-id') === criterionId ||
-        criterion.querySelector('input[name*="criterion" i]')?.name === criterionId
-      ) {
-        return criterion;
-      }
-    }
-  }
-
-  const criteria = getRubricCriterionElements();
-
-  return fallbackIndex >= 0 ? criteria[fallbackIndex] || null : null;
-};
+const findCriterionElement = (criterionId) => getRubricCriterionElements().find(criterion =>
+  criterion.id === criterionId || criterion.dataset.mcaCriterionId === criterionId ||
+  criterion.getAttribute('data-criterion-id') === criterionId ||
+  criterion.querySelector('input[name*="criterion" i]')?.name === criterionId) || null;
 
 const findCriterionCommentBox = (criterionElement) => {
   if (!criterionElement) {
@@ -1229,17 +1162,8 @@ const selectRubricLevel = (criterionElement, levelIndex, expectedLevelValues = [
   };
 };
 
-const getRubricCriterionDefinition = (selection = {}, selectionIndex = 0) => {
-  const rubric = currentAssignmentData?.rubric || [];
-  const criterionId = selection?.criterionId;
-
-  return (
-    rubric.find((criterion) => criterion.id === criterionId) ||
-    rubric[Number(selection?.criterionIndex)] ||
-    rubric[selectionIndex] ||
-    null
-  );
-};
+const getRubricCriterionDefinition = (selection = {}) =>
+  (currentAssignmentData?.rubric || []).find(criterion => criterion.id === selection.criterionId) || null;
 
 const getRubricLevelDefinition = (criterionDefinition = null, levelIndex = -1) => {
   if (!criterionDefinition || !Number.isInteger(levelIndex)) {
@@ -1248,7 +1172,6 @@ const getRubricLevelDefinition = (criterionDefinition = null, levelIndex = -1) =
 
   return (
     (criterionDefinition.levels || []).find((level) => Number(level?.index) === levelIndex) ||
-    criterionDefinition.levels?.[levelIndex] ||
     null
   );
 };
@@ -1264,11 +1187,7 @@ const applyRubricSelections = (rubricSelections) => {
 
   for (const [selectionIndex, selection] of rubricSelections.entries()) {
     const criterionId = selection?.criterionId;
-    let levelIndex = Number(selection?.levelIndex ?? selection?.level_index ?? selection?.level);
-    const misplacedLevelIndex = Number(selection?.criterionIndex);
-    if (!Number.isInteger(levelIndex) && criterionId && Number.isInteger(misplacedLevelIndex)) {
-      levelIndex = misplacedLevelIndex;
-    }
+    const levelIndex = selection?.levelIndex;
     if (!Number.isInteger(levelIndex)) {
       details.push({
         selectionIndex,
@@ -1280,11 +1199,8 @@ const applyRubricSelections = (rubricSelections) => {
       continue;
     }
 
-    const criterionDefinition = getRubricCriterionDefinition(selection, selectionIndex);
-    const criterionFallbackIndex = criterionDefinition
-      ? (currentAssignmentData?.rubric || []).indexOf(criterionDefinition)
-      : selectionIndex;
-    const criterion = findCriterionElement(criterionId, criterionFallbackIndex);
+    const criterionDefinition = getRubricCriterionDefinition(selection);
+    const criterion = findCriterionElement(criterionId);
     const levelDefinition = getRubricLevelDefinition(criterionDefinition, levelIndex);
     const expectedLevelValues = getRubricLevelCandidateValues(levelDefinition);
     const levelResult = selectRubricLevel(criterion, levelIndex, expectedLevelValues);
@@ -1325,7 +1241,25 @@ const applyRubricSelections = (rubricSelections) => {
 
 const applyCorrection = (correction) => {
   const parsedInput = correction?.parsed || correction;
-  const parsed = normalizeCorrectionResponse(parsedInput, currentAssignmentData || {}) || parsedInput;
+  const rawScore = parsedInput?.score;
+  const maximum = getExpectedMaxScore(currentAssignmentData || {});
+  if (rawScore !== undefined && rawScore !== null &&
+      (!['number', 'string'].includes(typeof rawScore) || String(rawScore).trim() === '' ||
+       !Number.isFinite(Number(rawScore)) || Number(rawScore) < 0 || maximum !== null && Number(rawScore) > maximum)) {
+    throw new Error(MoodliaCorrectorI18n.t('La nota no es válida para esta tarea. Revisa la corrección antes de aplicarla.'));
+  }
+  if (!parsedInput || typeof parsedInput !== 'object' || Array.isArray(parsedInput)) throw new Error(MoodliaCorrectorI18n.t('La corrección debe ser un objeto JSON.'));
+  const parsed = normalizeCorrectionResponse(parsedInput, currentAssignmentData || {});
+  if (!parsed) throw new Error(MoodliaCorrectorI18n.t('El JSON no contiene una corrección válida.'));
+  if (parsed?.needsRepair || parsed?.rubricSelections?.some((selection) => !Number.isInteger(selection.levelIndex))) {
+    throw new Error(MoodliaCorrectorI18n.t('La rúbrica contiene una selección inválida. Revisa la corrección antes de aplicarla.'));
+  }
+  for (const selection of parsed.rubricSelections || []) {
+    const definition = getRubricCriterionDefinition(selection);
+    if (!definition || !findCriterionElement(selection.criterionId) || !getRubricLevelDefinition(definition, selection.levelIndex)) {
+      throw new Error(MoodliaCorrectorI18n.t('No se ha podido identificar el criterio de rúbrica. Actualiza los datos antes de aplicar.'));
+    }
+  }
   const feedback = parsed?.studentFeedback || parsed?.feedback || '';
   const score = parsed?.score;
   const commentBox = findCommentBox();
@@ -1354,431 +1288,19 @@ const applyCorrection = (correction) => {
 
 const applyCorrectionWhenReady = async (correction) => {
   await waitForGradingPanelReady();
+  assertGradingContext(correction?.gradingContext || currentAssignmentData?.gradingContext);
   return applyCorrection(correction);
 };
 
 const sendBackgroundMessage = (message) => chrome.runtime.sendMessage(message);
 
-const createRequestId = () => crypto.randomUUID();
-
-const buildAiAssignmentPayload = (assignmentData) => ({
-  page: assignmentData.page,
-  courseName: assignmentData.courseName,
-  studentName: assignmentData.studentName,
-  assignmentTitle: assignmentData.assignmentTitle,
-  assignmentDescription: {
-    source: assignmentData.linkedAssignmentDescription?.text ? 'linked-description' : 'inline-page',
-    text: assignmentData.assignmentPrompt || '',
-  },
-  correctionMethod: assignmentData.correctionMethod || 'manual',
-  extraInstructions: assignmentData.extraInstructions || '',
-  maxScore: assignmentData.maxScore,
-  gradingControls: assignmentData.gradingControls || {},
-  rubric: assignmentData.rubric || [],
-  gradingGuide: assignmentData.gradingGuide || [],
-  submission: {
-    onlineText: assignmentData.submissionText || '',
-    files: (assignmentData.submissionFiles || []).map((file) => ({
-      id: file.id,
-      name: file.name,
-    })),
-    extraFiles: (assignmentData.extraFiles || []).map((file) => ({
-      id: file.id,
-      name: file.name,
-      mimeType: file.mimeType || '',
-      sizeBytes: file.sizeBytes || null,
-      source: file.source || 'manual-upload',
-    })),
-  },
-});
-
-const getLanguageInstruction = (languageCode = '') => {
-  const normalized = String(languageCode || '').toLowerCase();
-  const languageMap = {
-    gl: 'Galician (galego)',
-    'gl-es': 'Galician (galego)',
-    es: 'Spanish (español)',
-    'es-es': 'Spanish (español)',
-    en: 'English',
-    'en-us': 'English',
-    'en-gb': 'English',
-  };
-
-  return languageMap[normalized] || languageCode || 'the Moodle page language';
-};
-
-const getRubricCriteriaWithLevels = (assignmentData = {}) =>
-  (assignmentData.rubric || []).filter(
-    (criterion) =>
-      Array.isArray(criterion.levels) &&
-      criterion.levels.length > 0 &&
-      !/-levels(?:-|$)/i.test(criterion.id || '') &&
-      !/-description-cell$/i.test(criterion.id || '') &&
-      criterion.controls?.levelSelection !== false,
-  );
-
-const getExpectedMaxScore = (assignmentData = {}) => assignmentData.maxScore ?? null;
-
-const hasNumericGradeControl = (assignmentData = {}) =>
-  Boolean(assignmentData.gradingControls?.grade) && getExpectedMaxScore(assignmentData) !== null;
-
-const getScoreTemplate = (assignmentData = {}) => (hasNumericGradeControl(assignmentData) ? 7.5 : null);
-
-const buildRubricSelectionTemplate = (assignmentData = {}) => {
-  const rubricCriteria = getRubricCriteriaWithLevels(assignmentData);
-
-  if (rubricCriteria.length === 0) {
-    return [];
-  }
-
-  return rubricCriteria.map((criterion, criterionIndex) => ({
-    criterionId: criterion.id,
-    levelIndex: null,
-    criterionFeedback: `Feedback for criterion ${criterionIndex + 1}, in the Moodle page language.`,
-  }));
-};
-
-const buildRubricLevelReference = (assignmentData = {}) =>
-  getRubricCriteriaWithLevels(assignmentData).map((criterion) => ({
-    criterionId: criterion.id,
-    description: criterion.description,
-    allowedLevels: (criterion.levels || []).map((level, fallbackIndex) => ({
-      levelIndex: Number(level?.index ?? fallbackIndex),
-      score: level?.score ?? null,
-      description: level?.text || '',
-    })),
-  }));
-
-const buildCorrectionPrompt = (assignmentData) => {
-  const aiPayload = buildAiAssignmentPayload(assignmentData);
-  const pageLanguage = getLanguageInstruction(assignmentData.page?.language);
-  const expectedRubricSelections = buildRubricSelectionTemplate(assignmentData);
-  const rubricLevelReference = buildRubricLevelReference(assignmentData);
-
-  return [
-    'You are an educational assessment assistant helping a teacher grade a Moodle assignment.',
-    `Write every human-facing string value in the Moodle page language: ${pageLanguage}.`,
-    'Return one valid JSON object only: no Markdown, prose, disclaimers, duplicate keys, templates, headings, bullet lists, placeholders, or extra top-level keys.',
-    '',
-    'Return this exact JSON shape:',
-    JSON.stringify(
-      {
-        studentFeedback: 'Final feedback addressed to the student, in the Moodle page language.',
-        score: getScoreTemplate(assignmentData),
-        maxScore: getExpectedMaxScore(assignmentData),
-        rubricSelections: expectedRubricSelections,
-      },
-      null,
-      2,
-    ),
-    '',
-    'Evidence rules:',
-    '- Be fair, compact, specific, evidence-based, and aligned with the Moodle rubric.',
-    '- Base the decision only on the assignment statement, online text, inspectable submitted file content, and correction method.',
-    '- Also follow the teacher additional instructions when provided, unless they conflict with the Moodle rubric, assignment evidence, or the schema.',
-    '- If submitted file content is missing or cannot be inspected, do not invent its title, topic, AI tool, prompts, methodology, activities, adaptations, conclusions, or student identity from file names.',
-    '- When evidence is missing or unverifiable, state the limitation in studentFeedback and affected criterionFeedback, then choose a conservative level.',
-    '',
-    'Score rules:',
-    `- maxScore must be exactly ${JSON.stringify(getExpectedMaxScore(assignmentData))}. Do not infer or invent another maximum.`,
-    hasNumericGradeControl(assignmentData)
-      ? '- score may be numeric because Moodle exposes a numeric grade control.'
-      : '- score must be null because Moodle does not expose a numeric grade control or maxScore is null.',
-    '',
-    'Rubric rules:',
-    `- The detected rubric has ${expectedRubricSelections.length} criterion item(s) with levels. Return exactly ${expectedRubricSelections.length} rubricSelections item(s).`,
-    '- Every rubricSelections item must contain exactly these three keys: criterionId, levelIndex, and criterionFeedback.',
-    '- Use every criterionId from the template above exactly as written.',
-    '- The template levelIndex is null only as a placeholder. Never return null.',
-    '- For each criterion, choose exactly one levelIndex from the Rubric level index reference below.',
-    '- Choose each levelIndex independently from the evidence and the level descriptions. Do not copy the first level by default.',
-    '- Returning levelIndex 0 for every criterion is invalid unless the evidence genuinely matches the first/lowest level for every criterion.',
-    '- The first visible level is levelIndex 0, the next is 1, and so on.',
-    '- Never add criterionIndex, reason, score, maxScore, levelId, or any other key inside rubricSelections.',
-    '- Use the Moodle rubric criteria only. Choose one level per criterion and include criterionFeedback for every criterion.',
-    '- criterionFeedback must explain briefly why that level was selected and mention the most relevant evidence.',
-    '',
-    'Rubric level index reference:',
-    JSON.stringify(rubricLevelReference, null, 2),
-    '',
-    'Language and feedback rules:',
-    '- studentFeedback must be the final overall feedback for the Moodle feedback comments box.',
-    '- studentFeedback must be constructive, concise, and ready to send to the student.',
-    '- Do not use Spanish or mixed-language forms when the Moodle page language is Galician.',
-    '- Keep property names in English exactly as shown.',
-    '- Forbidden top-level keys: assessment_type, subject, assignment_context, grading_suggestions, criteria_breakdown, suggested_revision_tasks.',
-    '',
-    'Assignment data:',
-    JSON.stringify(aiPayload, null, 2),
-  ].join('\n');
-};
-
-const parseJsonResponse = (text) => {
-  const trimmed = String(text || '').trim();
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const match = trimmed.match(/\{[\s\S]*\}/);
-    if (!match) {
-      return null;
-    }
-    try {
-      return JSON.parse(match[0]);
-    } catch {
-      return null;
-    }
-  }
-};
-
-const stripMarkdownForFeedback = (text) =>
-  String(text || '')
-    .replace(/```(?:json)?/gi, '')
-    .replace(/\*\*\*/g, '')
-    .replace(/^#+\s+/gm, '')
-    .trim();
-
-const buildFallbackCorrection = (text, assignmentData = {}) => {
-  const feedback = stripMarkdownForFeedback(text).slice(0, 12000);
-
-  return {
-    needsRepair: true,
-    studentFeedback: feedback || 'AI did not return a usable correction.',
-    score: null,
-    maxScore: getExpectedMaxScore(assignmentData),
-    rubricSelections: buildFallbackRubricSelections(assignmentData, feedback),
-  };
-};
-
-const buildFallbackRubricFeedback = (assignmentData = {}, criterionIndex = 0, baseFeedback = '') => {
-  const pageLanguage = getLanguageInstruction(assignmentData.page?.language);
-  const prefix =
-    pageLanguage.includes('Galician')
-      ? 'Non foi posible obter unha valoración específica deste criterio coa resposta da IA. Revise a entrega e axuste este nivel se é necesario.'
-      : pageLanguage.includes('Spanish')
-        ? 'No fue posible obtener una valoración específica de este criterio con la respuesta de la IA. Revise la entrega y ajuste este nivel si es necesario.'
-        : 'The AI response did not provide a specific assessment for this criterion. Review the submission and adjust this level if needed.';
-  const shortFeedback = stripMarkdownForFeedback(baseFeedback).slice(0, 500);
-
-  return shortFeedback ? `${prefix} ${shortFeedback}` : `${prefix} Criterio ${criterionIndex + 1}.`;
-};
-
-const buildFallbackRubricSelections = (assignmentData = {}, baseFeedback = '') =>
-  getRubricCriteriaWithLevels(assignmentData).map((criterion, criterionIndex) => ({
-    criterionId: criterion.id,
-    levelIndex: 0,
-    criterionFeedback: buildFallbackRubricFeedback(assignmentData, criterionIndex, baseFeedback),
-  }));
-
-const getValidRubricLevelIndexes = (criterion = {}) =>
-  (criterion.levels || [])
-    .map((level, fallbackIndex) => Number(level?.index ?? fallbackIndex))
-    .filter((levelIndex) => Number.isInteger(levelIndex));
-
-const normalizeRubricLevelIndex = (criterion = {}, selection = {}, options = {}) => {
-  const validLevelIndexes = getValidRubricLevelIndexes(criterion);
-  const fallbackLevelIndex = validLevelIndexes[0] ?? 0;
-  const explicitLevelIndex = Number(selection?.levelIndex ?? selection?.level_index ?? selection?.level);
-  if (Number.isInteger(explicitLevelIndex)) {
-    return validLevelIndexes.includes(explicitLevelIndex) ? explicitLevelIndex : fallbackLevelIndex;
-  }
-
-  const misplacedLevelIndex = Number(selection?.criterionIndex);
-  if (options.allowCriterionIndexAsLevel && validLevelIndexes.includes(misplacedLevelIndex)) {
-    return misplacedLevelIndex;
-  }
-
-  return fallbackLevelIndex;
-};
-
-const normalizeComparableText = (value = '') =>
-  String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-
-const getSelectionCriterionNumber = (selection = {}) => {
-  const rawNumber =
-    selection.criterionNumber ??
-    selection.criterion_number ??
-    selection.number ??
-    selection.order ??
-    null;
-  if (rawNumber === null || rawNumber === undefined || rawNumber === '') {
-    return null;
-  }
-  const criterionNumber = Number(rawNumber);
-  return Number.isInteger(criterionNumber) ? criterionNumber : null;
-};
-
-const getSelectionCriterionIndex = (selection = {}) => {
-  const rawIndex = selection.criterionIndex ?? selection.criterion_index ?? selection.index ?? null;
-  if (rawIndex === null || rawIndex === undefined || rawIndex === '') {
-    return null;
-  }
-  const criterionIndex = Number(rawIndex);
-  return Number.isInteger(criterionIndex) ? criterionIndex : null;
-};
-
-const getSelectionCriterionText = (selection = {}) =>
-  normalizeComparableText(
-    selection.criterion ||
-      selection.criterionName ||
-      selection.criterionTitle ||
-      selection.criterionDescription ||
-      selection.description ||
-      selection.title ||
-      '',
-  );
-
-const findRubricSelectionForCriterion = (rubricSelections = [], criterion = {}, criterionIndex = 0) => {
-  const selectionById = rubricSelections.find((selection) => selection?.criterionId === criterion.id);
-  if (selectionById) {
-    return selectionById;
-  }
-
-  const selectionByNumber = rubricSelections.find((selection) => {
-    const criterionNumber = getSelectionCriterionNumber(selection);
-    const explicitCriterionIndex = getSelectionCriterionIndex(selection);
-    return criterionNumber === criterionIndex + 1 || explicitCriterionIndex === criterionIndex;
-  });
-  if (selectionByNumber) {
-    return selectionByNumber;
-  }
-
-  const criterionText = normalizeComparableText(criterion.description);
-  const selectionByText = criterionText
-    ? rubricSelections.find((selection) => {
-        const selectionText = getSelectionCriterionText(selection);
-        return selectionText && (criterionText.includes(selectionText) || selectionText.includes(criterionText));
-      })
-    : null;
-  if (selectionByText) {
-    return selectionByText;
-  }
-
-  return rubricSelections[criterionIndex] || {};
-};
-
-const normalizeRubricSelections = (assignmentData = {}, rubricSelections = [], baseFeedback = '') => {
-  const expectedCriteria = getRubricCriteriaWithLevels(assignmentData);
-  const fallbackSelections = buildFallbackRubricSelections(assignmentData, baseFeedback);
-
-  return expectedCriteria.map((criterion, criterionIndex) => {
-    const matchingSelection = findRubricSelectionForCriterion(rubricSelections, criterion, criterionIndex);
-    const matchedById = matchingSelection?.criterionId === criterion.id;
-    const fallbackSelection = fallbackSelections[criterionIndex] || {};
-
-    return {
-      criterionId: criterion.id,
-      levelIndex: normalizeRubricLevelIndex(criterion, matchingSelection, {
-        allowCriterionIndexAsLevel: matchedById,
-      }),
-      criterionFeedback:
-        matchingSelection.criterionFeedback ||
-        matchingSelection.finalFeedback ||
-        matchingSelection.feedback ||
-        matchingSelection.comment ||
-        fallbackSelection.criterionFeedback ||
-        '',
-    };
-  });
-};
-
-const getFinalComment = (parsed = {}) =>
-  parsed.finalComment ||
-  parsed.finalFeedback ||
-  parsed.studentFeedback ||
-  parsed.feedback ||
-  parsed.overallFeedback ||
-  parsed.overall_feedback ||
-  '';
-
-const getRubricSelectionsInput = (parsed = {}) => {
-  const candidates = [
-    parsed.rubricSelections,
-    parsed.criteria,
-    parsed.criterionSelections,
-    parsed.criteriaSelections,
-    parsed.rubric,
-  ];
-  return candidates.find((candidate) => Array.isArray(candidate)) || [];
-};
-
-const getForeignSchemaFeedback = (parsed) => {
-  if (!parsed || typeof parsed !== 'object') {
-    return '';
-  }
-
-  return (
-    getFinalComment(parsed) ||
-    parsed.grading_suggestions?.overall_feedback ||
-    parsed.grading_suggestions?.summary ||
-    parsed.assignment_context ||
-    ''
-  );
-};
-
-const normalizeCorrectionResponse = (parsed, assignmentData = {}) => {
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return null;
-  }
-
-  const studentFeedback = getFinalComment(parsed);
-  const rubricSelections = getRubricSelectionsInput(parsed);
-  const hasExpectedShape =
-    Object.prototype.hasOwnProperty.call(parsed, 'finalComment') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'finalFeedback') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'studentFeedback') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'score') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'rubricSelections') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'criteria');
-
-  if (!hasExpectedShape) {
-    const foreignFeedback = getForeignSchemaFeedback(parsed);
-    if (!foreignFeedback) {
-      return null;
-    }
-
-    return {
-      needsRepair: true,
-      studentFeedback: foreignFeedback,
-      score: null,
-      maxScore: getExpectedMaxScore(assignmentData),
-      rubricSelections: buildFallbackRubricSelections(assignmentData, foreignFeedback),
-    };
-  }
-
-  return {
-    needsRepair: false,
-    studentFeedback,
-    score: hasNumericGradeControl(assignmentData) && parsed.score !== null && parsed.score !== '' && parsed.score !== undefined && Number.isFinite(Number(parsed.score)) ? Number(parsed.score) : null,
-    maxScore: getExpectedMaxScore(assignmentData),
-    rubricSelections: normalizeRubricSelections(assignmentData, rubricSelections, studentFeedback),
-  };
-};
-
-const parseCorrectionResponse = (text, assignmentData = {}) =>
-  normalizeCorrectionResponse(parseJsonResponse(text), assignmentData) || buildFallbackCorrection(text, assignmentData);
-
-const getCorrectionCompleteness = (correction, assignmentData = {}) => {
-  const expectedRubricCount = getRubricCriteriaWithLevels(assignmentData).length;
-  const actualRubricCount = Array.isArray(correction?.rubricSelections) ? correction.rubricSelections.length : 0;
-
-  return {
-    hasStudentFeedback: Boolean(correction?.studentFeedback?.trim?.()),
-    hasSupportedSchema: correction?.needsRepair !== true,
-    expectedRubricCount,
-    actualRubricCount,
-    hasCompleteRubric: expectedRubricCount === 0 || actualRubricCount >= expectedRubricCount,
-  };
-};
+const { getExpectedMaxScore, getFinalComment, normalizeCorrectionResponse } = MoodliaCorrectorSchema;
 
 let activeCorrectionRequestId = null;
 const requestAiCorrectionFromPage = async (assignmentData) => {
-  if (activeCorrectionRequestId) throw new Error('Ya hay una corrección en curso.');
+  if (activeCorrectionRequestId) throw new Error(MoodliaCorrectorI18n.t('Ya hay una corrección en curso.'));
+  const gradingContext = assignmentData.gradingContext;
+  assertGradingContext(gradingContext);
   const requestId = crypto.randomUUID();
   activeCorrectionRequestId = requestId;
   try {
@@ -1788,21 +1310,24 @@ const requestAiCorrectionFromPage = async (assignmentData) => {
       requestId,
     });
 
+    assertGradingContext(gradingContext);
     if (!response?.ok) {
-      throw new Error(response?.error || 'La corrección con IA ha fallado.');
+      throw new Error(response?.error || MoodliaCorrectorI18n.t('La corrección con IA ha fallado.'));
     }
 
-    return response.correction;
-  } finally { activeCorrectionRequestId = null; }
+    return { ...response.correction, gradingContext };
+  } finally {
+    if (activeCorrectionRequestId === requestId) activeCorrectionRequestId = null;
+  }
 };
 
 const cancelCorrectionFromPage = async () => {
   if (!activeCorrectionRequestId) return;
   const response = await sendBackgroundMessage({ type: 'mca.cancelCorrection', requestId: activeCorrectionRequestId });
-  if (!response?.ok) throw new Error(response?.error || 'No se ha podido cancelar.');
+  if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('No se ha podido cancelar.'));
 };
 
-const createTextBlock = (text, emptyText = 'No detectado') => {
+const createTextBlock = (text, emptyText = MoodliaCorrectorI18n.t('No detectado')) => {
   const block = document.createElement('div');
   block.className = 'text-block';
   block.textContent = text || emptyText;
@@ -1833,17 +1358,17 @@ const renderAssignmentSummary = (container, assignmentData) => {
   const taskList = document.createElement('dl');
   taskList.className = 'compact-list';
   [
-    ['Curso', assignmentData.courseName || 'No detectado'],
-    ['Tarea', assignmentData.assignmentTitle || 'No detectada'],
-    ['Alumno/a', assignmentData.studentName || 'No detectado'],
-    ['Corrección', assignmentData.correctionMethod || 'manual'],
+    [MoodliaCorrectorI18n.t('Curso'), assignmentData.courseName || MoodliaCorrectorI18n.t('No detectado')],
+    [MoodliaCorrectorI18n.t('Tarea'), assignmentData.assignmentTitle || MoodliaCorrectorI18n.t('No detectada')],
+    [MoodliaCorrectorI18n.t('Alumno/a'), assignmentData.studentName || MoodliaCorrectorI18n.t('No detectado')],
+    [MoodliaCorrectorI18n.t('Corrección'), describeGradingMode(assignmentData).replace(/^Modo: /, '')],
     [
-      'Descripción',
+      MoodliaCorrectorI18n.t('Descripción'),
       assignmentData.assignmentDescriptionLink?.url
         ? assignmentData.assignmentDescriptionLink.url
-        : 'No detectada',
+        : MoodliaCorrectorI18n.t('No detectada'),
     ],
-    ['Puntuación máxima', assignmentData.maxScore ?? 'No detectada'],
+    [MoodliaCorrectorI18n.t('Puntuación máxima'), assignmentData.maxScore ?? MoodliaCorrectorI18n.t('No detectada')],
   ].forEach(([label, value]) => {
     const row = document.createElement('div');
     const term = document.createElement('dt');
@@ -1854,28 +1379,28 @@ const renderAssignmentSummary = (container, assignmentData) => {
     taskList.appendChild(row);
   });
 
-  addSection('Contexto de la tarea', taskList);
+  addSection(MoodliaCorrectorI18n.t('Contexto de la tarea'), taskList);
   const controlsList = document.createElement('dl');
   controlsList.className = 'compact-list';
   const gradingControls = assignmentData.gradingControls || {};
   [
     [
-      'Niveles de rúbrica',
+      MoodliaCorrectorI18n.t('Niveles de rúbrica'),
       assignmentData.rubric.length
-        ? `${gradingControls.rubricCriteriaWithLevelControls || 0} de ${assignmentData.rubric.length} criterios se pueden seleccionar`
-        : 'No se han detectado controles de rúbrica',
+        ? MoodliaCorrectorI18n.message`${gradingControls.rubricCriteriaWithLevelControls || 0} de ${assignmentData.rubric.length} criterios se pueden seleccionar`
+        : MoodliaCorrectorI18n.t('No se han detectado controles de rúbrica'),
     ],
     [
-      'Comentarios por criterio',
+      MoodliaCorrectorI18n.t('Comentarios por criterio'),
       assignmentData.rubric.length
-        ? `${gradingControls.rubricCriteriaWithCommentBoxes || 0} de ${assignmentData.rubric.length} cajas de comentario detectadas`
-        : 'No se han detectado comentarios por criterio',
+        ? MoodliaCorrectorI18n.message`${gradingControls.rubricCriteriaWithCommentBoxes || 0} de ${assignmentData.rubric.length} cajas de comentario detectadas`
+        : MoodliaCorrectorI18n.t('No se han detectado comentarios por criterio'),
     ],
     [
-      'Comentario final',
-      gradingControls.finalFeedback ? `Detectado (${gradingControls.finalFeedbackType})` : 'No detectado',
+      MoodliaCorrectorI18n.t('Comentario final'),
+      gradingControls.finalFeedback ? MoodliaCorrectorI18n.message`Detectado (${gradingControls.finalFeedbackType})` : MoodliaCorrectorI18n.t('No detectado'),
     ],
-    ['Campo de nota', gradingControls.grade ? `Detectado (${gradingControls.gradeType})` : 'No detectado'],
+    [MoodliaCorrectorI18n.t('Campo de nota'), gradingControls.grade ? MoodliaCorrectorI18n.message`Detectado (${gradingControls.gradeType})` : MoodliaCorrectorI18n.t('No detectado')],
   ].forEach(([label, value]) => {
     const row = document.createElement('div');
     const term = document.createElement('dt');
@@ -1885,24 +1410,24 @@ const renderAssignmentSummary = (container, assignmentData) => {
     row.append(term, description);
     controlsList.appendChild(row);
   });
-  addSection('Controles de corrección', controlsList);
+  addSection(MoodliaCorrectorI18n.t('Controles de corrección'), controlsList);
   addSection(
     assignmentData.linkedAssignmentDescription?.text ? 'Descripción enlazada de la tarea' : 'Instrucciones',
     assignmentData.assignmentPrompt ||
       assignmentData.linkedAssignmentDescription?.error ||
-      'No detectado',
+      MoodliaCorrectorI18n.t('No detectado'),
   );
-  addSection('Archivos de la descripción de la tarea', createAssignmentFileList(assignmentData.assignmentFiles), { open: true });
+  addSection(MoodliaCorrectorI18n.t('Material de referencia del enunciado (no es trabajo del alumno)'), createAssignmentFileList(assignmentData.assignmentFiles), { open: true });
   addSection(
-    'Texto de entrega en línea',
-    assignmentData.submissionText || 'No se ha detectado texto de entrega en línea.',
+    MoodliaCorrectorI18n.t('Texto de entrega en línea'),
+    assignmentData.submissionText || MoodliaCorrectorI18n.t('No se ha detectado texto de entrega en línea.'),
   );
 
   const files = document.createElement('ul');
   files.className = 'plain-list';
   if (assignmentData.submissionFiles.length === 0) {
     const item = document.createElement('li');
-    item.textContent = 'No se han detectado archivos entregados.';
+    item.textContent = MoodliaCorrectorI18n.t('No se han detectado archivos entregados.');
     files.appendChild(item);
   } else {
     for (const file of assignmentData.submissionFiles) {
@@ -1916,12 +1441,12 @@ const renderAssignmentSummary = (container, assignmentData) => {
       files.appendChild(item);
     }
   }
-  addSection('Archivos entregados', files);
+  addSection(MoodliaCorrectorI18n.t('Archivos entregados'), files);
 
   const rubric = document.createElement('div');
   rubric.className = 'rubric-list';
   if (assignmentData.rubric.length === 0) {
-    rubric.appendChild(createTextBlock('', 'No se ha detectado rúbrica.'));
+    rubric.appendChild(createTextBlock('', MoodliaCorrectorI18n.t('No se ha detectado rúbrica.')));
   } else {
     for (const criterion of assignmentData.rubric) {
       const item = document.createElement('details');
@@ -1929,21 +1454,21 @@ const renderAssignmentSummary = (container, assignmentData) => {
       const title = document.createElement('summary');
       title.textContent = criterion.description || criterion.id;
       const controls = document.createElement('p');
-      controls.textContent = `Niveles: ${criterion.controls?.levelSelection ? 'seleccionables' : 'no seleccionables'} · Comentario: ${
-        criterion.controls?.criterionComment ? `detectado (${criterion.controls.criterionCommentType})` : 'no detectado'
+      controls.textContent = `Niveles: ${criterion.controls?.levelSelection ? 'seleccionables' : MoodliaCorrectorI18n.t('no seleccionables')} · Comentario: ${
+        criterion.controls?.criterionComment ? `detectado (${criterion.controls.criterionCommentType})` : MoodliaCorrectorI18n.t('no detectado')
       }`;
       const levels = document.createElement('ol');
       levels.className = 'level-list';
 
       if (criterion.levels.length === 0) {
         const level = document.createElement('li');
-        level.textContent = 'No se han detectado niveles.';
+        level.textContent = MoodliaCorrectorI18n.t('No se han detectado niveles.');
         levels.appendChild(level);
       } else {
         for (const levelData of criterion.levels) {
           const level = document.createElement('li');
           const status = levelData.selectable ? 'seleccionable' : 'detectado';
-          level.textContent = `${levelData.text || `Nivel ${levelData.index + 1}`} (${status})`;
+          level.textContent = `${levelData.text || MoodliaCorrectorI18n.message`Nivel ${levelData.index + 1}`} (${status})`;
           levels.appendChild(level);
         }
       }
@@ -1952,7 +1477,7 @@ const renderAssignmentSummary = (container, assignmentData) => {
       rubric.appendChild(item);
     }
   }
-  addSection('Rúbrica', rubric);
+  addSection(MoodliaCorrectorI18n.t('Rúbrica'), rubric);
 
   if (assignmentData.gradingGuide?.length > 0) {
     const guide = document.createElement('div');
@@ -1964,12 +1489,12 @@ const renderAssignmentSummary = (container, assignmentData) => {
       const title = document.createElement('summary');
       title.textContent = criterion.description || criterion.id;
       const score = document.createElement('p');
-      score.textContent = criterion.maxScore ? `Puntuación máxima: ${criterion.maxScore}` : 'No se ha detectado puntuación';
+      score.textContent = criterion.maxScore ? MoodliaCorrectorI18n.message`Puntuación máxima: ${criterion.maxScore}` : MoodliaCorrectorI18n.t('No se ha detectado puntuación');
       item.append(title, score);
       guide.appendChild(item);
     }
 
-    addSection('Guía de evaluación', guide);
+    addSection(MoodliaCorrectorI18n.t('Guía de evaluación'), guide);
   }
 
   container.replaceChildren(fragment);
@@ -1989,6 +1514,39 @@ const createPanelStyles = () => {
     button, select, textarea {
       font: inherit;
     }
+
+    [hidden] { display: none !important; }
+    button:focus-visible, textarea:focus-visible, select:focus-visible {
+      outline: 2px solid #2453a6;
+      outline-offset: 3px;
+    }
+    .panel-tools { grid-column: 1 / -1; display: flex; gap: 8px; }
+    .panel-overview { grid-column: 1 / -1; border-top: 1px solid #dfe4ee; padding-top: 10px; }
+    .panel-overview [data-grading-mode] { margin: 0; color: #213b65; font-size: 15px; font-weight: 750; }
+    .panel-overview [data-status] { margin: 4px 0 0; color: #365075; font-size: 13px; font-weight: 550; }
+    .tool-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 8px;
+      color: #365075;
+      background: #eef2f7;
+    }
+    .tool-button:hover, .tool-button[aria-expanded="true"] { background: #dce7f8; color: #183c79; }
+    .tool-button svg { width: 22px; height: 22px; }
+    .technical-pane { display: grid; gap: 16px; background: #fff; padding: 14px; border-radius: 8px; }
+    .technical-pane > h3 { margin: 0; font-size: 15px; }
+    .technical-pane .runtime-card, .technical-pane .field-stack { padding: 0; border: 0; }
+    .instruction-fields { display: grid; gap: 8px; }
+    .instruction-fields textarea {
+      min-height: 110px;
+      font: inherit;
+      white-space: pre-wrap;
+    }
+    [data-result] { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .result-score { font-size: 16px; font-weight: 700; }
 
     button {
       border: 0;
@@ -2024,8 +1582,8 @@ const createPanelStyles = () => {
       z-index: 2147483645;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      width: ${PANEL_WIDTH}px;
-      max-width: calc(100vw - 40px);
+      width: min(${PANEL_WIDTH}px, 55vw);
+      max-width: 100vw;
       height: 100vh;
       background: #f4f6f9;
       border-left: 1px solid #d5dbe7;
@@ -2035,7 +1593,7 @@ const createPanelStyles = () => {
     }
 
     .panel[data-open="true"] {
-      transform: translateX(0);
+      transform: none;
     }
 
     .header {
@@ -2263,6 +1821,9 @@ const createPanelStyles = () => {
       padding: 0 12px 12px;
     }
 
+    .ai-mode-switch { position: sticky; top: 0; z-index: 3; background: #fff; padding: 8px 0; }
+    [data-ai-simple] { display: grid; gap: 10px; }
+    [data-ai-simple][hidden] { display: none; }
     .runtime-card {
       display: grid;
       gap: 8px;
@@ -2281,11 +1842,17 @@ const createPanelStyles = () => {
 
     .runtime-row {
       display: grid;
-      grid-template-columns: 78px 1fr;
+      grid-template-columns: 78px minmax(0, 1fr);
       gap: 8px;
       align-items: center;
     }
 
+    .runtime-row input[type="search"] {
+      width: 100%; min-width: 0; min-height: 32px; box-sizing: border-box;
+      border: 1px solid #c9d0dc; border-radius: 7px; padding: 0 8px;
+      background: #fff; color: #1d232f; font: inherit;
+    }
+    .runtime-row select { min-width: 0; }
     .runtime-row label {
       color: #5b6676;
       font-weight: 650;
@@ -2413,6 +1980,7 @@ const createPanelStyles = () => {
     }
 
     .plain-list {
+      overflow-wrap: anywhere;
       display: grid;
       gap: 5px;
       margin: 0;
@@ -2501,21 +2069,28 @@ const ensurePageLayoutStyle = () => {
   const style = document.createElement('style');
   style.id = PAGE_STYLE_ID;
   style.textContent = `
-    html.mca-panel-open,
-    html.mca-panel-open body {
+    html.mca-panel-open {
+      --mca-panel-width: min(${PANEL_WIDTH}px, 55vw);
       overflow-x: hidden !important;
     }
 
     html.mca-panel-open body {
-      width: calc(100vw - ${PANEL_WIDTH}px) !important;
-      max-width: calc(100vw - ${PANEL_WIDTH}px) !important;
+      width: calc(100% - var(--mca-panel-width)) !important;
+      max-width: calc(100% - var(--mca-panel-width)) !important;
+      min-width: 0 !important;
+      min-height: 100vh;
+      box-sizing: border-box !important;
+      transform: translateX(0) !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      overflow-x: auto !important;
     }
 
     html.mca-panel-open #page,
     html.mca-panel-open #page-wrapper,
     html.mca-panel-open .drawer-toggles,
     html.mca-panel-open [data-region="drawer"] {
-      max-width: calc(100vw - ${PANEL_WIDTH}px) !important;
+      max-width: 100% !important;
     }
   `;
   document.documentElement.appendChild(style);
@@ -2534,8 +2109,8 @@ const createFloatingButton = () => {
   const button = document.createElement('button');
   button.className = 'floating-button';
   button.type = 'button';
-  button.title = 'Abrir Corrector de Moodle';
-  button.setAttribute('aria-label', 'Abrir Corrector de Moodle');
+  button.title = MoodliaCorrectorI18n.t('Abrir Corrector de Moodle');
+  button.setAttribute('aria-label', MoodliaCorrectorI18n.t('Abrir Corrector de Moodle'));
   button.innerHTML = ICON_SVG;
   button.addEventListener('click', openPanel);
 
@@ -2543,104 +2118,135 @@ const createFloatingButton = () => {
   document.documentElement.appendChild(host);
 };
 
-const createCardHeading = (stepNumber, title, description) => {
-  const heading = document.createElement('div');
-  heading.className = 'card-heading';
-
-  const badge = document.createElement('span');
-  badge.className = 'step-number';
-  badge.textContent = stepNumber;
-
-  const text = document.createElement('div');
-  const titleElement = document.createElement('h3');
-  const descriptionElement = document.createElement('p');
-  titleElement.textContent = title;
-  descriptionElement.textContent = description;
-  text.append(titleElement, descriptionElement);
-
-  heading.append(badge, text);
-  return heading;
+const PANEL_TOOL_ICONS = {
+  settings: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/>',
+  json: '<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/>',
+  inspect: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
 };
 
-const promoteWorkflowSection = (section, className, heading) => {
-  section.className = className;
-  section.querySelector('.section-title')?.remove();
-  section.prepend(heading);
-  return section;
+const showPanelTool = (panel, selected = '', restoreFocus = false) => {
+  const previous = panel.dataset.activeTool || '';
+  panel.dataset.activeTool = selected;
+  panel.querySelector('[data-main-workflow]').hidden = Boolean(selected);
+  for (const pane of panel.querySelectorAll('[data-tool-pane]')) pane.hidden = pane.dataset.toolPane !== selected;
+  for (const button of panel.querySelectorAll('[data-tool]')) button.setAttribute('aria-expanded', String(button.dataset.tool === selected));
+  panel.querySelector('.content').scrollTop = 0;
+  if (selected) panel.querySelector(`[data-tool-pane="${selected}"] h3`).focus();
+  else if (restoreFocus && previous) panel.querySelector(`[data-tool="${previous}"]`).focus();
 };
 
-const createNestedSupervisionSection = (title, contentElement) => {
-  const section = document.createElement('details');
-  section.className = 'summary-card nested-disclosure';
-
-  const summary = document.createElement('summary');
-  summary.textContent = title;
-  section.append(summary, contentElement);
-  return section;
+const renderCorrectionResult = (correction) => {
+  const container = getPanelElements().result;
+  const parsed = correction?.parsed;
+  container.replaceChildren();
+  if (!parsed) {
+    container.textContent = MoodliaCorrectorI18n.t('Aquí verás la nota propuesta y el comentario de la corrección.');
+    return;
+  }
+  if (typeof parsed.score === 'number') {
+    const score = document.createElement('p');
+    score.className = 'result-score';
+    score.textContent = MoodliaCorrectorI18n.message`Nota propuesta: ${parsed.score}${parsed.maxScore !== null && parsed.maxScore !== undefined ? ` / ${parsed.maxScore}` : ''}`;
+    container.appendChild(score);
+  }
+  const feedback = document.createElement('p');
+  feedback.textContent = getFinalComment(parsed) || MoodliaCorrectorI18n.t('Sin comentario final.');
+  container.appendChild(feedback);
+  for (const [index, criterion] of (parsed.rubricSelections || []).entries()) {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = `${currentAssignmentData?.rubric?.[index]?.description || MoodliaCorrectorI18n.message`Criterio ${index + 1}`}: ${criterion.criterionFeedback || ''}`;
+    container.appendChild(paragraph);
+  }
 };
 
 const organizePanelWorkflow = (panel) => {
   const content = panel.querySelector('.content');
-  const sections = [...content.querySelectorAll(':scope > .section')];
   const [externalJsonSection, runtimeSection, diagnosticsSection, detectedSection, instructionsSection, assignmentSection, correctionSection] =
-    sections;
-
-  if (
-    !externalJsonSection ||
-    !runtimeSection ||
-    !diagnosticsSection ||
-    !detectedSection ||
-    !instructionsSection ||
-    !assignmentSection ||
-    !correctionSection
-  ) {
-    return;
-  }
-
+    [...content.querySelectorAll(':scope > .section')];
+  correctionSection.querySelector('textarea').setAttribute('aria-label', MoodliaCorrectorI18n.t('JSON de la sugerencia de IA'));
   const workflow = document.createElement('div');
   workflow.className = 'workflow';
+  workflow.dataset.mainWorkflow = 'true';
+  instructionsSection.className = 'workflow-card';
+  instructionsSection.querySelector('.field-stack').classList.remove('field-stack');
+  const instructionFields = instructionsSection.querySelector('h3').nextElementSibling;
+  instructionFields.classList.add('instruction-fields');
+  instructionsSection.querySelector('h3').textContent = MoodliaCorrectorI18n.t('Criterio docente');
 
-  promoteWorkflowSection(
-    externalJsonSection,
-    'workflow-card primary',
-    createCardHeading('0', 'Pega o revisa JSON', 'Aplica una corrección generada fuera de la extensión o revisa la que cree la IA.'),
-  );
-  promoteWorkflowSection(
-    runtimeSection,
-    'workflow-card',
-    createCardHeading('1', 'Configura la IA', 'Elige proveedor y modelo antes de lanzar la corrección.'),
-  );
-  promoteWorkflowSection(
-    instructionsSection,
-    'workflow-card',
-    createCardHeading('2', 'Añade criterio docente', 'Opcional: indicaciones y archivos que complementan la entrega.'),
-  );
-  promoteWorkflowSection(
-    correctionSection,
-    'workflow-card',
-    createCardHeading('3', 'Resultado editable', 'La respuesta generada por la IA queda visible para revisar.'),
-  );
+  const filePreview = document.createElement('section');
+  filePreview.className = 'workflow-card';
+  const fileHeading = document.createElement('h3');
+  fileHeading.className = 'section-title';
+  fileHeading.textContent = MoodliaCorrectorI18n.t('Archivos para la IA');
+  const fileList = document.createElement('div');
+  fileList.dataset.filePreview = 'true';
+  filePreview.append(fileHeading, fileList);
 
-  const supervision = document.createElement('details');
-  supervision.className = 'supervision';
-  const supervisionSummary = document.createElement('summary');
-  supervisionSummary.textContent = 'Supervisión de datos capturados';
-  const supervisionNote = document.createElement('span');
-  supervisionNote.className = 'supervision-note';
-  supervisionNote.textContent = 'Solo para comprobar qué ha leído la extensión de Moodle.';
-  supervisionSummary.appendChild(supervisionNote);
+  const resultSection = document.createElement('section');
+  resultSection.className = 'workflow-card';
+  const resultHeading = document.createElement('h3');
+  resultHeading.className = 'section-title';
+  resultHeading.textContent = MoodliaCorrectorI18n.t('Resultado');
+  const result = document.createElement('div');
+  result.dataset.result = 'true';
+  result.setAttribute('aria-live', 'polite');
+  result.textContent = MoodliaCorrectorI18n.t('Aquí verás la nota propuesta y el comentario de la corrección.');
+  resultSection.append(resultHeading, result);
+  workflow.append(filePreview, instructionsSection, resultSection);
 
-  const supervisionBody = document.createElement('div');
-  supervisionBody.className = 'supervision-body';
-  supervisionBody.append(
-    createNestedSupervisionSection('Resumen detectado', detectedSection.querySelector('[data-detected-list]')),
-    createNestedSupervisionSection('Información capturada de Moodle', assignmentSection.querySelector('[data-assignment]')),
-    createNestedSupervisionSection('Diagnóstico técnico', diagnosticsSection.querySelector('[data-diagnostics]')),
-  );
-
-  supervision.append(supervisionSummary, supervisionBody);
-  workflow.append(externalJsonSection, runtimeSection, instructionsSection, correctionSection, supervision);
-  content.replaceChildren(workflow);
+  const tools = document.createElement('nav');
+  tools.className = 'panel-tools';
+  tools.setAttribute('aria-label', MoodliaCorrectorI18n.t('Herramientas del corrector'));
+  const panes = [];
+  for (const [id, title, sections] of [
+    ['settings', MoodliaCorrectorI18n.t('Configuración de IA'), [runtimeSection]],
+    ['json', MoodliaCorrectorI18n.t('JSON de corrección'), [externalJsonSection, correctionSection]],
+    ['inspect', MoodliaCorrectorI18n.t('Datos y diagnóstico'), [detectedSection, assignmentSection, diagnosticsSection]],
+  ]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tool-button';
+    button.dataset.tool = id;
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', `mca-tool-${id}`);
+    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${PANEL_TOOL_ICONS[id]}</svg>`;
+    const pane = document.createElement('section');
+    pane.id = `mca-tool-${id}`;
+    pane.dataset.toolPane = id;
+    pane.className = 'technical-pane';
+    pane.hidden = true;
+    pane.setAttribute('aria-labelledby', `mca-tool-title-${id}`);
+    const heading = document.createElement('h3');
+    heading.id = `mca-tool-title-${id}`;
+    heading.tabIndex = -1;
+    heading.textContent = title;
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'action-button secondary';
+    back.textContent = MoodliaCorrectorI18n.t('Volver a la corrección');
+    back.addEventListener('click', () => showPanelTool(panel, '', true));
+    pane.append(heading, back, ...sections);
+    button.addEventListener('click', () => showPanelTool(panel, panel.dataset.activeTool === id ? '' : id));
+    panes.push(pane);
+    tools.appendChild(button);
+  }
+  const overview = document.createElement('div');
+  overview.className = 'panel-overview';
+  const status = panel.querySelector('[data-status]');
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  overview.append(panel.querySelector('[data-grading-mode]'), status);
+  panel.querySelector('.header').append(tools, overview);
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && panel.dataset.activeTool) {
+      event.preventDefault();
+      event.stopPropagation();
+      showPanelTool(panel, '', true);
+    }
+  });
+  content.replaceChildren(workflow, ...panes);
 };
 
 const createSidePanel = () => {
@@ -2661,6 +2267,7 @@ const createSidePanel = () => {
     <header class="header">
       <div>
         <h2 class="title">Corrector de Moodle</h2>
+        <p class="status" data-grading-mode role="status" aria-live="polite">Modo: pendiente de detectar</p>
         <p class="status" data-status>Listo.</p>
       </div>
       <button class="close-button" type="button" data-close aria-label="Cerrar">x</button>
@@ -2681,9 +2288,18 @@ const createSidePanel = () => {
         <h3 class="section-title">IA</h3>
         <div class="runtime-card">
           <p class="runtime-state" data-runtime-state role="status" aria-live="polite">Comprobando la IA...</p>
+          <div class="runtime-actions ai-mode-switch" role="group" aria-label="Modo de configuración de IA">
+            <button class="action-button" type="button" data-ai-mode="simple" aria-pressed="true">Simple</button>
+            <button class="action-button secondary" type="button" data-ai-mode="advanced" aria-pressed="false">Avanzado</button>
+          </div>
+          <div data-ai-simple>
           <div class="runtime-row">
             <label for="mca-provider">Proveedor</label>
             <select id="mca-provider" data-provider></select>
+          </div>
+          <div class="runtime-row">
+            <label for="mca-model-search">Buscar modelos</label>
+            <input id="mca-model-search" data-model-search type="search" placeholder="Nombre, parámetros o cuantización" aria-controls="mca-model" />
           </div>
           <div class="runtime-row">
             <label for="mca-model">Modelo</label>
@@ -2692,8 +2308,10 @@ const createSidePanel = () => {
           <p class="runtime-cost" data-runtime-cost hidden></p>
           <div class="runtime-actions">
             <button class="action-button secondary" type="button" data-runtime-refresh>Actualizar IA</button>
-            <button class="action-button secondary" type="button" data-runtime-options>Opciones</button>
+            <button class="action-button secondary" type="button" data-runtime-options>Probar conexión</button>
           </div>
+          </div>
+          <div data-ai-advanced hidden></div>
         </div>
       </section>
       <section class="section">
@@ -2707,7 +2325,15 @@ const createSidePanel = () => {
       <section class="section">
         <h3 class="section-title">Indicaciones adicionales</h3>
         <div class="field-stack">
-          <label for="mca-extra-instructions">Instrucciones para esta corrección</label>
+          <label for="mca-course-instructions">Por curso</label>
+          <p class="hint">Para todas las tareas de este curso.</p>
+          <textarea id="mca-course-instructions" data-course-instructions placeholder="Criterios generales del curso..."></textarea>
+          <label for="mca-assignment-instructions">Por tarea</label>
+          <p class="hint">Para todos los alumnos de esta tarea.</p>
+          <textarea id="mca-assignment-instructions" data-assignment-instructions placeholder="Qué valorar en esta tarea..."></textarea>
+          <button class="action-button secondary" type="button" data-recover-instructions hidden>Copiar instrucciones anteriores a esta tarea</button>
+          <label for="mca-extra-instructions">Por caso concreto</label>
+          <p class="hint">Solo para este alumno e intento de esta tarea.</p>
           <textarea id="mca-extra-instructions" data-extra-instructions placeholder="Ej.: valora especialmente la claridad de las actividades, penaliza si no hay evidencias del uso de IA..."></textarea>
           <label for="mca-extra-files">Archivos adicionales</label>
           <input class="file-input" id="mca-extra-files" data-extra-files type="file" multiple />
@@ -2731,16 +2357,24 @@ const createSidePanel = () => {
   `;
 
   organizePanelWorkflow(panel);
+  MoodliaCorrectorI18n.localize(panel);
 
   panel.querySelector('[data-close]').addEventListener('click', closePanel);
-  panel.querySelector('[data-correct]').addEventListener('click', () => void requestCorrectionFromPanel());
+  panel.querySelector('[data-correct]').addEventListener('click', () => void requestCorrectionFromPanel().catch(error => setPanelStatus(error.message || String(error))));
   panel.querySelector('[data-cancel-correction]').addEventListener('click', () => void cancelCorrectionFromPage().catch((error) => setPanelStatus(error.message)));
-  panel.querySelector('[data-apply-correction]').addEventListener('click', () => void applyCorrectionFromPanel());
+  panel.querySelector('[data-apply-correction]').addEventListener('click', () => {
+    void applyCorrectionFromPanel().catch(error => { setPanelStatus(error.message || String(error)); addPanelDiagnostic('manualCorrection.error', { message: error.message || String(error) }); });
+  });
   panel.querySelector('[data-runtime-refresh]').addEventListener('click', () => void refreshAiRuntimeStatus());
-  panel.querySelector('[data-runtime-options]').addEventListener('click', () => void openAiRuntimeOptions());
+  panel.querySelector('[data-runtime-options]').addEventListener('click', () => void testPanelAiConnection());
+  for (const button of panel.querySelectorAll('[data-ai-mode]')) button.addEventListener('click', () => void setAiSettingsMode(button.dataset.aiMode).catch(error => setPanelStatus(error.message)));
   panel.querySelector('[data-provider]').addEventListener('change', () => void saveAiRuntimeSelection(true));
+  panel.querySelector('[data-model-search]').addEventListener('input', () => renderAiRuntimeControls());
   panel.querySelector('[data-model]').addEventListener('change', () => void saveAiRuntimeSelection(false));
-  panel.querySelector('[data-extra-files]').addEventListener('change', () => updateExtraFilesSummary());
+  panel.querySelector('[data-extra-files]').addEventListener('change', () => {
+    if (currentCorrection) currentCorrection.skippedFiles = (currentCorrection.skippedFiles || []).filter(file => file.role !== 'teacher-additional');
+    updateExtraFilesSummary();
+  });
 
   shadow.appendChild(panel);
   document.documentElement.appendChild(host);
@@ -2753,16 +2387,22 @@ const getPanelElements = () => {
   return {
     panel: root.querySelector('.panel'),
     status: root.querySelector('[data-status]'),
+    gradingMode: root.querySelector('[data-grading-mode]'),
     detectedList: root.querySelector('[data-detected-list]'),
     assignment: root.querySelector('[data-assignment]'),
     externalCorrection: root.querySelector('[data-external-correction]'),
     correction: root.querySelector('[data-correction]'),
+    result: root.querySelector('[data-result]'),
     correctButton: root.querySelector('[data-correct]'),
     cancelButton: root.querySelector('[data-cancel-correction]'),
     applyCorrectionButton: root.querySelector('[data-apply-correction]'),
     extraInstructions: root.querySelector('[data-extra-instructions]'),
+    courseInstructions: root.querySelector('[data-course-instructions]'),
+    assignmentInstructions: root.querySelector('[data-assignment-instructions]'),
+    recoverInstructions: root.querySelector('[data-recover-instructions]'),
     extraFiles: root.querySelector('[data-extra-files]'),
     extraFilesSummary: root.querySelector('[data-extra-files-summary]'),
+    filePreview: root.querySelector('[data-file-preview]'),
     provider: root.querySelector('[data-provider]'),
     model: root.querySelector('[data-model]'),
     runtimeState: root.querySelector('[data-runtime-state]'),
@@ -2772,7 +2412,7 @@ const getPanelElements = () => {
 };
 
 const setPanelStatus = (message) => {
-  getPanelElements().status.textContent = message;
+  getPanelElements().status.textContent = MoodliaCorrectorI18n.t(message);
 };
 
 const addPanelDiagnostic = (stage, detail = {}) => {
@@ -2788,73 +2428,35 @@ const addPanelDiagnostic = (stage, detail = {}) => {
 };
 
 const updateExtraFilesSummary = () => {
-  const { extraFiles, extraFilesSummary } = getPanelElements();
+  const { extraFiles, extraFilesSummary, filePreview } = getPanelElements();
   const files = [...(extraFiles?.files || [])];
+  MoodliaCorrectorFilePreview.render(filePreview, currentAssignmentData, files, currentCorrection?.skippedFiles || []);
 
   if (files.length === 0) {
-    extraFilesSummary.textContent = 'Sin archivos adicionales.';
+    extraFilesSummary.textContent = MoodliaCorrectorI18n.t('Sin archivos adicionales.');
     return;
   }
 
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-  extraFilesSummary.textContent = `${files.length} archivo(s) adicional(es), ${(totalBytes / 1024 / 1024).toFixed(2)} MB.`;
+  extraFilesSummary.textContent = MoodliaCorrectorI18n.message`${files.length} archivo(s) adicional(es), ${(totalBytes / 1024 / 1024).toFixed(2)} MB.`;
 };
 
-const isTextAttachment = (file) =>
-  file.type.startsWith('text/') || /\.(txt|csv|md|json|xml|html|css|js|ts|py|java|c|cpp|log)$/i.test(file.name);
-
 const readExtraFilesFromPanel = async () => {
-  const { extraFiles, extraFilesSummary } = getPanelElements();
-  const selectedFiles = [...(extraFiles?.files || [])];
-  const attachments = [];
-  let totalBytes = 0;
-
-  for (const [index, file] of selectedFiles.entries()) {
-    totalBytes += file.size;
-
-    if (file.size > MAX_ATTACHMENT_BYTES || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-      attachments.push({
-        id: `extra-file-${index + 1}`,
-        name: file.name,
-        mimeType: 'text/plain',
-        sizeBytes: file.size,
-        source: 'manual-upload',
-        textContent: `El archivo adicional "${file.name}" se ha detectado, pero no se ha enviado porque supera el límite de tamaño.`,
-      });
-      continue;
-    }
-
-    const attachment = {
-      id: `extra-file-${index + 1}`,
-      name: file.name,
-      mimeType: file.type || 'application/octet-stream',
-      sizeBytes: file.size,
-      source: 'manual-upload',
-    };
-
-    if (isTextAttachment(file)) {
-      attachment.textContent = await file.text();
-    } else {
-      attachment.base64Data = await readBlobAsBase64(file);
-    }
-
-    attachments.push(attachment);
-  }
-
-  if (attachments.length > 0) {
-    extraFilesSummary.textContent = `${attachments.length} archivo(s) preparado(s) para la IA.`;
-  }
-
+  const { extraFiles } = getPanelElements();
+  const attachments = await MoodliaCorrectorAttachmentSupport.readSelectedFiles(extraFiles?.files || []);
+  updateExtraFilesSummary();
   return attachments;
 };
 
 const buildPanelAssignmentData = async () => {
-  const { extraInstructions } = getPanelElements();
+  await savedInstructionsReady;
+  const teacherCriteria = await instructionsController.getValues();
   const extraFiles = await readExtraFilesFromPanel();
 
   return {
     ...currentAssignmentData,
-    extraInstructions: extraInstructions?.value?.trim() || '',
+    teacherCriteria,
+    extraInstructions: Object.values(teacherCriteria).filter(Boolean).join('\n\n'),
     extraFiles,
   };
 };
@@ -2912,7 +2514,10 @@ const openPanel = () => {
   panel.dataset.open = 'true';
   setPageShift(true);
   addPanelDiagnostic('panel.open');
-  void refreshPanelData();
+  const revision = gradingPageRevision;
+  void refreshPanelData().catch((error) => {
+    if (revision === gradingPageRevision) setPanelStatus(error.message);
+  });
   void refreshAiRuntimeStatus();
   void refreshDiagnostics();
 };
@@ -2924,38 +2529,39 @@ const closePanel = () => {
 };
 
 const updateDetectedList = (assignmentData) => {
-  const { detectedList } = getPanelElements();
+  const { detectedList, gradingMode } = getPanelElements();
+  gradingMode.textContent = describeGradingMode(assignmentData);
   const gradingControls = assignmentData.gradingControls || {};
   const entries = [
-    ['Tarea Moodle', assignmentData.page.detectedAsMoodleAssignment ? 'Sí' : 'No'],
-    ['Título', assignmentData.assignmentTitle || 'No detectado'],
+    ['Tarea Moodle', assignmentData.page.detectedAsMoodleAssignment ? 'Sí' : MoodliaCorrectorI18n.t('No')],
+    [MoodliaCorrectorI18n.t('Título'), assignmentData.assignmentTitle || MoodliaCorrectorI18n.t('No detectado')],
     [
-      'Descripción',
+      MoodliaCorrectorI18n.t('Descripción'),
       assignmentData.assignmentDescriptionLink?.url
         ? assignmentData.linkedAssignmentDescription?.text
           ? 'Enlace y contenido recuperados'
           : 'Enlace detectado'
-        : 'No detectada',
+        : MoodliaCorrectorI18n.t('No detectada'),
     ],
-    ['Instrucciones', assignmentData.assignmentPrompt ? `${assignmentData.assignmentPrompt.length} caracteres` : 'No detectadas'],
-    ['Texto en línea', assignmentData.submissionText ? `${assignmentData.submissionText.length} caracteres` : 'No detectado'],
-    ['Archivos entregados', `${assignmentData.submissionFiles.length} archivo(s)`],
-    ['Archivos del enunciado', `${assignmentData.assignmentFiles?.length || 0} archivo(s)`],
-    ['Rúbrica', `${assignmentData.rubric.length} criterio(s)`],
+    ['Instrucciones', assignmentData.assignmentPrompt ? `${assignmentData.assignmentPrompt.length} caracteres` : MoodliaCorrectorI18n.t('No detectadas')],
+    [MoodliaCorrectorI18n.t('Texto en línea'), assignmentData.submissionText ? `${assignmentData.submissionText.length} caracteres` : MoodliaCorrectorI18n.t('No detectado')],
+    [MoodliaCorrectorI18n.t('Archivos entregados'), MoodliaCorrectorI18n.message`${assignmentData.submissionFiles.length} archivo(s)`],
+    [MoodliaCorrectorI18n.t('Archivos del enunciado'), MoodliaCorrectorI18n.message`${assignmentData.assignmentFiles?.length || 0} archivo(s)`],
+    [MoodliaCorrectorI18n.t('Rúbrica'), MoodliaCorrectorI18n.message`${assignmentData.rubric.length} criterio(s)`],
     [
-      'Controles de rúbrica',
+      MoodliaCorrectorI18n.t('Controles de rúbrica'),
       assignmentData.rubric.length
         ? `${gradingControls.rubricCriteriaWithLevelControls || 0}/${assignmentData.rubric.length} controles de nivel, ${gradingControls.rubricCriteriaWithCommentBoxes || 0}/${assignmentData.rubric.length} comentarios`
-        : 'No detectados',
+        : MoodliaCorrectorI18n.t('No detectados'),
     ],
     [
-      'Comentario final',
+      MoodliaCorrectorI18n.t('Comentario final'),
       gradingControls.finalFeedback
-        ? `Detectado (${gradingControls.finalFeedbackType})`
-        : 'No detectado',
+        ? MoodliaCorrectorI18n.message`Detectado (${gradingControls.finalFeedbackType})`
+        : MoodliaCorrectorI18n.t('No detectado'),
     ],
-    ['Guía', `${assignmentData.gradingGuide.length} criterio(s)`],
-    ['Puntuación máxima', assignmentData.maxScore ?? 'No detectada'],
+    [MoodliaCorrectorI18n.t('Guía'), MoodliaCorrectorI18n.message`${assignmentData.gradingGuide.length} criterio(s)`],
+    [MoodliaCorrectorI18n.t('Puntuación máxima'), assignmentData.maxScore ?? MoodliaCorrectorI18n.t('No detectada')],
   ];
 
   detectedList.replaceChildren(
@@ -2972,21 +2578,32 @@ const updateDetectedList = (assignmentData) => {
 };
 
 const refreshPanelData = async () => {
-  setPanelStatus('Detectando datos de Moodle...');
+  const revision = gradingPageRevision;
+  setPanelStatus(MoodliaCorrectorI18n.t('Detectando datos de Moodle...'));
   addPanelDiagnostic('extract.start');
   const gradingPanelReady = await waitForGradingPanelReady();
   addPanelDiagnostic('extract.gradePanelReady', { ready: gradingPanelReady });
-  currentAssignmentData = await extractAssignmentData();
+  let assignmentData;
+  try {
+    assignmentData = await extractAssignmentData();
+  } catch (error) {
+    if (revision !== gradingPageRevision) return;
+    throw error;
+  }
+  if (revision !== gradingPageRevision) return;
+  currentAssignmentData = assignmentData;
+  savedInstructionsReady = instructionsController.setContext(assignmentData.instructionContext);
 
   const { assignment, correction } = getPanelElements();
   updateDetectedList(currentAssignmentData);
+  updateExtraFilesSummary();
   renderAssignmentSummary(assignment, currentAssignmentData);
 
   if (!currentCorrection) {
     correction.value = '';
   }
 
-  setPanelStatus('Datos detectados listos.');
+  setPanelStatus(MoodliaCorrectorI18n.t('Datos detectados listos.'));
   addPanelDiagnostic('extract.done', {
     files: currentAssignmentData.submissionFiles.length,
     rubricCriteria: currentAssignmentData.rubric.length,
@@ -3133,30 +2750,28 @@ const renderAiRuntimeControls = () => {
   runtimeCost.textContent = '';
 
   if (!aiRuntimeStatus?.providers?.length) {
-    provider.append(new Option('IA no disponible', ''));
-    model.append(new Option('Sin modelos', ''));
+    provider.append(new Option(MoodliaCorrectorI18n.t('IA no disponible'), ''));
+    model.append(new Option(MoodliaCorrectorI18n.t('Sin modelos'), ''));
     provider.disabled = true;
     model.disabled = true;
-    runtimeState.textContent = 'No se ha detectado la IA o no ha devuelto capacidades.';
+    runtimeState.textContent = MoodliaCorrectorI18n.t('No se ha detectado la IA o no ha devuelto capacidades.');
     return;
   }
 
   const availableProviders = aiRuntimeStatus.providers.filter((item) => item.reachable || item.available);
-  provider.disabled = availableProviders.length === 0;
-  provider.append(new Option('Automático', ''));
-
-  for (const item of availableProviders) {
-    provider.append(new Option(createOptionLabelWithCost(item.provider, getAiCostText(item)), item.provider));
-  }
+  provider.disabled = false;
+  for (const [id, definition] of Object.entries(MoodliaCorrectorAiProviders)) provider.append(new Option(MoodliaCorrectorI18n.t(definition.label), id));
 
   provider.value = aiRuntimeStatus.appConfig?.provider || '';
   const selectedProvider = availableProviders.find((item) => item.provider === provider.value);
   const models = selectedProvider?.models || [];
 
   model.disabled = !provider.value || models.length === 0;
-  model.append(new Option(provider.value ? 'Modelo predeterminado' : 'Selecciona proveedor', ''));
+  model.append(new Option(provider.value ? MoodliaCorrectorI18n.t('Modelo predeterminado') : MoodliaCorrectorI18n.t('Selecciona proveedor'), ''));
 
-  for (const modelInfo of models) {
+  const query = getPanelElements().panel.querySelector('[data-model-search]').value.trim().toLocaleLowerCase();
+  const configuredModelId = aiRuntimeStatus.appConfig?.model || '';
+  for (const modelInfo of models.filter(item => getModelId(item) === configuredModelId || `${getModelLabel(item)} ${getModelId(item)}`.toLocaleLowerCase().includes(query))) {
     const modelId = getModelId(modelInfo);
     if (!modelId) {
       continue;
@@ -3170,18 +2785,19 @@ const renderAiRuntimeControls = () => {
   const selectedModel = models.find((modelInfo) => getModelId(modelInfo) === model.value);
   const selectedCost = getAiCostText(selectedModel) || getAiCostText(selectedProvider);
   if (selectedCost) {
-    runtimeCost.textContent = `Coste: ${selectedCost}`;
+    runtimeCost.textContent = MoodliaCorrectorI18n.message`Coste: ${selectedCost}`;
     runtimeCost.hidden = false;
   }
   runtimeState.textContent =
     availableProviders.length > 0
-      ? `Listo. ${availableProviders.length} proveedor(es) disponible(s).`
-      : aiRuntimeStatus.appConfig?.reason || 'No se ha podido conectar con la IA. Abre Opciones.';
+      ? MoodliaCorrectorI18n.message`Listo. ${availableProviders.length} proveedor(es) disponible(s).`
+      : aiRuntimeStatus.appConfig?.reason || MoodliaCorrectorI18n.t('No se ha podido conectar con la IA. Abre Opciones.');
   if (aiRuntimeStatus.appConfig?.reason) runtimeState.textContent = aiRuntimeStatus.appConfig.reason;
-  else if (!aiRuntimeStatus.appConfig?.configured) runtimeState.textContent = 'Servidor conectado. Selecciona un modelo para corregir.';
+  else if (!aiRuntimeStatus.appConfig?.configured) runtimeState.textContent = MoodliaCorrectorI18n.t('Servidor conectado. Selecciona un modelo para corregir.');
 };
 
 const refreshAiRuntimeStatus = async () => {
+  const revision = ++aiStatusRevision;
   try {
     addPanelDiagnostic('ai.status.start');
     const response = await sendBackgroundMessage({ type: 'mca.getAiRuntimeStatus' });
@@ -3189,6 +2805,7 @@ const refreshAiRuntimeStatus = async () => {
       throw new Error(response?.error || 'No se ha podido leer el estado de la IA.');
     }
 
+    if (revision !== aiStatusRevision) return;
     aiRuntimeStatus = response.status;
     renderAiRuntimeControls();
     addPanelDiagnostic('ai.status.ok', {
@@ -3197,6 +2814,7 @@ const refreshAiRuntimeStatus = async () => {
     });
     void refreshDiagnostics();
   } catch (error) {
+    if (revision !== aiStatusRevision) return;
     aiRuntimeStatus = null;
     renderAiRuntimeControls();
     const message = error.message || String(error);
@@ -3214,13 +2832,20 @@ const saveAiRuntimeSelection = async (providerChanged) => {
     ...(model.value && !providerChanged ? { model: model.value } : {}),
   };
 
+  if (providerChanged) {
+    const stored = await chrome.storage.local.get('mca.aiProviderConfigs');
+    const profile = stored['mca.aiProviderConfigs']?.[provider.value];
+    config.baseUrl = profile?.baseUrl || MoodliaCorrectorAiProviders[provider.value].baseUrl;
+    config.model = profile?.model || '';
+  }
+
   const response = await sendBackgroundMessage({
     type: 'mca.setAiRuntimeConfig',
     config,
   });
 
   if (!response?.ok) {
-    setPanelStatus(response?.error || 'No se ha podido guardar la configuración de IA.');
+    setPanelStatus(response?.error || MoodliaCorrectorI18n.t('No se ha podido guardar la configuración de IA.'));
     return;
   }
 
@@ -3230,24 +2855,81 @@ const saveAiRuntimeSelection = async (providerChanged) => {
   };
   renderAiRuntimeControls();
   await refreshAiRuntimeStatus();
-  setPanelStatus('Configuración de IA guardada.');
+  setPanelStatus(MoodliaCorrectorI18n.t('Configuración de IA guardada.'));
 };
 
-const openAiRuntimeOptions = async () => {
-  const response = await sendBackgroundMessage({ type: 'mca.openAiRuntimeOptions' });
-  if (!response?.ok) {
-    setPanelStatus(response?.error || 'No se han podido abrir las opciones de IA.');
+let settingsFrame = null;
+let settingsFrameRequest = null;
+let panelConnectionTestId = null;
+const setAiSettingsMode = async (mode) => {
+  const panel = getPanelElements().panel;
+  for (const button of panel.querySelectorAll('[data-ai-mode]')) {
+    const selected = button.dataset.aiMode === mode;
+    button.setAttribute('aria-pressed', String(selected));
+    button.classList.toggle('secondary', !selected);
+  }
+  panel.querySelector('[data-ai-simple]').hidden = mode !== 'simple';
+  const advanced = panel.querySelector('[data-ai-advanced]');
+  advanced.hidden = mode !== 'advanced';
+  if (mode !== 'advanced') {
+    if (settingsFrame) settingsFrame.contentWindow.postMessage({ type: 'mca.cancelSettingsTest', token: new URL(settingsFrame.src).searchParams.get('token') }, new URL(settingsFrame.src).protocol + '//' + new URL(settingsFrame.src).host);
+    return;
+  }
+  if (!settingsFrame) {
+    if (!settingsFrameRequest) settingsFrameRequest = sendBackgroundMessage({ type: 'mca.createSettingsFrame' }).finally(() => { settingsFrameRequest = null; });
+    const response = await settingsFrameRequest;
+    if (advanced.hidden || settingsFrame) return;
+    if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('No se puede abrir la configuración avanzada.'));
+    const frame = document.createElement('iframe');
+    frame.title = MoodliaCorrectorI18n.t('Configuración avanzada de IA');
+    frame.src = response.url;
+    frame.style.cssText = 'width:100%;height:900px;border:0;display:block;background:white;';
+    frame.referrerPolicy = 'no-referrer';
+    settingsFrame = frame;
+    advanced.replaceChildren(frame);
   }
 };
+window.addEventListener('message', event => {
+  if (!settingsFrame || event.source !== settingsFrame.contentWindow || event.origin !== chrome.runtime.getURL('').replace(/\/$/, '') || event.data?.type !== 'mca.settingsFrameSize' || event.data.token !== new URL(settingsFrame.src).searchParams.get('token')) return;
+  if (Number.isFinite(event.data.height)) settingsFrame.style.height = `${Math.min(3000, Math.max(200, event.data.height))}px`;
+});
+const testPanelAiConnection = async () => {
+  const button = getPanelElements().panel.querySelector('[data-runtime-options]');
+  if (panelConnectionTestId) {
+    await sendBackgroundMessage({ type: 'mca.cancelCorrection', requestId: panelConnectionTestId });
+    return;
+  }
+  const revision = gradingPageRevision;
+  const requestId = crypto.randomUUID();
+  panelConnectionTestId = requestId;
+  button.textContent = MoodliaCorrectorI18n.t('Cancelar prueba');
+  try {
+    setPanelStatus(MoodliaCorrectorI18n.t('Probando la conexión con datos ficticios...'));
+    const response = await sendBackgroundMessage({ type: 'mca.testAiConnection', requestId });
+    if (revision !== gradingPageRevision || panelConnectionTestId !== requestId) return;
+    if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('No se ha podido verificar la conexión.'));
+    setPanelStatus(MoodliaCorrectorI18n.message`Conexión verificada: ${MoodliaCorrectorAiProviders[response.result.provider]?.label || response.result.provider} / ${response.result.model}.`);
+  } catch (error) { if (revision === gradingPageRevision && panelConnectionTestId === requestId) setPanelStatus(error.message || String(error)); }
+  finally { if (panelConnectionTestId === requestId) { panelConnectionTestId = null; button.textContent = MoodliaCorrectorI18n.t('Probar conexión'); } }
+};
+chrome.storage.onChanged?.addListener((changes, area) => {
+  if (area === 'local' && changes['mca.aiConfig'] && document.getElementById(PANEL_ID)) {
+    if (settingsFrame && getPanelElements().panel.querySelector('[data-ai-advanced]').hidden) { settingsFrame.remove(); settingsFrame = null; }
+    void refreshAiRuntimeStatus();
+  }
+});
 
 const requestCorrectionFromPanel = async () => {
+  const revision = gradingPageRevision;
   if (!currentAssignmentData) {
     await refreshPanelData();
   }
+  if (revision !== gradingPageRevision) return;
 
   const { correction, correctButton, cancelButton } = getPanelElements();
   const assignmentForCorrection = await buildPanelAssignmentData();
-  setPanelStatus('Solicitando corrección a la IA...');
+  if (revision !== gradingPageRevision) return;
+  setPanelStatus(MoodliaCorrectorI18n.t('Solicitando corrección a la IA...'));
   addPanelDiagnostic('correction.click', {
     files: assignmentForCorrection.submissionFiles.length,
     extraFiles: assignmentForCorrection.extraFiles.length,
@@ -3260,11 +2942,16 @@ const requestCorrectionFromPanel = async () => {
 
   try {
     addPanelDiagnostic('correction.pageAi.start');
-    currentCorrection = await requestAiCorrectionFromPage(assignmentForCorrection);
+    const result = await requestAiCorrectionFromPage(assignmentForCorrection);
+    if (revision !== gradingPageRevision) return;
+    currentCorrection = result;
+    updateExtraFilesSummary();
+    renderCorrectionResult(currentCorrection);
     correction.value = JSON.stringify(currentCorrection.parsed || currentCorrection.text, null, 2);
     const applyResult = await applyCorrectionWhenReady(currentCorrection);
+    if (revision !== gradingPageRevision) return;
     setPanelStatus(
-      `Corrección aplicada (${currentCorrection.provider}/${currentCorrection.model}): comentario=${applyResult.commentApplied}, nota=${applyResult.gradeApplied}, niveles=${applyResult.rubricLevelsApplied}, comentarios=${applyResult.rubricCommentsApplied}.`,
+      MoodliaCorrectorI18n.t('Corrección aplicada en Moodle. Revisa la nota y los comentarios antes de guardar.'),
     );
     addPanelDiagnostic('correction.ok', {
       provider: currentCorrection.provider,
@@ -3273,26 +2960,31 @@ const requestCorrectionFromPanel = async () => {
       applied: applyResult,
     });
   } catch (error) {
+    if (revision !== gradingPageRevision) return;
     const message = error.message || String(error);
     setPanelStatus(message);
     addPanelDiagnostic('correction.error', { message });
   } finally {
-    correctButton.disabled = false;
-    cancelButton.hidden = true;
-    cancelButton.style.display = 'none';
+    if (revision === gradingPageRevision) {
+      correctButton.disabled = false;
+      cancelButton.hidden = true;
+      cancelButton.style.display = 'none';
+    }
   }
 };
 
 const applyCorrectionFromPanel = async () => {
+  const revision = gradingPageRevision;
   if (!currentAssignmentData) {
     await refreshPanelData();
   }
+  if (revision !== gradingPageRevision) return;
 
   const { externalCorrection, correction, applyCorrectionButton } = getPanelElements();
   const editedValue = externalCorrection.value.trim() || correction.value.trim();
 
   if (!editedValue) {
-    setPanelStatus('Pega un JSON de corrección antes de aplicarlo.');
+    setPanelStatus(MoodliaCorrectorI18n.t('Pega un JSON de corrección antes de aplicarlo.'));
     return;
   }
 
@@ -3315,23 +3007,147 @@ const applyCorrectionFromPanel = async () => {
   applyCorrectionButton.disabled = true;
   try {
     const result = await applyCorrectionWhenReady(correctionToApply);
+    if (revision !== gradingPageRevision) return;
     currentCorrection = correctionToApply;
+    renderCorrectionResult(currentCorrection);
     setPanelStatus(
-      `Aplicado: comentario=${result.commentApplied}, nota=${result.gradeApplied}, niveles=${result.rubricLevelsApplied}, comentarios=${result.rubricCommentsApplied}.`,
+      MoodliaCorrectorI18n.t('Corrección aplicada en Moodle. Revisa la nota y los comentarios antes de guardar.'),
     );
     addPanelDiagnostic('manualCorrection.applied', result);
+  } catch (error) {
+    if (revision === gradingPageRevision) throw error;
   } finally {
-    applyCorrectionButton.disabled = false;
+    if (revision === gradingPageRevision) applyCorrectionButton.disabled = false;
   }
+};
+
+const getNavigationIdentity = () => JSON.stringify({
+  url: location.href,
+  user: document.querySelector('input[name="userid"]')?.value || '',
+  attempt: document.querySelector('input[name="attemptnumber"]')?.value || '',
+  student: document.querySelector('[data-region="user-info"], .useridentity, .fullname, .submissionuser')?.textContent || '',
+  instructionContext: getInstructionContext(),
+  submission: document.querySelector('.assignsubmission_onlinetext, [data-region="submission-text"]')?.textContent || '',
+  files: [...document.querySelectorAll('.assignsubmission_file a[href], .fileuploadsubmission a[href], a[href*="/assignsubmission_file/"]')].map(link => link.href),
+});
+
+const resetAssistantForNavigation = (refresh = true) => {
+  gradingPageRevision++;
+  if (panelConnectionTestId) { void sendBackgroundMessage({ type: 'mca.cancelCorrection', requestId: panelConnectionTestId }).catch(() => {}); panelConnectionTestId = null; getPanelElements().panel.querySelector('[data-runtime-options]').textContent = MoodliaCorrectorI18n.t('Probar conexión'); }
+  if (settingsFrame) { settingsFrame.contentWindow.postMessage({ type: 'mca.cancelSettingsTest', token: new URL(settingsFrame.src).searchParams.get('token') }, '*'); settingsFrame.remove(); settingsFrame = null; }
+  void setAiSettingsMode('simple');
+  savedInstructionsReady = instructionsController.setContext(isSupportedGraderUrl() ? getInstructionContext() : {});
+  const requestId = activeCorrectionRequestId;
+  activeCorrectionRequestId = null;
+  if (requestId) void sendBackgroundMessage({ type: 'mca.cancelCorrection', requestId }).catch(() => {});
+  currentAssignmentData = null;
+  currentCorrection = null;
+  renderCorrectionResult(null);
+  showPanelTool(getPanelElements().panel);
+  clearTimeout(panelRefreshTimer);
+  const elements = getPanelElements();
+  for (const field of [elements.correction, elements.externalCorrection, elements.extraFiles]) field.value = '';
+  elements.assignment.replaceChildren();
+  elements.detectedList.replaceChildren();
+  elements.diagnostics.replaceChildren();
+  elements.gradingMode.textContent = MoodliaCorrectorI18n.t('Modo: pendiente de detectar');
+  elements.correctButton.disabled = false;
+  elements.applyCorrectionButton.disabled = false;
+  elements.cancelButton.hidden = true;
+  elements.cancelButton.style.display = 'none';
+  updateExtraFilesSummary();
+  setPanelStatus(MoodliaCorrectorI18n.t('Página cambiada. Corrector reiniciado.'));
+  if (!isSupportedGraderUrl()) {
+    closePanel();
+    document.getElementById(FLOATING_BUTTON_ID).hidden = true;
+    return;
+  }
+  document.getElementById(FLOATING_BUTTON_ID).hidden = false;
+  if (refresh && elements.panel.dataset.open === 'true') {
+    const revision = gradingPageRevision;
+    panelRefreshTimer = setTimeout(() => {
+      void refreshPanelData().catch((error) => {
+        if (revision === gradingPageRevision) setPanelStatus(error.message);
+      });
+    }, 300);
+  }
+};
+
+const watchGradingNavigation = () => {
+  let identity = getNavigationIdentity();
+  let active = false;
+  let checkTimer = null;
+  let propertyTimer = null;
+  const host = document.getElementById(PANEL_ID);
+  const scalarIdentity = () => JSON.stringify([location.href,
+    document.querySelector('input[name="userid"]')?.value || '',
+    document.querySelector('input[name="attemptnumber"]')?.value || '',
+    document.body.className.match(/\bcourse-(\d+)\b/)?.[1] || '']);
+  let scalar = scalarIdentity();
+  const stop = () => {
+    active = false;
+    clearTimeout(checkTimer);
+    checkTimer = null;
+    clearInterval(propertyTimer);
+    propertyTimer = null;
+    observer.disconnect();
+    host.dataset.navigationWatch = 'stopped';
+  };
+  const check = () => {
+    checkTimer = null;
+    if (!isSupportedGraderUrl()) {
+      stop();
+      identity = '';
+      resetAssistantForNavigation(false);
+      return;
+    }
+    const next = getNavigationIdentity();
+    scalar = scalarIdentity();
+    if (next !== identity) { identity = next; resetAssistantForNavigation(); }
+  };
+  const schedule = () => {
+    if (active && checkTimer === null) checkTimer = setTimeout(check, 100);
+  };
+  const observer = new MutationObserver(schedule);
+  const start = () => {
+    if (active || !isSupportedGraderUrl()) return;
+    active = true;
+    host.dataset.navigationWatch = 'active';
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['value'] });
+    // Only property changes lacking DOM/navigation events need a lightweight fallback.
+    propertyTimer = setInterval(() => {
+      const next = scalarIdentity();
+      if (next !== scalar) { scalar = next; check(); }
+    }, 1000);
+  };
+  const navigate = () => { if (isSupportedGraderUrl()) start(); check(); };
+  window.addEventListener('popstate', navigate);
+  window.addEventListener('hashchange', navigate);
+  window.navigation?.addEventListener('currententrychange', navigate);
+  window.addEventListener('pagehide', () => { stop(); identity = ''; resetAssistantForNavigation(false); });
+  window.addEventListener('pageshow', event => { if (event.persisted) navigate(); });
+  start();
 };
 
 const initializeAssistantUi = () => {
   createFloatingButton();
   createSidePanel();
+  updateExtraFilesSummary();
+  const elements = getPanelElements();
+  instructionsController = MoodliaCorrectorPreferences.createController({
+    course: elements.courseInstructions, assignment: elements.assignmentInstructions, case: elements.extraInstructions,
+  }, setPanelStatus, elements.recoverInstructions);
+  savedInstructionsReady = instructionsController.setContext(getInstructionContext());
+  watchGradingNavigation();
 };
 
 if (isSupportedGraderUrl()) {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'mca.openPanel') {
+      openPanel();
+      sendResponse({ ok: true });
+      return false;
+    }
     if (message?.type === 'mca.cancelCorrectionFromPage') {
       void cancelCorrectionFromPage()
         .then(() => sendResponse({ ok: true }))
@@ -3340,7 +3156,12 @@ if (isSupportedGraderUrl()) {
     }
     if (message?.type === 'mca.extractAssignment') {
       void extractAssignmentData()
-        .then((assignmentData) => sendResponse({ ok: true, assignmentData }))
+        .then((assignmentData) => {
+          currentAssignmentData = assignmentData;
+          savedInstructionsReady = instructionsController.setContext(assignmentData.instructionContext);
+          updateExtraFilesSummary();
+          sendResponse({ ok: true, assignmentData });
+        })
         .catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
       return true;
     }
@@ -3371,3 +3192,5 @@ if (isSupportedGraderUrl()) {
 
   initializeAssistantUi();
 }
+
+})();

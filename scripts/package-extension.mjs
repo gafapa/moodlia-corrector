@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
+import { expectedLibraryAssets, verifyExtensionAssets } from './extension-assets.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const source = path.join(root, 'extension');
@@ -14,6 +15,7 @@ async function collect(directory) {
   }
 }
 await collect(source);
+verifyExtensionAssets(files, await expectedLibraryAssets(path.join(root, 'node_modules')));
 const manifest = JSON.parse(await readFile(path.join(source, 'manifest.json')));
 const output = path.join(root, 'release', `moodlia-corrector-${manifest.version}.zip`);
 await mkdir(path.dirname(output), { recursive: true });

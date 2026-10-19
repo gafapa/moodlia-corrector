@@ -1,0 +1,21 @@
+{
+  "version": "0.1.59",
+  "unit_tests_passed": 35,
+  "browser_checks_passed": 48,
+  "archive_files": 225,
+  "archive_matches_source": true,
+  "archive_sha256": "035fe6e88b9b7cb967d70f996b53f207e9ebe319b786e29dc6ed44476b4408f3",
+  "providers": [
+    "ollama",
+    "lm-studio",
+    "local-compatible",
+    "openai-compatible"
+  ],
+  "local_model_discovery": true,
+  "optional_local_api_key": true,
+  "image_payloads_verified": true,
+  "actual_lm_studio_server_reachable": false,
+  "runtime_validation": "isolated Chromium and fictional compatible HTTP server",
+  "publication": "local_candidate",
+  "host_configuration_changed": false
+}

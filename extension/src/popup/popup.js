@@ -1,220 +1,83 @@
-const statusElement = document.querySelector('#status');
-const assignmentPreview = document.querySelector('#assignmentPreview');
-const correctionPreview = document.querySelector('#correctionPreview');
-const extraInstructions = document.querySelector('#extraInstructions');
-const extraFiles = document.querySelector('#extraFiles');
-const extraFilesSummary = document.querySelector('#extraFilesSummary');
-const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+void (async () => {
+await MoodliaCorrectorI18n.init();
+MoodliaCorrectorI18n.localize(document);
+const status = document.querySelector('#status');
+const siteUrl = document.querySelector('#site-url');
+const addView = document.querySelector('#add-view');
+const manageView = document.querySelector('#manage-view');
+const setStatus = message => { status.textContent = MoodliaCorrectorI18n.t(message); };
+const runAction = action => { void action().catch(error => setStatus(error.message || String(error))); };
 
-let currentAssignmentData = null;
-let currentCorrection = null;
-
-const setStatus = (message) => {
-  statusElement.textContent = message;
+const renderSites = async () => {
+  const sites = await MoodliaCorrectorActivation.getSites();
+  const list = document.querySelector('#sites-list');
+  list.replaceChildren(...sites.map(site => {
+    const row = document.createElement('li');
+    row.dataset.siteKey = site.key;
+    const label = document.createElement('span');
+    label.textContent = site.label;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'secondary';
+    remove.textContent = MoodliaCorrectorI18n.t('Quitar');
+    remove.setAttribute('aria-label', MoodliaCorrectorI18n.message`Quitar ${site.label}`);
+    remove.addEventListener('click', () => runAction(async () => {
+      remove.disabled = true;
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'mca.setAutomaticActivation', url: `${site.key}/mod/assign/view.php?action=grader`, enabled: false });
+        if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('No se ha podido quitar el sitio.'));
+        setStatus(MoodliaCorrectorI18n.t('Sitio quitado. En ese Moodle podrás abrir el corrector desde su icono.'));
+        await renderSites();
+        document.querySelector('#manage-title').focus();
+      } finally { remove.disabled = false; }
+    }));
+    row.append(label, remove);
+    return row;
+  }));
+  document.querySelector('#empty-sites').hidden = sites.length > 0;
 };
 
-const sendToBackground = (message) => chrome.runtime.sendMessage(message);
-
-const getActiveTab = async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) {
-    throw new Error('No se ha encontrado una pestaña activa.');
-  }
-  return tab;
-};
-
-const sendToActiveTab = async (message) => {
-  const tab = await getActiveTab();
-  return await chrome.tabs.sendMessage(tab.id, message);
-};
-
-const updateExtraFilesSummary = () => {
-  const files = [...(extraFiles.files || [])];
-
-  if (files.length === 0) {
-    extraFilesSummary.textContent = 'Sin archivos adicionales.';
-    return;
-  }
-
-  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-  extraFilesSummary.textContent = `${files.length} archivo(s) adicional(es), ${(totalBytes / 1024 / 1024).toFixed(2)} MB.`;
-};
-
-const isTextAttachment = (file) =>
-  file.type.startsWith('text/') || /\.(txt|csv|md|json|xml|html|css|js|ts|py|java|c|cpp|log)$/i.test(file.name);
-
-const readFileAsBase64 = async (file) => {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = '';
-
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-
-  return btoa(binary);
-};
-
-const readExtraFiles = async () => {
-  const selectedFiles = [...(extraFiles.files || [])];
-  const attachments = [];
-  let totalBytes = 0;
-
-  for (const [index, file] of selectedFiles.entries()) {
-    totalBytes += file.size;
-
-    if (file.size > MAX_ATTACHMENT_BYTES || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-      attachments.push({
-        id: `extra-file-${index + 1}`,
-        name: file.name,
-        mimeType: 'text/plain',
-        sizeBytes: file.size,
-        source: 'manual-upload',
-        textContent: `El archivo adicional "${file.name}" se ha detectado, pero no se ha enviado porque supera el límite de tamaño.`,
-      });
-      continue;
-    }
-
-    const attachment = {
-      id: `extra-file-${index + 1}`,
-      name: file.name,
-      mimeType: file.type || 'application/octet-stream',
-      sizeBytes: file.size,
-      source: 'manual-upload',
-    };
-
-    if (isTextAttachment(file)) {
-      attachment.textContent = await file.text();
-    } else {
-      attachment.base64Data = await readFileAsBase64(file);
-    }
-
-    attachments.push(attachment);
-  }
-
-  if (attachments.length > 0) {
-    extraFilesSummary.textContent = `${attachments.length} archivo(s) preparado(s) para la IA.`;
-  }
-
-  return attachments;
-};
-
-const buildAssignmentDataForCorrection = async () => ({
-  ...currentAssignmentData,
-  extraInstructions: extraInstructions.value.trim(),
-  extraFiles: await readExtraFiles(),
+document.querySelector('#add-site').addEventListener('click', () => {
+  addView.hidden = false;
+  manageView.hidden = true;
+  siteUrl.focus();
+});
+document.querySelector('#manage-sites').addEventListener('click', () => runAction(async () => {
+  addView.hidden = true;
+  manageView.hidden = false;
+  await renderSites();
+  document.querySelector('#manage-title').focus();
+}));
+document.querySelector('#add-site-form').addEventListener('submit', event => {
+  event.preventDefault();
+  runAction(async () => {
+    const button = document.querySelector('#save-site');
+    button.disabled = true;
+    try {
+      const site = MoodliaCorrectorActivation.normalizeSiteInput(siteUrl.value);
+      const granted = await chrome.permissions.request({ origins: [`${site.origin}/*`] });
+      if (!granted) throw new Error(MoodliaCorrectorI18n.t('No se ha concedido acceso a este Moodle.'));
+      const response = await chrome.runtime.sendMessage({ type: 'mca.setAutomaticActivation', url: `${site.key}/mod/assign/view.php?action=grader`, enabled: true });
+      if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('No se ha podido añadir el sitio.'));
+      setStatus(MoodliaCorrectorI18n.t('Sitio añadido. El corrector se activará automáticamente en sus páginas de corrección.'));
+      addView.hidden = true;
+      manageView.hidden = false;
+      await renderSites();
+      document.querySelector('#manage-title').focus();
+    } finally { button.disabled = false; }
+  });
 });
 
-const detectAiProxyBridge = async () => {
-  const response = await sendToBackground({ type: 'mca.detectAiProxyBridge' });
-  if (!response?.ok) {
-    throw new Error(response?.error || 'No se ha podido detectar la IA.');
-  }
+runAction(async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  let site;
+  try { site = MoodliaCorrectorActivation.getSite(tab?.url); }
+  catch { setStatus(MoodliaCorrectorI18n.t('Añade un Moodle o gestiona los sitios guardados. La corrección se abre desde su página de Moodle.')); return; }
+  siteUrl.value = site.key;
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: MoodliaCorrectorActivation.contentScripts });
+  const response = await chrome.tabs.sendMessage(tab.id, { type: 'mca.openPanel' });
+  if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('No se ha podido abrir el panel de corrección.'));
+  setStatus(MoodliaCorrectorI18n.t('Corrector abierto en el panel lateral de Moodle.'));
+});
 
-  if (!response.extensionId) {
-    setStatus('La conexión con la IA no está disponible. Revisa Opciones.');
-    return;
-  }
-
-  setStatus('IA detectada.');
-};
-
-const extractAssignment = async () => {
-  setStatus('Extrayendo datos de Moodle...');
-  const response = await sendToActiveTab({ type: 'mca.extractAssignment' });
-
-  if (!response?.ok) {
-    throw new Error(response?.error || 'No se han podido extraer los datos de Moodle.');
-  }
-
-  currentAssignmentData = response.assignmentData;
-  assignmentPreview.value = JSON.stringify(currentAssignmentData, null, 2);
-  setStatus('Datos de Moodle extraídos.');
-};
-
-const applyCorrection = async () => {
-  if (!currentCorrection) {
-    throw new Error('No hay corrección de IA disponible.');
-  }
-
-  const editedValue = correctionPreview.value.trim();
-  let correctionToApply = currentCorrection;
-
-  if (editedValue) {
-    try {
-      correctionToApply = {
-        ...currentCorrection,
-        parsed: JSON.parse(editedValue),
-      };
-    } catch {
-      correctionToApply = {
-        ...currentCorrection,
-        parsed: {
-          studentFeedback: editedValue,
-        },
-      };
-    }
-  }
-
-  setStatus('Aplicando corrección en Moodle...');
-  const response = await sendToActiveTab({
-    type: 'mca.applyCorrection',
-    correction: correctionToApply,
-  });
-
-  if (!response?.ok) {
-    throw new Error(response?.error || 'No se ha podido aplicar la corrección.');
-  }
-
-  setStatus(
-    `Aplicado: comentario=${response.result.commentApplied}, nota=${response.result.gradeApplied}, niveles=${response.result.rubricLevelsApplied}, comentarios=${response.result.rubricCommentsApplied}.`,
-  );
-};
-
-const requestCorrection = async () => {
-  const requestButton = document.querySelector('#requestCorrection');
-  const cancelButton = document.querySelector('#cancelCorrection');
-  requestButton.disabled = true;
-  cancelButton.hidden = false;
-  try {
-    if (!currentAssignmentData) {
-      await extractAssignment();
-    }
-
-    const assignmentData = await buildAssignmentDataForCorrection();
-    setStatus('Solicitando corrección a la IA...');
-    const response = await sendToActiveTab({
-      type: 'mca.requestCorrection',
-      assignmentData,
-    });
-
-    if (!response?.ok) {
-      throw new Error(response?.error || 'La corrección con IA ha fallado.');
-    }
-
-    currentCorrection = response.correction;
-    correctionPreview.value = JSON.stringify(currentCorrection.parsed || currentCorrection.text, null, 2);
-    await applyCorrection();
-    setStatus(`Corrección aplicada (${currentCorrection.provider}/${currentCorrection.model}).`);
-  } finally {
-    requestButton.disabled = false;
-    cancelButton.hidden = true;
-  }
-};
-
-const runAction = (action) => {
-  void action().catch((error) => {
-    setStatus(error.message || String(error));
-  });
-};
-
-document.querySelector('#requestCorrection').addEventListener('click', () => runAction(requestCorrection));
-document.querySelector('#cancelCorrection').addEventListener('click', () => runAction(async () => {
-  const response = await sendToActiveTab({ type: 'mca.cancelCorrectionFromPage' });
-  if (!response?.ok) throw new Error(response?.error || 'No se ha podido cancelar.');
-}));
-extraFiles.addEventListener('change', updateExtraFilesSummary);
-
-runAction(detectAiProxyBridge);
+})();

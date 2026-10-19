@@ -1,14 +1,29 @@
 {
   "manifest_version": 3,
-  "name": "MoodlIA Corrector",
-  "version": "0.1.45",
-  "description": "Helps teachers review Moodle assignments and apply teacher-approved AI correction suggestions.",
+  "name": "__MSG_extensionName__",
+  "version": "0.1.65",
+  "description": "__MSG_extensionDescription__",
   "minimum_chrome_version": "116",
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
-  "permissions": ["activeTab", "tabs", "storage", "offscreen", "declarativeNetRequestWithHostAccess"],
-  "host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],
+  "permissions": [
+    "activeTab",
+    "webRequest",
+    "storage",
+    "offscreen",
+    "declarativeNetRequestWithHostAccess",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://[::1]/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*"
+  ],
   "background": {
     "service_worker": "src/background.js"
   },
@@ -18,11 +33,15 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "content_scripts": [
+  "content_scripts": [],
+  "web_accessible_resources": [
     {
-      "matches": ["https://*/*"],
-      "js": ["src/content/moodleContent.js"],
-      "run_at": "document_idle"
+      "resources": [
+        "src/options/options.html"
+      ],
+      "matches": [
+        "https://*/*"
+      ]
     }
   ],
   "action": {
@@ -38,5 +57,6 @@
   "options_ui": {
     "page": "src/options/options.html",
     "open_in_tab": true
-  }
+  },
+  "default_locale": "en"
 }

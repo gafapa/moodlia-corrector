@@ -1,3 +1,6 @@
 dist/
 *.zip
 node_modules/
+
+# Generated publication archives and extracted submission folders.
+/release/

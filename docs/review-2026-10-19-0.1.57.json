@@ -1,0 +1,12 @@
+{
+  "version": "0.1.57",
+  "unit_tests_passed": 27,
+  "browser_checks_passed": 38,
+  "archive_files": 223,
+  "archive_matches_source": true,
+  "archive_sha256": "c53c3fe7b742477d811e676a44eedcdc39ec4996886f41218d80ceb0b5b972ce",
+  "unsupported_formats": "omitted_and_marked_red",
+  "supported_file_read_errors": "reported_explicitly",
+  "publication": "local_candidate",
+  "live_moodle_tab_changed": false
+}

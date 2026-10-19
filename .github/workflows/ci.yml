@@ -20,4 +20,5 @@ jobs:
       - run: npm run check
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+      - run: npm run test:locales
       - run: npm audit --audit-level=high

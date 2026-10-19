@@ -1,0 +1,23 @@
+{
+  "version": "0.1.48",
+  "unit_tests_passed": 20,
+  "browser_checks_passed": 16,
+  "archive_files": 220,
+  "archive_matches_source": true,
+  "archive_sha256": "f873fc292a216b52665e882382fc880486511c913b2a4a74c29b89357d27132d",
+  "live_layout_before": {
+    "review_height": 0,
+    "grade_height": 31,
+    "actions_top": -59
+  },
+  "live_layout_after": {
+    "review_height": 744,
+    "grade_height": 744,
+    "actions_top": 829,
+    "viewport_height": 889
+  },
+  "live_style_override": "temporary_until_navigation",
+  "grade_fields_changed": false,
+  "machine_configuration_changed": false,
+  "publication": "local_candidate"
+}

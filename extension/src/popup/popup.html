@@ -3,40 +3,35 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Corrector de Moodle</title>
+    <title>MoodlIA Corrector · Sitios</title>
     <link rel="stylesheet" href="./popup.css" />
   </head>
   <body>
     <main>
-      <header>
-        <h1>Corrector de Moodle</h1>
-        <p id="status" role="status" aria-live="polite">Comprobando conexión...</p>
-      </header>
-
-      <section>
-        <h2>Indicaciones adicionales</h2>
-        <textarea id="extraInstructions" placeholder="Ej.: valora especialmente la claridad, penaliza si no hay evidencias del uso de IA..."></textarea>
-        <label for="extraFiles">Archivos adicionales</label>
-        <input id="extraFiles" type="file" multiple />
-        <p id="extraFilesSummary">Sin archivos adicionales.</p>
+      <h1>MoodlIA Corrector</h1>
+      <p id="status" role="status" aria-live="polite">Comprobando la página actual...</p>
+      <nav aria-label="Sitios de Moodle">
+        <button id="add-site" type="button">Añadir sitio</button>
+        <button id="manage-sites" class="secondary" type="button">Gestionar sitios</button>
+      </nav>
+      <section id="add-view" aria-labelledby="add-title" hidden>
+        <h2 id="add-title">Añadir un Moodle</h2>
+        <form id="add-site-form">
+          <label for="site-url">Dirección del Moodle</label>
+          <input id="site-url" type="url" required placeholder="https://campus.ejemplo.es/moodle" autocomplete="url" aria-describedby="site-hint" />
+          <p id="site-hint">El corrector se activará automáticamente en las páginas de corrección de este Moodle.</p>
+          <button id="save-site" type="submit">Añadir</button>
+        </form>
       </section>
-
-      <details>
-        <summary>Datos detectados</summary>
-        <textarea id="assignmentPreview" readonly></textarea>
-      </details>
-
-      <section>
-        <h2>Sugerencia de IA</h2>
-        <textarea id="correctionPreview"></textarea>
+      <section id="manage-view" aria-labelledby="manage-title" hidden>
+        <h2 id="manage-title" tabindex="-1">Sitios guardados</h2>
+        <ul id="sites-list"></ul>
+        <p id="empty-sites" hidden>No hay sitios guardados. Usa Añadir sitio para guardar un Moodle.</p>
       </section>
-
-      <footer>
-        <button id="requestCorrection" type="button">Corregir con IA</button>
-        <button id="cancelCorrection" type="button" hidden>Cancelar</button>
-      </footer>
     </main>
-
+    <script src="../i18nMessages.js"></script>
+    <script src="../i18n.js"></script>
+    <script src="../activation.js"></script>
     <script src="./popup.js"></script>
   </body>
 </html>

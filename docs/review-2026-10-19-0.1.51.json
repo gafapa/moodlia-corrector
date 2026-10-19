@@ -1,0 +1,13 @@
+{
+  "version": "0.1.51",
+  "unit_tests_passed": 22,
+  "browser_checks_passed": 24,
+  "archive_files": 221,
+  "archive_matches_source": true,
+  "archive_sha256": "e55fef8a6e1307c8f23b3be1662891e8640d15ef4c2031f6ceae76fa3c105fa8",
+  "reference_role": "assignment-reference",
+  "student_role": "student-submission",
+  "synthetic_ai_evidence_only": true,
+  "publication": "local_candidate",
+  "live_moodle_tab_changed": false
+}

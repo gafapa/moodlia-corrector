@@ -1,0 +1,10 @@
+{
+  "version": "0.1.52",
+  "unit_tests_passed": 22,
+  "browser_checks_passed": 25,
+  "archive_files": 222,
+  "archive_matches_source": true,
+  "archive_sha256": "b52ba6814260f0b7d8648aaeb79dcf461002adef162184fd9c49a4f73592d479",
+  "publication": "local_candidate",
+  "live_moodle_tab_changed": false
+}

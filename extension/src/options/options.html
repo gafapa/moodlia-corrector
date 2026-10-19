@@ -14,30 +14,60 @@
         <p>Connect an AI provider directly. No separate AI Runtime extension is required.</p>
       </header>
 
+      <section class="language-settings">
+        <label for="interface-language">Interface language</label>
+        <select id="interface-language">
+          <option value="">Browser language</option><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt_BR">Português</option><option value="it">Italiano</option><option value="gl">Galego</option><option value="ca">Català</option>
+        </select>
+        <small>Reload Moodle pages to apply a language change.</small>
+      </section>
       <form id="ai-settings">
         <label>
           Provider
           <select id="provider" name="provider">
-            <option value="ollama">Ollama on this computer</option>
+            <option value="ollama">Ollama</option>
+            <option value="lm-studio">LM Studio</option>
+            <option value="llama-cpp">llama.cpp</option>
+            <option value="localai">LocalAI</option>
+            <option value="vllm">vLLM</option>
+            <option value="local-compatible">Other local server (OpenAI-compatible)</option>
             <option value="openai-compatible">OpenAI-compatible API</option>
           </select>
         </label>
 
+        <div class="endpoint-grid">
+          <label>Protocol<select id="endpointProtocol"><option value="http:">HTTP</option><option value="https:">HTTPS</option></select></label>
+          <label>IP address or hostname<input id="endpointHost" required autocomplete="off" spellcheck="false" placeholder="127.0.0.1 or 192.168.1.20" /></label>
+          <label>Port<input id="endpointPort" type="number" required min="1" max="65535" step="1" inputmode="numeric" /></label>
+        </div>
+        <label>API path<input id="endpointPath" autocomplete="off" spellcheck="false" placeholder="/v1" /></label>
+        <small id="connection-security" hidden>HTTP is unencrypted. Use HTTPS outside a trusted network. Chrome may request access to the server you choose.</small>
+
         <label>
-          API address
+          Full API URL
           <input id="baseUrl" name="baseUrl" type="url" required autocomplete="url" />
         </label>
 
+        <section class="model-browser" aria-labelledby="models-heading">
+          <div class="model-toolbar"><h2 id="models-heading">Available models</h2><button id="load-models" type="button">Refresh models</button></div>
+          <label for="modelSearch">Search models</label>
+          <input id="modelSearch" type="search" placeholder="Search by name, parameters or quantization" autocomplete="off" aria-controls="available-models" />
+          <select id="available-models" size="5" aria-label="Available models" aria-describedby="model-count"></select>
+          <p id="model-count" role="status" aria-live="polite">Refresh to list models from this server.</p>
+        </section>
         <label>
-          Model
-          <input id="model" name="model" required autocomplete="off" placeholder="for example, llama3.2 or gpt-4.1-mini" />
+          Selected model
+          <input id="model" name="model" required autocomplete="off" spellcheck="false" placeholder="Choose above or enter the exact model ID" />
+          <small>You can also enter a model ID manually. Model capabilities depend on the server.</small>
         </label>
 
         <label id="api-key-field">
           API key
-          <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="Required for remote APIs" />
-          <small>The key is kept only for the current Chrome session and is never sent to Moodle.</small>
+          <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="Optional for local servers" />
+          <small>Optional for local servers; required for remote APIs. The key is kept only for the current Chrome session and is never sent to Moodle.</small>
         </label>
+
+        <button id="remove-api-key" type="button">Remove saved API key</button>
 
         <p id="status" role="status" aria-live="polite"></p>
         <button type="submit">Save connection</button>
@@ -50,6 +80,9 @@
         <p>Confirm that your institution authorises the selected AI provider to process student work. Review every suggestion before saving the Moodle grading form.</p>
       </aside>
     </main>
-    <script src="./options.js"></script>
+    <script src="../i18nMessages.js"></script>
+    <script src="../i18n.js"></script>
+    <script src="../aiProviders.js"></script>
+    <script src="./optionsBootstrap.js"></script>
   </body>
 </html>

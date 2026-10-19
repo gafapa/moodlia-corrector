@@ -1,0 +1,10 @@
+{
+  "locale": "it",
+  "name": "MoodlIA Corrector",
+  "summary": "Feedback IA per compiti Moodle, verificato dal docente.",
+  "detailedDescription": "Assistenza IA per valutare i compiti Moodle, con il docente al controllo.\n\nApri il pannello laterale dall’icona. Controlla il metodo di valutazione, i riferimenti del compito e i file consegnati. Imposta criteri per corso, compito e caso individuale. Richiedi un suggerimento e controlla commenti, voto o livelli della rubrica nel modulo Moodle modificabile. L’estensione non salva né invia mai automaticamente il modulo.\n\nCollega Ollama, LM Studio, llama.cpp, LocalAI, vLLM, un altro server locale compatibile o un’API compatibile con OpenAI. Configura indirizzo, porta e modello nelle modalità Semplice o Avanzate. Le chiavi sono conservate solo per la sessione Chrome. HTTP è utilizzabile in reti locali fidate; usa HTTPS per dati sensibili.\n\nSupporta PDF, DOCX, ODT, testo e immagini compatibili. Le immagini richiedono un modello con visione. I formati non supportati sono segnalati e ignorati. Materiale di riferimento e lavoro dello studente restano distinti.\n\nInterfaccia in inglese, spagnolo, francese, tedesco, portoghese, italiano, galiziano e catalano.\n\nIl contesto viene inviato direttamente al provider scelto solo quando richiedi una correzione. MoodlIA non riceve lavori degli studenti. Usa un provider autorizzato dall’istituto e verifica ogni suggerimento. Progetto open source indipendente, non affiliato a Moodle HQ.",
+  "category": "Education",
+  "homepage": "https://moodlia.com/products/corrector/",
+  "supportUrl": "https://github.com/gafapa/moodlia-corrector/issues",
+  "privacyPolicyUrl": "https://moodlia.com/privacy/corrector.html"
+}

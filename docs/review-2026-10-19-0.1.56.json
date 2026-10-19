@@ -1,0 +1,15 @@
+{
+  "version": "0.1.56",
+  "unit_tests_passed": 25,
+  "browser_checks_passed": 36,
+  "archive_files": 222,
+  "archive_matches_source": true,
+  "archive_sha256": "d1bee98294a939e7d10db2cd37646214d742691db1e7148d56b02665c596d9da",
+  "default_copy_scopes": [
+    "course",
+    "assignment"
+  ],
+  "case_criteria_copied": false,
+  "publication": "local_candidate",
+  "live_moodle_tab_changed": false
+}

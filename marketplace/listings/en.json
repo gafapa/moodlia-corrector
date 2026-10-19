@@ -1,0 +1,10 @@
+{
+  "locale": "en",
+  "name": "MoodlIA Corrector",
+  "summary": "Teacher-reviewed AI feedback for Moodle assignments.",
+  "detailedDescription": "AI assistance for Moodle assignment grading, with the teacher in control.\n\nOpen the correction sidebar from the extension icon. Review detected grading mode, assignment references and submitted files. Set teacher criteria for the course, assignment and individual case. Request a suggestion and review the proposed feedback, numeric grade or rubric levels in the editable Moodle form. The extension never saves or submits that form; you decide what to save.\n\nConnect Ollama, LM Studio, llama.cpp, LocalAI, vLLM, another compatible local server, or an OpenAI-compatible API. Configure the server address, port and model in Simple or Advanced settings. Keys are stored for the Chrome session only. HTTP local servers can be used on a trusted network; use HTTPS for sensitive traffic.\n\nSupported evidence includes PDF, DOCX, ODT, text files and supported images. Image evidence requires a vision-capable model. Unsupported formats are marked and skipped. The panel distinguishes assignment explanations from student work.\n\nInterface: English, Spanish, French, German, Portuguese, Italian, Galician and Catalan. Browser detection and manual language selection are included.\n\nMoodle context is sent directly to the selected AI provider only when you request a correction. MoodlIA receives no student work. Content may contain personal data: use a provider approved by your institution and review every suggestion. Independent open-source project, not affiliated with Moodle HQ.",
+  "category": "Education",
+  "homepage": "https://moodlia.com/products/corrector/",
+  "supportUrl": "https://github.com/gafapa/moodlia-corrector/issues",
+  "privacyPolicyUrl": "https://moodlia.com/privacy/corrector.html"
+}

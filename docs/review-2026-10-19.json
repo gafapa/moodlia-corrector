@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-19",
+  "version": "0.1.46",
+  "unit_tests_passed": 20,
+  "browser_checks_passed": 15,
+  "live_ollama_model": "gemma3:4b",
+  "archive_files": 220,
+  "archive_sha256": "4c3d48d47558e33d7551c7649a34f5bf518e3a3c2ed363b9bdefe052499da46c",
+  "synthetic_data_only": true,
+  "machine_configuration_changed": false,
+  "publication": "local_candidate",
+  "browser_checks": [
+    "PASS: real Chromium extension loads, checks a loopback server, and verifies generation.",
+    "PASS: the local Origin workaround leaves website requests untouched.",
+    "PASS: the options page verifies generation and restores its controls.",
+    "PASS: bundled offscreen reader extracts PDF and DOCX locally and sends image evidence.",
+    "PASS: PDF pages without a text layer are rendered locally for a vision model.",
+    "PASS: PDF pages with both text and graphics retain both kinds of evidence.",
+    "PASS: unsupported evidence stops grading.",
+    "PASS: supervision detects the task title and describes reference files separately from submissions without downloading them.",
+    "PASS: invalid manual scores leave all fields untouched and valid scores still apply.",
+    "PASS: switching students blocks stale corrections before any form field changes.",
+    "PASS: delayed AI replies are rejected after navigation and local context is not sent to AI.",
+    "PASS: teacher cancellation aborts a pending provider request.",
+    "PASS: the options page can cancel its connection test.",
+    "PASS: actual local Ollama generation from Chromium (gemma3:4b, 758 ms).",
+    "PASS: actual local Ollama returns a complete fictional grade, feedback, and rubric selection."
+  ]
+}
