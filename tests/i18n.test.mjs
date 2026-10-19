@@ -52,3 +52,14 @@ test('each supported locale translates primary site, grading and provider contro
     }
   }
 });
+
+test('reinjecting the runtime preserves the chosen locale and initialized instance', async () => {
+  const sandbox = { chrome: { i18n: { getUILanguage: () => 'en-US' }, storage: { local: { get: async () => ({ 'mca.uiLanguage': 'es' }) } } } };
+  vm.runInNewContext(messagesSource + '\n' + runtimeSource, sandbox);
+  const original = sandbox.MoodliaCorrectorI18n;
+  await original.init();
+  vm.runInNewContext(messagesSource + '\n' + runtimeSource, sandbox);
+  assert.equal(sandbox.MoodliaCorrectorI18n, original);
+  assert.equal(sandbox.MoodliaCorrectorI18n.locale, 'es');
+  assert.equal(sandbox.MoodliaCorrectorI18n.t('Add site'), 'Añadir sitio');
+});

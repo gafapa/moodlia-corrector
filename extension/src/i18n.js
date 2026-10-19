@@ -1,4 +1,5 @@
 (() => {
+  if (globalThis.MoodliaCorrectorI18n) return;
   const data = globalThis.MoodliaCorrectorMessages;
   const normalizeLocale = value => {
     const language = String(value || '').replace('_', '-').toLowerCase();

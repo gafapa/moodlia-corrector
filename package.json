@@ -1,6 +1,6 @@
 {
   "name": "moodlia-corrector",
-  "version": "0.1.65",
+  "version": "0.1.66",
   "private": true,
   "description": "Chrome extension for teacher-reviewed AI assistance on Moodle grading pages.",
   "type": "module",

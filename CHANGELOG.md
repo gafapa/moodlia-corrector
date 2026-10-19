@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.66 - 2026-10-20
+
+- Preserve the initialized interface-language runtime when content scripts are manually injected again. Repeated activation no longer resets saved language to the browser default.
+- Add a regression with an English browser and Spanish preference, covering the cross-platform CI failure hidden by a Spanish Windows browser.
+- Read the current version and validation counts when generating submission materials instead of hard-coding the previous candidate.
+
 ## 0.1.65 - 2026-10-20
 
 - Add bundled English, Spanish, French, German, Portuguese, Italian, Galician, and Catalan interface catalogs with native Chrome metadata localization.

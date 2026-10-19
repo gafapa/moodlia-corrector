@@ -43,7 +43,7 @@ npm run test:locales
 
 The browser checks use a temporary profile, fictional submissions, and a loopback test provider. To also verify the existing local Ollama installation with `gemma3:4b`, run `node tests/browser-check.mjs --live`. This sends a fictional connection probe and an arithmetic correction with one rubric criterion, not student work. It does not modify the machine's Ollama configuration.
 
-Run `npm run package` to create `release/moodlia-corrector-0.1.65.zip` with the manifest at the archive root and all local parsing dependencies included.
+Run `npm run package` to create `release/moodlia-corrector-0.1.66.zip` with the manifest at the archive root and all local parsing dependencies included.
 
 Version 0.1.46 binds a correction to the Moodle assignment, student, attempt,
 and extracted submission before requesting AI and before changing form fields.
@@ -112,6 +112,6 @@ The interface supports English, Spanish, French, German, Portuguese, Italian, Ga
 
 ## Rebuild publication materials
 
-After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-0.1.65/index.html`. Generated archives and folders stay local and are not committed.
+After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-0.1.66/index.html`. Generated archives and folders stay local and are not committed.
 
-The store-ready extension policy is hosted at `https://moodlia.com/privacy/corrector.html`; Rubrics uses `https://moodlia.com/privacy/rubrics.html`. Both were checked against the website project's source on 20 October 2026. The website project owns these stable routes across redesigns. Source publication on GitHub is separate from a tagged extension release or Chrome Web Store approval; the prepared 0.1.65 build is not a claim of store publication.
+The store-ready extension policy is hosted at `https://moodlia.com/privacy/corrector.html`; Rubrics uses `https://moodlia.com/privacy/rubrics.html`. Both were checked against the website project's source on 20 October 2026. The website project owns these stable routes across redesigns. Source publication on GitHub is separate from a tagged extension release or Chrome Web Store approval; the prepared 0.1.66 build is not a claim of store publication.
