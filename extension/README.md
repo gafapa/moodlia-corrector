@@ -2,7 +2,13 @@
 
 Chrome extension that extracts Moodle grading context, sends it directly to the AI provider selected by the teacher or institution, and applies the teacher-reviewed result back into the Moodle grading form.
 
-## Load in Chrome
+## Status
+
+Implemented extension source, version `0.1.66`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+
+## Getting started
+
+### Load in Chrome
 
 1. Open `chrome://extensions`.
 2. Enable developer mode.
@@ -28,24 +34,15 @@ while the model is running require fresh extraction. Invalid scores or rubric
 levels are rejected before form edits. Statement and online text are preserved
 up to 60,000 characters each; larger inputs stop correction explicitly.
 
-## Versioning
+### Manual and remembered-site activation
 
-Version 0.1.48 also preserves body positioning to avoid collapsing embedded
-grader pages whose theme makes `#page` inherit that positioning. The document,
-grade region, and bottom actions keep the available viewport height.
+Activation follows MoodlIA Rubrics: clicking the icon activates the current grader, while **Añadir sitio** saves installation-specific automatic activation. The popup contains only **Añadir sitio** and **Gestionar sitios**; all correction and AI controls live in the sidebar. Dynamic content scripts persist across browser restarts and are registered only for remembered Moodle assignment paths. **Gestionar sitios** lists saved Moodle installations, and **Quitar** unregisters the selected installation; the already-open corrector remains available until navigation/reload, and future pages require a click again. Repeated activation does not create duplicate panels/listeners. The popup also supports adding and managing saved sites outside grader pages.
 
-Version 0.1.47 identifies simple direct grading, including Moodle text inputs
-whose maximum is only present in the associated label. The side panel displays the detected method and direct-grade maximum. Rubric and guide
-forms retain priority over an accompanying numeric grade field.
+This is an activation policy, separate from the network permissions needed for selected AI services, authenticated Moodle file downloads, and signed storage redirects. Those existing network permissions are retained; automatic activation is not enabled on every HTTPS site.
 
-Opening the AI panel reserves space on its left for the Moodle page, including
-positioned grader regions, navigation, and action bars. The reserved width
-tracks the panel on resize; closing it restores the original layout. Wide
-content remains scrollable within the available page area.
+## Usage
 
-Increase `manifest.json` version with every extension change.
-
-## Current Flow
+### Current flow
 
 Version 0.1.56 copies the last used course and assignment criteria into a new
 context when that context has no saved value. Copying stays within the Moodle
@@ -102,7 +99,7 @@ specific to the current page.
 
 The extension never submits the Moodle grading form. The teacher remains responsible for reviewing and saving the final grade.
 
-## External Correction JSON
+### External correction JSON
 
 The JSON tool accepts one object with this shape:
 
@@ -151,7 +148,62 @@ For the PLATEGA example shown in the prompt, the recommended JSON uses numbers i
 }
 ```
 
-## Audit hardening in 0.1.58
+### LM Studio and other local compatible servers
+
+Select **LM Studio on this computer** in AI settings. Its default address is `http://127.0.0.1:1234/v1`. Start the server in LM Studio, load an instruction/chat model, click **Load models from server**, select a discovered model, and use **Test connection**. The extension uses the OpenAI-compatible models and chat-completions endpoints. It does not start, install, or configure the local application.
+
+Local authentication is optional. If the server requires a token, enter it in the API key field; it remains bound to the configured provider/destination and stored only in the Chrome session. Images use compatible multimodal content parts and require a vision-capable model/server. JSON correction generation requires JSON-object response support.
+
+**Other local server (OpenAI-compatible)** defaults to `http://127.0.0.1:8080/v1`; change it to the actual endpoint of llama.cpp, LocalAI, or vLLM. These applications are compatible API candidates, not individually runtime-qualified by this extension's synthetic tests. For HTTP on another machine, Chrome requests optional access to the chosen host when saving, listing models, or testing. Use HTTPS outside a trusted network. Remote API mode always requires HTTPS. An extension-scoped Origin rule applies to loopback and the currently configured HTTP server origin; no host CORS configuration is changed.
+
+References: [LM Studio compatibility endpoints](https://lmstudio.ai/docs/developer/openai-compat), [LM Studio authentication](https://lmstudio.ai/docs/developer/core/authentication), [llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md), [LocalAI](https://localai.io/docs/faq/), and [vLLM compatible server](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/).
+
+### Named servers, address fields, and model selection
+
+Named choices include Ollama, LM Studio, llama.cpp, LocalAI, vLLM, a generic local compatible server, and a remote compatible API. Defaults use Ollama port 11434, LM Studio 1234, llama.cpp/LocalAI 8080, and vLLM 8000. All addresses and ports are editable. The IP/hostname, port (1–65535), protocol, API path, and full URL stay synchronized. IPv6 literals are supported. Each provider retains its own non-secret address/model profile across reopening the settings page; API keys remain bound to the active session destination.
+
+Model discovery now shows a sorted, searchable, keyboard-operable list. Friendly names are displayed when supplied by the server, with parameter count, quantization, and model size only when those values exist. IDs are deduplicated and preserved exactly when choosing a model. Search supports model IDs and metadata, and distinguishes an empty server list from no search matches. The exact model ID remains manually editable. The grading panel also supports model search and richer option labels.
+
+HTTP servers outside loopback require an optional Chrome permission for that specific hostname. The browser permission applies to the host, across ports; request headers are adjusted only for this extension's requests to the configured server origin. No host service, firewall, environment, or CORS configuration is changed.
+
+### Interface languages
+
+The interface supports English, Spanish, French, German, Portuguese (Brazilian catalog, also used for other Portuguese browser variants), Italian, Galician, and Catalan. It follows the browser language with English fallback. Select **Interface language** in Advanced settings to override it, then reload open Moodle pages. The setting affects extension controls only; teacher criteria, Moodle content, filenames, and generated feedback are not translated. Feedback continues to follow the Moodle page language or explicit teacher instructions. Low-level provider diagnostics are preserved when no catalog entry exists.
+
+Catalog sources are in `scripts/localization/messages.txt`. `npm run build` generates native Chrome `_locales` files and the bundled runtime catalog. No translation service or network request is used. Run `npm run test:locales` to exercise all eight locales and regenerate fictional demonstration screenshots.
+
+Version 0.1.66 preserves the initialized language runtime across repeated manual activation. A saved interface language remains active even when it differs from the browser language.
+
+### Simple/advanced settings inside the correction panel
+
+The settings tool now has two modes. Simple selects any supported provider and a model, filters models, refreshes availability, and starts/cancels a fictional connection test. Provider changes restore that provider's saved endpoint/model profile. Advanced embeds the same settings document used by the options page, including all address fields, model browser, API-key deletion, save, generation test, and cancellation.
+
+The advanced form uses an extension-origin frame. A short-lived token is issued only to a grader tab and checked against that tab and the extension document before the form initializes. Only sizing information crosses the frame boundary; API keys do not pass through page messages or Moodle DOM fields. The parent verifies the frame origin, window, and token for sizing. Leaving the grader or changing students removes the frame, returns to Simple, and cancels pending connection tests. Simple controls refresh when a saved configuration changes; delayed status results cannot replace a newer status request.
+
+## Development
+
+Build and validation commands run from the repository root: `npm ci`, `npm run check`, `npm run test:browser`, and `npm run test:locales`.
+
+### Versioning
+
+Version 0.1.48 also preserves body positioning to avoid collapsing embedded
+grader pages whose theme makes `#page` inherit that positioning. The document,
+grade region, and bottom actions keep the available viewport height.
+
+Version 0.1.47 identifies simple direct grading, including Moodle text inputs
+whose maximum is only present in the associated label. The side panel displays the detected method and direct-grade maximum. Rubric and guide
+forms retain priority over an accompanying numeric grade field.
+
+Opening the AI panel reserves space on its left for the Moodle page, including
+positioned grader regions, navigation, and action bars. The reserved width
+tracks the panel on resize; closing it restores the original layout. Wide
+content remains scrollable within the available page area.
+
+Increase `manifest.json` version with every extension change.
+
+## Security and privacy
+
+### Audit hardening in 0.1.58
 
 Correction validation is shared by the background worker and grading panel. A `needsRepair: true` result remains blocked when copied into the manual JSON editor. Invalid JSON or invalid rubric selections are reported in the panel before changing form values. Attachment bodies are serialized inside JSON string fields, separately from trusted role metadata and image positions. Models may still misinterpret adversarial evidence; teachers must review every suggestion.
 
@@ -163,40 +215,10 @@ The `webRequest` permission reads redirect response headers only while an extens
 
 Packaging compares every required PDF.js/fflate library file, worker, font, CMap, WASM binary, and license with the installed dependencies. Missing, changed, or empty bundled assets fail packaging. Extension text files must be valid UTF-8.
 
-## LM Studio and other local compatible servers
+## Documentation
 
-Select **LM Studio on this computer** in AI settings. Its default address is `http://127.0.0.1:1234/v1`. Start the server in LM Studio, load an instruction/chat model, click **Load models from server**, select a discovered model, and use **Test connection**. The extension uses the OpenAI-compatible models and chat-completions endpoints. It does not start, install, or configure the local application.
+See the [project README](../README.md), [changelog](../CHANGELOG.md), and [store submission guide](../marketplace/SUBMISSION.md). Historical version notes below describe when individual behaviors were introduced.
 
-Local authentication is optional. If the server requires a token, enter it in the API key field; it remains bound to the configured provider/destination and stored only in the Chrome session. Images use compatible multimodal content parts and require a vision-capable model/server. JSON correction generation requires JSON-object response support.
+## License
 
-**Other local server (OpenAI-compatible)** defaults to `http://127.0.0.1:8080/v1`; change it to the actual endpoint of llama.cpp, LocalAI, or vLLM. These applications are compatible API candidates, not individually runtime-qualified by this extension's synthetic tests. For HTTP on another machine, Chrome requests optional access to the chosen host when saving, listing models, or testing. Use HTTPS outside a trusted network. Remote API mode always requires HTTPS. An extension-scoped Origin rule applies to loopback and the currently configured HTTP server origin; no host CORS configuration is changed.
-
-References: [LM Studio compatibility endpoints](https://lmstudio.ai/docs/developer/openai-compat), [LM Studio authentication](https://lmstudio.ai/docs/developer/core/authentication), [llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md), [LocalAI](https://localai.io/docs/faq/), and [vLLM compatible server](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/).
-
-## Named servers, address fields, and model selection
-
-Named choices include Ollama, LM Studio, llama.cpp, LocalAI, vLLM, a generic local compatible server, and a remote compatible API. Defaults use Ollama port 11434, LM Studio 1234, llama.cpp/LocalAI 8080, and vLLM 8000. All addresses and ports are editable. The IP/hostname, port (1–65535), protocol, API path, and full URL stay synchronized. IPv6 literals are supported. Each provider retains its own non-secret address/model profile across reopening the settings page; API keys remain bound to the active session destination.
-
-Model discovery now shows a sorted, searchable, keyboard-operable list. Friendly names are displayed when supplied by the server, with parameter count, quantization, and model size only when those values exist. IDs are deduplicated and preserved exactly when choosing a model. Search supports model IDs and metadata, and distinguishes an empty server list from no search matches. The exact model ID remains manually editable. The grading panel also supports model search and richer option labels.
-
-HTTP servers outside loopback require an optional Chrome permission for that specific hostname. The browser permission applies to the host, across ports; request headers are adjusted only for this extension's requests to the configured server origin. No host service, firewall, environment, or CORS configuration is changed.
-
-## Simple/advanced settings inside the correction panel
-
-The settings tool now has two modes. Simple selects any supported provider and a model, filters models, refreshes availability, and starts/cancels a fictional connection test. Provider changes restore that provider's saved endpoint/model profile. Advanced embeds the same settings document used by the options page, including all address fields, model browser, API-key deletion, save, generation test, and cancellation.
-
-The advanced form uses an extension-origin frame. A short-lived token is issued only to a grader tab and checked against that tab and the extension document before the form initializes. Only sizing information crosses the frame boundary; API keys do not pass through page messages or Moodle DOM fields. The parent verifies the frame origin, window, and token for sizing. Leaving the grader or changing students removes the frame, returns to Simple, and cancels pending connection tests. Simple controls refresh when a saved configuration changes; delayed status results cannot replace a newer status request.
-
-## Manual and remembered-site activation
-
-Activation follows MoodlIA Rubrics: clicking the icon activates the current grader, while **Añadir sitio** saves installation-specific automatic activation. The popup contains only **Añadir sitio** and **Gestionar sitios**; all correction and AI controls live in the sidebar. Dynamic content scripts persist across browser restarts and are registered only for remembered Moodle assignment paths. **Gestionar sitios** lists saved Moodle installations, and **Quitar** unregisters the selected installation; the already-open corrector remains available until navigation/reload, and future pages require a click again. Repeated activation does not create duplicate panels/listeners. The popup also supports adding and managing saved sites outside grader pages.
-
-This is an activation policy, separate from the network permissions needed for selected AI services, authenticated Moodle file downloads, and signed storage redirects. Those existing network permissions are retained; automatic activation is not enabled on every HTTPS site.
-
-## Interface languages
-
-The interface supports English, Spanish, French, German, Portuguese (Brazilian catalog, also used for other Portuguese browser variants), Italian, Galician, and Catalan. It follows the browser language with English fallback. Select **Interface language** in Advanced settings to override it, then reload open Moodle pages. The setting affects extension controls only; teacher criteria, Moodle content, filenames, and generated feedback are not translated. Feedback continues to follow the Moodle page language or explicit teacher instructions. Low-level provider diagnostics are preserved when no catalog entry exists.
-
-Catalog sources are in `scripts/localization/messages.txt`. `npm run build` generates native Chrome `_locales` files and the bundled runtime catalog. No translation service or network request is used. Run `npm run test:locales` to exercise all eight locales and regenerate fictional demonstration screenshots.
-
-Version 0.1.66 preserves the initialized language runtime across repeated manual activation. A saved interface language remains active even when it differs from the browser language.
+GPL-3.0-or-later. See [LICENSE](../LICENSE).

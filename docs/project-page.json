@@ -1,0 +1,80 @@
+{
+  "repository": "https://github.com/gafapa/moodlia-corrector",
+  "website": "https://moodlia.com",
+  "pages_url": "https://gafapa.github.io/moodlia-corrector/",
+  "description": "Review assignment submissions with your chosen AI provider and fill editable Moodle grading fields.",
+  "steps": [
+    "Build the extension and load its extension directory in Chrome developer mode.",
+    "Open an HTTPS Moodle assignment grader and click the extension icon.",
+    "Configure and test the provider, review evidence and criteria, and review every suggestion before saving in Moodle."
+  ],
+  "command": "npm ci\nnpm run build",
+  "license": "GPL-3.0-or-later",
+  "projects": [
+    {
+      "title": "Moodle Core CLI",
+      "url": "https://gafapa.github.io/moodle-core-cli/"
+    },
+    {
+      "title": "MoodlIA Analyzer Desktop",
+      "url": "https://gafapa.github.io/moodlia-analyzer-desktop/"
+    },
+    {
+      "title": "MoodlIA Analyzer Web",
+      "url": "https://gafapa.github.io/moodlia-analyzer-web/"
+    },
+    {
+      "title": "MoodlIA Backup Converter",
+      "url": "https://gafapa.github.io/moodlia-backup-converter/"
+    },
+    {
+      "title": "MoodlIA CLI",
+      "url": "https://gafapa.github.io/moodlia-cli/"
+    },
+    {
+      "title": "MoodlIA Corrector",
+      "url": "https://gafapa.github.io/moodlia-corrector/"
+    },
+    {
+      "title": "MoodlIA edX Converter",
+      "url": "https://gafapa.github.io/moodlia-edx/"
+    },
+    {
+      "title": "MoodlIA Moodle Plugin",
+      "url": "https://gafapa.github.io/moodle-local_moodlia/"
+    },
+    {
+      "title": "MoodlIA Portable",
+      "url": "https://gafapa.github.io/moodlia-portable/"
+    },
+    {
+      "title": "MoodlIA Rubrics",
+      "url": "https://gafapa.github.io/moodlia-rubrics/"
+    },
+    {
+      "title": "MoodlIA Skills",
+      "url": "https://gafapa.github.io/moodlia-skills/"
+    },
+    {
+      "title": "MoodlIA Studio",
+      "url": "https://gafapa.github.io/moodlia-studio/"
+    },
+    {
+      "title": "MoodlIA Sync",
+      "url": "https://gafapa.github.io/moodlia-sync/"
+    },
+    {
+      "title": "MoodlIA Teacher Dashboard",
+      "url": "https://gafapa.github.io/moodlia-teacher-dashboard/"
+    },
+    {
+      "title": "MoodlIA Test Lab",
+      "url": "https://gafapa.github.io/moodlia-test-lab/"
+    },
+    {
+      "title": "MoodlIA Website",
+      "url": "https://gafapa.github.io/moodlia/"
+    }
+  ],
+  "privacy_url": "https://moodlia.com/privacy/corrector.html"
+}

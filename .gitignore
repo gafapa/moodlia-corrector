@@ -4,3 +4,4 @@ node_modules/
 
 # Generated publication archives and extracted submission folders.
 /release/
+/.project-pages/
