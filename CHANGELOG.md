@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.67 - 2026-10-21
+
+- Bundle localization and grading dependencies into the stable content-script entry point. Old persisted registrations no longer start the grader without `MoodliaCorrectorI18n` while background synchronization is pending.
+- Ignore assignment overview pages before initializing any content runtime. Preserve manual activation, remembered installations and the selected interface language.
+- Keep editable grader source in `src/content/moodleContent.js`; regenerate the packaged entry point with `npm run build`. Packaging rejects an outdated bundle.
+- Add Chromium regressions using a legacy registration without localization files, covering both overview and grader pages, plus registration migration coverage.
+
 ## 0.1.66 - 2026-10-20
 
 - Preserve the initialized interface-language runtime when content scripts are manually injected again. Repeated activation no longer resets saved language to the browser default.

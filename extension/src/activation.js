@@ -1,7 +1,7 @@
 (() => {
   const storageKey = 'mca.activationSites';
   const prefix = 'mca-site-';
-  const contentScripts = ['src/i18nMessages.js', 'src/i18n.js', 'src/aiProviders.js', 'src/attachmentSupport.js', 'src/correctionSchema.js', 'src/savedInstructions.js', 'src/filePreview.js', 'src/content/moodleContent.js'];
+  const contentScripts = ['src/content/moodleContent.js'];
   const getSite = (value) => {
     let url;
     try { url = new URL(value); } catch { throw new Error('Abre una página de corrección de tareas de Moodle por HTTPS.'); }

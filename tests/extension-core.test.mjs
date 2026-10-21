@@ -79,6 +79,10 @@ test('automatic activation is opt-in, installation-scoped, persistent and permis
   assert.equal(scripts.size, 1);
   assert.equal([...scripts.values()][0].matches[0], 'https://moodle.example/school/mod/assign/view.php*');
   assert.equal([...scripts.values()][0].persistAcrossSessions, true);
+  const registration = [...scripts.values()][0];
+  scripts.set(registration.id, { ...registration, js: ['src/aiProviders.js', 'src/content/moodleContent.js'] });
+  await api.sync();
+  assert.deepEqual(Array.from([...scripts.values()][0].js), ['src/content/moodleContent.js']);
   assert.notEqual(api.getSite(url).key, api.getSite(url.replace('/school/', '/other/')).key);
   await api.setEnabled(url, true);
   assert.equal((await api.getSites()).length, 1);

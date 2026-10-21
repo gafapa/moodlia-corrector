@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.1.66`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.1.67`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 
@@ -222,3 +222,5 @@ See the [project README](../README.md), [changelog](../CHANGELOG.md), and [store
 ## License
 
 GPL-3.0-or-later. See [LICENSE](../LICENSE).
+
+Version 0.1.67 bundles its own localization and grading dependencies at the stable content-script path, so older saved registrations cannot omit them. Overview pages are ignored. Edit the grader in `../src/content/moodleContent.js` from this directory and rebuild from the repository root; packaging rejects an outdated entry point. Reload the extension and Moodle after updating.

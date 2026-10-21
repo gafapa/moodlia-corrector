@@ -324,10 +324,58 @@ try {
   await worker.evaluate(() => chrome.storage.local.set({ 'mca.uiLanguage': 'es' }));
   const activationFiles = await worker.evaluate(() => MoodliaCorrectorActivation.contentScripts);
   const activatePage = (url) => page.evaluate(async ({ url, files }) => { const [tab] = await chrome.tabs.query({ url }); await chrome.scripting.executeScript({ target: { tabId: tab.id }, files }); }, { url, files: activationFiles });
+  // Reproduce a persisted pre-localization registration before background synchronization repairs it.
+  await worker.evaluate(async origin => {
+    await chrome.scripting.registerContentScripts([{
+      id: 'legacy-i18n-regression', matches: [`${origin}/school/moodle/mod/assign/view.php*`],
+      js: ['src/aiProviders.js', 'src/attachmentSupport.js', 'src/correctionSchema.js', 'src/savedInstructions.js', 'src/filePreview.js', 'src/content/moodleContent.js'],
+      runAt: 'document_idle', persistAcrossSessions: true,
+    }]);
+  }, fixtureOrigin);
+  const legacyPage = await context.newPage();
+  const legacyErrors = [];
+  legacyPage.on('pageerror', error => legacyErrors.push(error.message));
+  await legacyPage.goto(`${fixtureOrigin}${fixturePath}`);
+  const overviewRuntime = await worker.evaluate(async url => {
+    const [tab] = await chrome.tabs.query({ url });
+    const [result] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => typeof globalThis.MoodliaCorrectorI18n });
+    return result.result;
+  }, legacyPage.url());
+  assert.equal(overviewRuntime, 'undefined');
+  assert.equal(await legacyPage.locator('#mca-side-panel-host').count(), 0);
+  assert.deepEqual(legacyErrors, []);
+  console.log('PASS: legacy automatic injection ignores an assignment overview without touching localization or creating an assistant.');
+  await legacyPage.goto(`${fixtureOrigin}${fixturePath}&action=grader&userid=1`);
+  await legacyPage.locator('#mca-floating-button-host').waitFor({ state: 'attached' });
+  const legacyLocale = await worker.evaluate(async url => {
+    const [tab] = await chrome.tabs.query({ url });
+    const [result] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => globalThis.MoodliaCorrectorI18n.locale });
+    return result.result;
+  }, legacyPage.url());
+  assert.equal(legacyLocale, 'es');
+  assert.equal(await legacyPage.locator('#mca-side-panel-host').count(), 1);
+  assert.deepEqual(legacyErrors, []);
+  console.log('PASS: a persisted registration without localization dependencies opens the grader in the saved language without startup errors.');
+  await worker.evaluate(() => chrome.scripting.unregisterContentScripts({ ids: ['legacy-i18n-regression'] }));
+  await legacyPage.close();
   const fixturePage = await context.newPage();
   await fixturePage.goto(`${fixtureOrigin}${fixturePath}&action=grader&userid=1`);
   assert.equal(await fixturePage.locator('#mca-side-panel-host').count(), 0);
+  await page.evaluate(async url => {
+    const [tab] = await chrome.tabs.query({ url });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
+      const originalGet = chrome.storage.local.get.bind(chrome.storage.local);
+      chrome.storage.local.get = async (...args) => {
+        if (args[0] === 'mca.uiLanguage') {
+          await new Promise(resolve => setTimeout(resolve, 150));
+          chrome.storage.local.get = originalGet;
+        }
+        return originalGet(...args);
+      };
+    } });
+  }, fixturePage.url());
   await activatePage(fixturePage.url());
+  assert.equal(await fixturePage.locator('#mca-side-panel-host').count(), 1);
   await activatePage(fixturePage.url());
   assert.equal(await fixturePage.locator('#mca-side-panel-host').count(), 1);
   console.log('PASS: a fresh grader has no automatic injection and repeated manual activation creates one assistant.');

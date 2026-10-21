@@ -39,7 +39,7 @@ try {
     await grader.goto(`https://store-moodle.test/mod/assign/view.php?id=42&action=grader&userid=1`);
     await driver.evaluate(async url => {
       const [tab] = await chrome.tabs.query({ url });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/i18nMessages.js', 'src/i18n.js', 'src/aiProviders.js', 'src/attachmentSupport.js', 'src/correctionSchema.js', 'src/savedInstructions.js', 'src/filePreview.js', 'src/content/moodleContent.js'] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content/moodleContent.js'] });
       await chrome.tabs.sendMessage(tab.id, { type: 'mca.openPanel' });
     }, grader.url());
     const panel = grader.locator('#mca-side-panel-host');

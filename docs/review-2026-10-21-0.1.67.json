@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-21",
+  "version": "0.1.67",
+  "unit_tests_passed": 50,
+  "browser_checks_passed": 64,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 238,
+  "archive_matches_source": true,
+  "archive_sha256": "1ed1e4c643e20dd33e8859316a1f21f7dfe89abeb424dc235160b14ff916c8d8",
+  "stale_bundle_rejected": true,
+  "regressions": [
+    "Persisted pre-localization script registration on an assignment overview",
+    "Persisted registration opening a grader with the saved Spanish language",
+    "Delayed language storage preserves executeScript initialization ordering",
+    "Remembered activation registrations migrate to the self-contained entry point"
+  ],
+  "validation_scope": "Isolated Chromium, fictional Moodle and AI fixtures; no real Moodle grades or provider configuration changed.",
+  "publisher_actions_remaining": [
+    "Provide private dedicated reviewer access",
+    "Submit from the publisher account"
+  ],
+  "publication": "local_candidate",
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

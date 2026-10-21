@@ -22,7 +22,9 @@ for (const [source, target] of [
 files['README.md'] = new TextEncoder().encode(guide);
 for (const name of ['dashboard-fields.md', 'privacy-policy.md', 'privacy-policy.html', 'reviewer-instructions.md']) await add(`marketplace/${name}`, `documents/${name}`);
 await add('CHANGELOG.md', 'documents/CHANGELOG.md');
-await add(`docs/review-2026-10-20-${version}.json`, 'documents/validation.json');
+const reports = (await fs.readdir('docs')).filter(name => name.startsWith('review-') && name.endsWith(`-${version}.json`)).sort();
+assert.ok(reports.length, `Missing validation report for ${version}`);
+await add(`docs/${reports.at(-1)}`, 'documents/validation.json');
 await add('extension/icons/icon-128.png', 'images/icon-128.png');
 for (const kind of ['small', 'marquee']) await add(`marketplace/assets/promo-${kind}-${version}.png`, `images/promo-${kind}.png`);
 for (const name of await fs.readdir('marketplace/screenshots')) if (name.endsWith('.png')) await add(`marketplace/screenshots/${name}`, `images/${name}`);
