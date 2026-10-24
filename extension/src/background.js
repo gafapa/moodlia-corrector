@@ -85,18 +85,17 @@ const saveAiConfig = (config = {}) => {
         await chrome.storage.session.set({ [AI_SECRET_STORAGE_KEY]: aiSecretCache });
       }
     }
-    aiConfigCache = next;
-
     if (chrome.storage?.local) {
       const storedProfiles = await chrome.storage.local.get('mca.aiProviderConfigs');
       const profiles = storedProfiles['mca.aiProviderConfigs'] || {};
       await chrome.storage.local.set({
         'mca.aiProviderConfigs': { ...profiles, [previous.provider]: previous, [next.provider]: next },
-        [AI_CONFIG_STORAGE_KEY]: aiConfigCache,
+        [AI_CONFIG_STORAGE_KEY]: next,
       });
     }
 
-    return aiConfigCache;
+    aiConfigCache = next;
+    return next;
   });
   configWriteQueue = write;
   return write;

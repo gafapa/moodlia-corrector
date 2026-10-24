@@ -314,6 +314,26 @@ test('direct AI requests use provider-native endpoints without exposing a key to
   assert.equal(compatible.body.response_format.type, 'json_object');
 });
 
+test('concurrent config reads cannot replace the provider being committed', async () => {
+  const localData = { 'mca.aiConfig': { provider: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'old-model' } };
+  let releaseProfiles;
+  let signalProfiles;
+  const profilesReached = new Promise(resolve => { signalProfiles = resolve; });
+  const profileGate = new Promise(resolve => { releaseProfiles = resolve; });
+  const api = await loadBackgroundApi({ localData, localGet: async key => {
+    if (key === 'mca.aiProviderConfigs') { signalProfiles(); await profileGate; }
+    return { [key]: localData[key] };
+  } });
+  const pending = api.saveAiConfig({ provider: 'lm-studio', baseUrl: 'http://127.0.0.1:1234/v1', model: 'new-model' });
+  await profilesReached;
+  assert.equal((await api.loadAiConfig()).provider, 'ollama');
+  releaseProfiles();
+  assert.equal((await pending).provider, 'lm-studio');
+  assert.equal(localData['mca.aiConfig'].provider, 'lm-studio');
+  assert.equal(localData['mca.aiProviderConfigs']['lm-studio'].model, 'new-model');
+  assert.equal((await api.loadAiConfig()).model, 'new-model');
+});
+
 test('source files preserve literal code in manual uploads and Moodle downloads with generic MIME types', async () => {
   const sandbox = { URL, btoa, Uint8Array };
   vm.runInNewContext(await fs.readFile(path.join(root, 'extension/src/attachmentSupport.js'), 'utf8'), sandbox);
@@ -743,7 +763,7 @@ function sampleAssignment() {
   };
 }
 
-async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionData = {}, actionApi, permissionsApi, dnrApi } = {}) {
+async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionData = {}, actionApi, permissionsApi, dnrApi, localGet } = {}) {
   const source = await fs.readFile(path.join(root, 'extension', 'src', 'background.js'), 'utf8');
   const supportSource = await fs.readFile(path.join(root, 'extension', 'src', 'attachmentSupport.js'), 'utf8');
   const event = { addListener() {} };
@@ -754,7 +774,7 @@ async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionDat
     management: { getAll(callback) { callback([]); } },
     runtime: { id: 'test-extension', getURL: (file) => `chrome-extension://test-extension/${file}`, lastError: null, onMessage: event, connect() { throw new Error('Not available in unit tests.'); } },
     storage: {
-      local: { async get(key) { return { [key]: localData[key] }; }, async set(value) { Object.assign(localData, value); } },
+      local: { async get(key) { return localGet ? localGet(key) : { [key]: localData[key] }; }, async set(value) { Object.assign(localData, value); } },
       session: { async get(key) { return { [key]: sessionData[key] }; }, async set(value) { Object.assign(sessionData, value); } },
     },
     tabs: {
@@ -775,7 +795,7 @@ async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionDat
     'normalizeMoodleAttachmentUrl', 'fetchMoodleAttachment', 'fetchSubmissionFileAttachments',
     'parseCorrectionResponse',
     'requestDirectChat',
-    'sanitizeAiConfig', 'saveAiConfig', 'loadBoundAiSecret', 'getDirectAiStatus', 'createDirectMessages',
+    'sanitizeAiConfig', 'saveAiConfig', 'loadAiConfig', 'loadBoundAiSecret', 'getDirectAiStatus', 'createDirectMessages',
     'splitEvidenceBatches', 'reviewEvidenceBatches', 'prepareDirectAttachments', 'fetchAiResource', 'requestDirectAiCorrection', 'normalizeExtraFileAttachments', 'readLimitedAttachment'
   ].join(',');
   vm.runInNewContext(`${await fs.readFile(path.join(root, "extension/src/i18nMessages.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/i18n.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/activation.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/modelCatalog.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/aiProviders.js"), "utf8")}\n${supportSource}\n${await fs.readFile(path.join(root, "extension/src/correctionSchema.js"), "utf8")}\n${source}\nglobalThis.__testApi = {${exports}};`, sandbox, { filename: 'background.js' });

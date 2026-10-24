@@ -1,12 +1,12 @@
 {
   "date": "2026-10-24",
   "version": "0.1.71",
-  "unit_tests_passed": 61,
+  "unit_tests_passed": 62,
   "browser_checks_passed": 66,
   "locale_browser_checks_passed": 10,
   "archive_files": 239,
   "archive_matches_source": true,
-  "archive_sha256": "54463471cd0cb5f80a2879cc65c6765d7af950b75fc40029e0699a4aaef9f297",
+  "archive_sha256": "44d788ff8f01f27cd272076151b0b2a0560355fd19d94c54a8daa25a0fba740a",
   "validation_scope": "Fresh local automated and isolated Chromium checks with fictional Moodle and provider data; no private Moodle or real model interpretation qualification.",
   "store_metadata": {
     "locales": [
@@ -50,5 +50,6 @@
     "Moodle downloads with generic MIME and assignment reference role",
     "Base64 C, C++ header, HTML and JavaScript module sent as inert text"
   ],
-  "copy_page_browser_checks": "All eight descriptions render from current sources; download links exist; current validation footer; no horizontal overflow at 390px."
+  "copy_page_browser_checks": "All eight descriptions render from current sources; download links exist; current validation footer; no horizontal overflow at 390px.",
+  "provider_persistence_regression": "A concurrent status/config read while the profile lookup is gated cannot replace the immutable next provider/model committed to storage."
 }
