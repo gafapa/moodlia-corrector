@@ -214,6 +214,7 @@ try {
     { name: 'fictional.docx', mimeType: 'application/octet-stream', sizeBytes: docx.length, base64Data: Buffer.from(docx).toString('base64') },
     { name: 'fictional.pdf', mimeType: 'application/pdf', sizeBytes: pdf.length, base64Data: pdf.toString('base64') },
     { name: 'fictional.png', mimeType: 'image/png', sizeBytes: 68, base64Data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' },
+    ...[['c', 'int main(void) { return 0; }'], ['hpp', '#pragma once'], ['html', '<script>globalThis.codeMustStayInert = true;</script>'], ['mjs', 'export const answer = 42;']].map(([extension, text]) => ({ name: `source.${extension}`, mimeType: 'application/octet-stream', sizeBytes: Buffer.byteLength(text), base64Data: Buffer.from(text).toString('base64') })),
   ];
   const result = await send({ type: 'mca.correctAssignment', requestId: 'attachments', assignmentData: {
     page: { language: 'en' }, assignmentTitle: 'Fictional task', assignmentPrompt: 'Review the attached evidence.',
@@ -226,6 +227,10 @@ try {
   assert.equal(lastChat.messages[1].images.length, 2);
   assert.doesNotMatch(lastChat.messages[1].content, /fictional\.docx|fictional\.pdf/);
   console.log('PASS: bundled offscreen reader extracts PDF and DOCX locally and sends image evidence.');
+  for (const snippet of ['int main(void)', '#pragma once', 'globalThis.codeMustStayInert = true;', 'export const answer = 42;']) assert.ok(lastChat.messages[1].content.includes(snippet));
+  assert.equal(await page.evaluate(() => globalThis.codeMustStayInert), undefined);
+  assert.equal(await worker.evaluate(() => globalThis.codeMustStayInert), undefined);
+  console.log('PASS: C, C++ headers, HTML and JavaScript modules reach the provider as literal source text without execution.');
   const scannedPdf = makePdf(false);
   const scanned = await send({ type: 'mca.correctAssignment', requestId: 'scanned', assignmentData: {
     extraFiles: [{ name: 'fictional-scan.pdf', mimeType: 'application/pdf', sizeBytes: scannedPdf.length, base64Data: scannedPdf.toString('base64') }],

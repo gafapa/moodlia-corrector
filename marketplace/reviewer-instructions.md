@@ -1,6 +1,6 @@
 # Reviewer instructions
 
-MoodlIA Corrector 0.1.67 assists teacher review of Moodle assignments. It is an independent project and does not require a separate MoodlIA plugin or subscription.
+MoodlIA Corrector 0.1.71 assists teacher review of Moodle assignments. It is an independent project and does not require a separate MoodlIA plugin or subscription.
 
 ## Access information to enter privately in the review dashboard
 
@@ -17,7 +17,7 @@ The publisher must complete these fields with a dedicated non-production environ
 2. Click the extension icon. The popup contains Add site and Manage sites; the correction sidebar opens on the grader. Automatic activation is off until a site is explicitly remembered.
 3. Open the AI settings icon in the sidebar. Simple mode selects provider/model; Advanced exposes endpoint protocol, IP/host, port, API path, full URL, model and session key. A separate options page is also available from Chrome.
 4. Configure the supplied endpoint or a local compatible server you operate. Refresh models, select the exact model, save and test the connection. The test sends fictional data only. Network HTTP hosts may prompt for optional access; use a trusted network or HTTPS.
-5. Inspect detected grading mode and evidence roles. Assignment documents are references; submitted work is assessed. Supported PDF, DOCX, ODT and text are extracted locally. Supported images need a vision model; unsupported files are shown as skipped.
+5. Inspect detected grading mode and evidence roles. Assignment documents are references; submitted work is assessed. Supported PDF, DOCX, ODT, text and source-code files are read locally. Include a C header, HTML file and JavaScript module in the fictional submission to verify they are included as literal code, without running it. Supported images need a vision model; unsupported files are shown as skipped.
 6. Enter teacher criteria for course, assignment and case. Request a correction. Check that the proposed feedback/grade or rubric selection is reviewable and editable in Moodle. Do not save any real student's grade. The extension itself never submits the form.
 7. Navigate to a different student or attempt. Old suggestions and manually added files reset; course/task criteria persist, and case criteria are isolated.
 8. In Advanced settings choose another interface language and reload the Moodle page. Popup, panel and settings support English, Spanish, French, German, Portuguese, Italian, Galician and Catalan. The Moodle page and teacher-authored text are not translated.

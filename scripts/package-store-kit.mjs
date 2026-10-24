@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import { zipSync, unzipSync } from 'fflate';
+import './validate-store-materials.mjs';
 const manifest = JSON.parse(await fs.readFile('extension/manifest.json', 'utf8'));
 const version = manifest.version;
 const files = {};

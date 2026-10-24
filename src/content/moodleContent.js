@@ -11,7 +11,7 @@ const PAGE_STYLE_ID = 'mca-page-layout-style';
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.1.67',
+  version: '0.1.71',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -226,7 +226,7 @@ const getAssignmentFileType = (extension) => ({
   '.zip': MoodliaCorrectorI18n.t('Archivo comprimido (ZIP)'), '.txt': MoodliaCorrectorI18n.t('Archivo de texto'), '.csv': MoodliaCorrectorI18n.t('Datos CSV'),
   '.png': MoodliaCorrectorI18n.t('Imagen PNG'), '.jpg': MoodliaCorrectorI18n.t('Imagen JPEG'), '.jpeg': MoodliaCorrectorI18n.t('Imagen JPEG'), '.webp': MoodliaCorrectorI18n.t('Imagen WebP'), '.gif': MoodliaCorrectorI18n.t('Imagen GIF'), '.svg': MoodliaCorrectorI18n.t('Imagen SVG'),
   '.mp4': MoodliaCorrectorI18n.t('Vídeo MP4'), '.mp3': MoodliaCorrectorI18n.t('Audio MP3'),
-}[extension] || (extension ? `Archivo ${extension.slice(1).toUpperCase()}` : MoodliaCorrectorI18n.t('Archivo enlazado')));
+}[extension] || (MoodliaCorrectorAttachmentSupport.isText({ name: `file${extension}` }) ? MoodliaCorrectorI18n.t('Archivo de texto') : extension ? `Archivo ${extension.slice(1).toUpperCase()}` : MoodliaCorrectorI18n.t('Archivo enlazado')));
 
 const extractAssignmentFiles = (doc = document, pageUrl = location.href) => {
   const seen = new Set();
@@ -240,7 +240,7 @@ const extractAssignmentFiles = (doc = document, pageUrl = location.href) => {
       const extension = getFileExtension(name);
       const introFile = /\/pluginfile\.php\/[^/]+\/mod_assign\/intro(?:attachment)?\//i.test(url.pathname);
       const download = element.getAttribute('download');
-      if (!introFile && !download && !/\.(odt|docx?|pdf|ods|xlsx?|odp|pptx?|zip|txt|csv|png|jpe?g|webp|gif|svg|mp4|mp3)$/i.test(extension)) continue;
+      if (!introFile && !download && !MoodliaCorrectorAttachmentSupport.isText({ name }) && !/\.(odt|docx?|pdf|ods|xlsx?|odp|pptx?|zip|txt|csv|png|jpe?g|webp|gif|svg|mp4|mp3)$/i.test(extension)) continue;
       const key = new URL(url);
       key.hash = '';
       key.searchParams.delete('forcedownload');

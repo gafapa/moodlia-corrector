@@ -18,6 +18,10 @@ test('manifest references existing extension assets', async () => {
   ];
 
   assert.equal(manifest.manifest_version, 3);
+  assert.equal(JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')).version, manifest.version);
+  for (const file of ['src/content/moodleContent.js', 'extension/src/background.js']) {
+    assert.ok((await fs.readFile(path.join(root, file), 'utf8')).includes(`version: '${manifest.version}'`), `Stale runtime version: ${file}`);
+  }
   for (const relativePath of referenced) {
     await fs.access(path.join(root, 'extension', relativePath));
   }
@@ -257,6 +261,11 @@ test('attachment support uses shared formats and never accepts archives as text'
   assert.equal(assess({ url: 'https://moodle.example/pluginfile.php/archive.zip' }).supported, false);
   assert.equal(assess({ name: 'download', mimeType: 'application/octet-stream' }).supported, false);
   assert.equal(isText({ mimeType: 'application/json' }), true);
+  for (const extension of ['c', 'h', 'CPP', 'hpp', 'html', 'js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'vue', 'svelte', 'py', 'java', 'cs', 'go', 'rs', 'php', 'sh', 'ps1', 'sql', 'yaml']) {
+    const file = { name: `answer.${extension}`, mimeType: 'application/octet-stream' };
+    assert.equal(assess(file).supported, true, extension);
+    assert.equal(isText(file), true, extension);
+  }
 });
 
 test('unsupported uploads are skipped before reading content or charging their size', async () => {
@@ -303,6 +312,23 @@ test('direct AI requests use provider-native endpoints without exposing a key to
   assert.equal(compatible.endpoint, 'https://api.example.test/v1/chat/completions');
   assert.equal(compatible.headers.Authorization, 'Bearer session-secret');
   assert.equal(compatible.body.response_format.type, 'json_object');
+});
+
+test('source files preserve literal code in manual uploads and Moodle downloads with generic MIME types', async () => {
+  const sandbox = { URL, btoa, Uint8Array };
+  vm.runInNewContext(await fs.readFile(path.join(root, 'extension/src/attachmentSupport.js'), 'utf8'), sandbox);
+  const text = '<script>throw new Error("must remain inert");</script>\nconst greeting = "Olá";\n';
+  const files = await sandbox.MoodliaCorrectorAttachmentSupport.readSelectedFiles([
+    { name: 'answer.tsx', type: 'application/octet-stream', size: Buffer.byteLength(text), text: async () => text, arrayBuffer: () => { throw new Error('Source must use the text path'); } },
+  ]);
+  assert.equal(files[0].textContent, text);
+  assert.equal(files[0].base64Data, undefined);
+  const api = await loadBackgroundApi({ fetchImpl: async () => new Response(text, { headers: { 'content-type': 'application/octet-stream' } }) });
+  const downloaded = await api.fetchSubmissionFileAttachments([
+    { id: 'source-1', name: 'answer.hpp', url: 'https://moodle.example/pluginfile.php/answer.hpp', role: 'assignment-reference' },
+  ], 'https://moodle.example/mod/assign/view.php?id=1');
+  assert.equal(downloaded[0].textContent, text);
+  assert.equal(downloaded[0].role, 'assignment-reference');
 });
 
 test('direct AI requests reject redirects and return provider metadata', async () => {
@@ -746,7 +772,7 @@ async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionDat
     'createDirectChatRequest',
     'isCorrectionComplete',
     'isSupportedGraderUrl',
-    'normalizeMoodleAttachmentUrl', 'fetchMoodleAttachment',
+    'normalizeMoodleAttachmentUrl', 'fetchMoodleAttachment', 'fetchSubmissionFileAttachments',
     'parseCorrectionResponse',
     'requestDirectChat',
     'sanitizeAiConfig', 'saveAiConfig', 'loadBoundAiSecret', 'getDirectAiStatus', 'createDirectMessages',

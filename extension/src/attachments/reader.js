@@ -105,6 +105,11 @@ export const readAttachment = async (file) => {
   if (typeof file.base64Data !== 'string' || file.base64Data.length > 6 * 1024 * 1024) throw new Error('Invalid or oversized attachment.');
   const bytes = Uint8Array.from(atob(file.base64Data), (character) => character.charCodeAt(0));
   if (bytes.length > 4 * 1024 * 1024) throw new Error('Attachment exceeds the 4 MB limit.');
+  if (MoodliaCorrectorAttachmentSupport.isText(file)) {
+    const textContent = new TextDecoder().decode(bytes);
+    if (textContent.length > MAX_TEXT) throw new Error('Attachment exceeds the text limit.');
+    return { textContent };
+  }
   if (file.mimeType === 'application/pdf' || /\.pdf$/i.test(file.name)) return readPdf(bytes);
   if (/\.docx$/i.test(file.name) || file.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return readDocx(bytes);
   if (/\.odt$/i.test(file.name) || file.mimeType === 'application/vnd.oasis.opendocument.text') return readOdt(bytes);

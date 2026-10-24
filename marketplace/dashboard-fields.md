@@ -1,6 +1,6 @@
 # Chrome Web Store dashboard fields
 
-Version: 0.1.67. Prepared 20 October 2026. These statements describe the actual extension; they are not a claim of store approval.
+Version: 0.1.71. Prepared 24 October 2026. These statements describe the actual extension; they are not a claim of store approval.
 
 ## Store listing
 
@@ -8,9 +8,9 @@ Version: 0.1.67. Prepared 20 October 2026. These statements describe the actual 
 - Category: Education
 - Default listing language: English; add Spanish, French, German, Portuguese (Brazil), Italian, Galician and Catalan from `listings/*.json`.
 - Summary and detailed description: copy the corresponding JSON fields.
-- Homepage: https://moodlia.com/products/corrector/
+- Homepage: https://moodlia.com/apps/corrector/
 - Support: https://github.com/gafapa/moodlia-corrector/issues
-- Privacy: https://moodlia.com/privacy/corrector.html — stable extension-specific policy, verified against the website source on 20 October 2026. Review it against the submitted extension behavior.
+- Privacy: https://moodlia.com/privacy/corrector.html — stable extension-specific policy, verified against the website source on 24 October 2026. Review it against the submitted extension behavior.
 - Pricing: Free. No in-extension purchases or subscription managed by MoodlIA. Third-party providers may charge independently.
 - Distribution: Public; select your intended countries in the dashboard.
 - Mature content: No.

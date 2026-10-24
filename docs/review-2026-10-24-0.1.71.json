@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-24",
+  "version": "0.1.71",
+  "unit_tests_passed": 61,
+  "browser_checks_passed": 66,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 239,
+  "archive_matches_source": true,
+  "archive_sha256": "54463471cd0cb5f80a2879cc65c6765d7af950b75fc40029e0699a4aaef9f297",
+  "validation_scope": "Fresh local automated and isolated Chromium checks with fictional Moodle and provider data; no private Moodle or real model interpretation qualification.",
+  "store_metadata": {
+    "locales": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "pt_BR",
+      "it",
+      "gl",
+      "ca"
+    ],
+    "provider_brand_enumeration_removed": true,
+    "official_policy_checked": "https://developer.chrome.com/docs/webstore/troubleshooting/#keyword-stuffing",
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false,
+    "regression_tests": [
+      "Rejected provider enumeration fails independently in all eight locales",
+      "Copy-page regeneration refreshes stale generated listings",
+      "Publisher edits stop regeneration before any managed file is overwritten"
+    ]
+  },
+  "public_urls_checked": [
+    "https://moodlia.com/apps/corrector/",
+    "https://moodlia.com/privacy/corrector.html",
+    "https://moodlia.com/privacy/rubrics.html",
+    "https://github.com/gafapa/moodlia-corrector/issues"
+  ],
+  "public_url_status": 200,
+  "public_policies_match_website_source": true,
+  "npm_production_audit_vulnerabilities": 0,
+  "publisher_actions_remaining": [
+    "Replace full descriptions in every configured dashboard locale and read them back",
+    "Provide private dedicated reviewer access",
+    "Submit from the publisher account"
+  ],
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false,
+  "source_code_evidence_verified": [
+    "Manual upload literal UTF-8 text",
+    "Moodle downloads with generic MIME and assignment reference role",
+    "Base64 C, C++ header, HTML and JavaScript module sent as inert text"
+  ],
+  "copy_page_browser_checks": "All eight descriptions render from current sources; download links exist; current validation footer; no horizontal overflow at 390px."
+}

@@ -6,7 +6,7 @@ MoodlIA Corrector is a Chrome extension that helps teachers review Moodle assign
 
 ## Status
 
-Implemented Chrome extension. Current source version: `0.1.70`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
+Implemented Chrome extension. Current source version: `0.1.71`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
 
 The Moodle entry point is now self-contained, including localization. It also works with old automatic-activation registrations that do not list the translation scripts. Assignment overview pages are ignored before initialization. After updating the extension, reload it in `chrome://extensions` and refresh Moodle to replace scripts already running in open tabs.
 
@@ -57,6 +57,10 @@ The supervision panel lists files linked or embedded in the assignment descripti
 
 The interface supports English, Spanish, French, German, Portuguese, Italian, Galician, and Catalan, with browser detection and a saved override in Advanced settings. Moodle content, teacher criteria, filenames, and AI feedback remain separate from interface localization. See `marketplace/SUBMISSION.md` for the submission kit, declarations, reviewer instructions, verified URLs, and remaining publisher actions.
 
+### Source-code evidence
+
+Source-code evidence is read as literal UTF-8 text, never executed or rendered as HTML. Supported extensions include C/C++ (`.c`, `.h`, `.cc`, `.cpp`, `.hpp`, `.cxx`), web source (`.html`, `.css`, `.scss`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.tsx`, `.vue`, `.svelte`), Python, Java/Kotlin, C#, Go, Rust, PHP, Ruby, R, Lua, SQL, shell/PowerShell scripts and common text configuration formats. The same reader supports Moodle submissions, linked assignment references and teacher-added files. Upload source files individually; archives and compiled executables remain unsupported.
+
 ## Development
 
 ### Structure
@@ -97,7 +101,7 @@ npm run test:locales
 
 The browser checks use a temporary profile, fictional submissions, and a loopback test provider. To also verify the existing local Ollama installation with `gemma3:4b`, run `node tests/browser-check.mjs --live`. This sends a fictional connection probe and an arithmetic correction with one rubric criterion, not student work. It does not modify the machine's Ollama configuration.
 
-Run `npm run package` to create `release/moodlia-corrector-0.1.70.zip` with the manifest at the archive root and all local parsing dependencies included.
+Run `npm run package` to create `release/moodlia-corrector-0.1.71.zip` with the manifest at the archive root and all local parsing dependencies included.
 
 Version 0.1.46 binds a correction to the Moodle assignment, student, attempt,
 and extracted submission before requesting AI and before changing form fields.
@@ -119,9 +123,9 @@ See [the 2026-10-19 review](docs/review-2026-10-19.md) for reproduction and vali
 
 ### Rebuild publication materials
 
-After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-0.1.67/index.html`. Generated archives and folders stay local and are not committed.
+After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-0.1.71/index.html`. Generated archives and folders are not committed. Run `node scripts/validate-store-materials.mjs --artifacts` to verify the current kit and copy page, including all eight corrected descriptions.
 
-The store-ready extension policy is hosted at `https://moodlia.com/privacy/corrector.html`; Rubrics uses `https://moodlia.com/privacy/rubrics.html`. Both were checked against the website project's source on 20 October 2026. The website project owns these stable routes across redesigns. Source publication on GitHub is separate from a tagged extension release or Chrome Web Store approval; the prepared 0.1.67 build is not a claim of store publication.
+The store-ready extension policy is hosted at `https://moodlia.com/privacy/corrector.html`; Rubrics uses `https://moodlia.com/privacy/rubrics.html`. Both public policies were checked against the website project's source on 24 October 2026. The published policy retains its original effective date; the 0.1.71 review confirms the same processing disclosures apply. The website project owns these stable routes across redesigns. Source publication on GitHub is separate from a tagged extension release or Chrome Web Store approval; the prepared 0.1.71 build is not a claim of store publication.
 
 ## Security and privacy
 
@@ -143,6 +147,7 @@ AI-assisted review of assignment submissions; [Rubrics](https://github.com/gafap
 - [extension/README.md](extension/README.md)
 - [marketplace/SUBMISSION.md](marketplace/SUBMISSION.md)
 - [CHANGELOG.md](CHANGELOG.md)
+- [docs/review-2026-10-24-0.1.71.md](docs/review-2026-10-24-0.1.71.md)
 - [docs/review-2026-10-21-0.1.67.md](docs/review-2026-10-21-0.1.67.md)
 
 ## License

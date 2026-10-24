@@ -1,25 +1,41 @@
-# Chrome Web Store submission kit — MoodlIA Corrector 0.1.67
+# Chrome Web Store submission kit — MoodlIA Corrector 0.1.71
 
-Prepared 20 October 2026. This is a local submission candidate, not a published or store-approved release.
+Prepared 24 October 2026. This is a local submission candidate, not a store-approved release. GitHub publication is separate from store submission.
 
 ## Files to upload and copy
 
 | Dashboard field | File |
 | --- | --- |
-| Extension package | `release/moodlia-corrector-0.1.67.zip` — upload this archive, not the entire submission-kit archive |
+| Extension package | `release/moodlia-corrector-0.1.71.zip` — upload this archive, not the entire submission-kit archive |
 | Default name, summary, description | `marketplace/listings/en.json` |
 | Localized listing text | `marketplace/listings/{es,fr,de,pt_BR,it,gl,ca}.json` |
 | Store icon | `extension/icons/icon-128.png` (128 × 128 PNG) |
-| Required promotional image | `marketplace/assets/promo-small-0.1.67.png` (440 × 280 RGB PNG) |
-| Optional marquee | `marketplace/assets/promo-marquee-0.1.67.png` (1400 × 560 RGB PNG) |
+| Required promotional image | `marketplace/assets/promo-small-0.1.71.png` (440 × 280 RGB PNG) |
+| Optional marquee | `marketplace/assets/promo-marquee-0.1.71.png` (1400 × 560 RGB PNG) |
 | Default screenshots | `marketplace/screenshots/en-01-correction.png` and `en-02-settings.png` (1280 × 800 RGB PNG) |
 | Spanish/German screenshots | Corresponding `es-*.png` / `de-*.png` files; other listing locales may use the English images |
 | Privacy practices and permissions | `marketplace/dashboard-fields.md` |
 | Public privacy-policy content | `marketplace/privacy-policy.md` or `privacy-policy.html` |
 | Private review access and steps | `marketplace/reviewer-instructions.md` |
-| Release notes | `CHANGELOG.md`, entry 0.1.67 |
+| Release notes | `CHANGELOG.md`, entry 0.1.71 |
 
-The downloadable submission-kit ZIP groups these files under `upload`, `listings`, `images` and `documents`. Its `SHA256SUMS.txt` records every included file. Do not upload the kit itself as an extension.
+The `release/moodlia-corrector-publishing-page-0.1.71.zip` archive also includes the English `index.html` copy page: extract it before opening the page. The downloadable submission-kit ZIP groups these files under `upload`, `listings`, `images` and `documents`. Its `SHA256SUMS.txt` records every included file. Do not upload the kit itself as an extension.
+
+## Listing correction after Yellow Argon rejection
+
+The provider-brand enumeration has been removed from all eight localized
+listings and their generator. Use the current `marketplace/listings/*.json`
+files when updating store metadata. Older submission archives and extracted
+copy pages may retain the rejected text; do not reuse their descriptions.
+
+Replace the full description for each configured dashboard locale, including
+Catalan and Italian, and read it back before requesting review. The dashboard
+values must be updated separately from local files and extension ZIP uploads.
+This metadata correction does not change extension code or establish store
+approval. Keep detailed provider compatibility information in project
+documentation rather than repeating provider-brand lists in the store listing.
+
+The official [violation guide](https://developer.chrome.com/docs/webstore/troubleshooting/#keyword-stuffing) identifies Yellow Argon as keyword stuffing. The [spam FAQ](https://developer.chrome.com/docs/webstore/program-policies/spam-faq/#keyword-spam) limits supported-brand lists to five; this listing uses generic provider wording instead. These checks address the recorded issue, not all possible review decisions.
 
 ## Publisher steps
 
@@ -27,7 +43,7 @@ The downloadable submission-kit ZIP groups these files under `upload`, `listings
 2. Create the item or update the existing item, and upload the extension ZIP from `upload`.
 3. Copy the English listing fields, category Education, and verified homepage/support URLs from `dashboard-fields.md`. Add the seven optional localized listings. Product UI supports all eight locales independently of which store listings you add.
 4. Upload the icon, small promotional image and two matching screenshots. The marquee is optional. The old unversioned promotional images in the repository depict an earlier concept and are deliberately excluded from this kit.
-5. Use https://moodlia.com/privacy/corrector.html as the extension-specific privacy URL. Its public content was verified against the website project source on 20 October 2026. The general /privacy page remains available and links to both extension policies. Review the policy against the actual submitted behavior, and update its content without changing its permanent URL if behavior changes.
+5. Use https://moodlia.com/privacy/corrector.html as the extension-specific privacy URL. Its public content was verified against the website project source on 24 October 2026. The general /privacy page remains available and links to both extension policies. Review the policy against the actual submitted behavior, and update its content without changing its permanent URL if behavior changes.
 6. Complete Privacy practices using `dashboard-fields.md`. Declare handled content/personal data and the session API key; explain direct selected-provider transfer, broad required HTTPS access, optional HTTP host grants and HTTP encryption limits honestly. Confirm the dashboard certifications only after checking they match your publisher's practice.
 7. Fill the private reviewer instructions with a dedicated, reachable non-production Moodle teacher account and a usable AI endpoint/model or restricted review key. Keep those services available through review. No hosted review environment or credentials are provisioned by this kit, and no secrets should be committed or placed in public descriptions.
 8. Choose visibility, countries and any dashboard-specific settings, then submit for review. Review acceptance, timing and later publication remain controlled by Google and the publisher.
@@ -40,13 +56,13 @@ Screenshots show the actual unpacked extension running on a clearly labeled fict
 
 ## Verified public URLs
 
-On 20 October 2026, direct requests returned HTTP 200 for:
+On 24 October 2026, direct requests returned HTTP 200 for:
 
-- https://moodlia.com/products/corrector/
+- https://moodlia.com/apps/corrector/
 - https://moodlia.com/privacy/corrector.html
 - https://github.com/gafapa/moodlia-corrector/issues
 
-Both extension-specific policies returned HTTP 200 and matched the website source byte for byte on 20 October 2026. Privacy review and private test credentials remain publisher responsibilities.
+Both extension-specific policies returned HTTP 200 and matched the website source byte for byte on 24 October 2026. Privacy review and private test credentials remain publisher responsibilities.
 
 ## Official references
 
@@ -57,4 +73,4 @@ Both extension-specific policies returned HTTP 200 and matched the website sourc
 
 ## Rebuild
 
-Run `npm ci`, `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, then `node scripts/package-store-kit.mjs` and `node scripts/generate-submission-page.mjs`. The latter extracts a missing submission folder without overwriting existing publisher edits and creates the English `index.html` copy-and-download page. Install the pinned Playwright Chromium first if unavailable. Tests use isolated temporary profiles and fictional data, not the user's open Moodle session.
+Run `npm ci`, `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, then `node scripts/package-store-kit.mjs` and `node scripts/generate-submission-page.mjs`. The latter refreshes generated copies and creates the English `index.html` copy-and-download page. If a managed file has publisher edits, it stops before writing: back up and reconcile that file first. Run `node scripts/validate-store-materials.mjs --artifacts` after generation to compare all eight listing sources with the kit, extracted folder and embedded page data. Install the pinned Playwright Chromium first if unavailable. Tests use isolated temporary profiles and fictional data, not the user's open Moodle session.

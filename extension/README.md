@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.1.70`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.1.71`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 
@@ -191,6 +191,10 @@ The settings tool now has two modes. Simple selects any supported provider and a
 
 The advanced form uses an extension-origin frame. A short-lived token is issued only to a grader tab and checked against that tab and the extension document before the form initializes. Only sizing information crosses the frame boundary; API keys do not pass through page messages or Moodle DOM fields. The parent verifies the frame origin, window, and token for sizing. Leaving the grader or changing students removes the frame, returns to Simple, and cancels pending connection tests. Simple controls refresh when a saved configuration changes; delayed status results cannot replace a newer status request.
 
+### Source-code evidence
+
+Source-code evidence is read as literal UTF-8 text, never executed or rendered as HTML. Supported extensions include C/C++ (`.c`, `.h`, `.cc`, `.cpp`, `.hpp`, `.cxx`), web source (`.html`, `.css`, `.scss`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.tsx`, `.vue`, `.svelte`), Python, Java/Kotlin, C#, Go, Rust, PHP, Ruby, R, Lua, SQL, shell/PowerShell scripts and common text configuration formats. The same reader supports Moodle submissions, linked assignment references and teacher-added files. Upload source files individually; archives and compiled executables remain unsupported.
+
 ## Development
 
 Build and validation commands run from the repository root: `npm ci`, `npm run check`, `npm run test:browser`, and `npm run test:locales`.
@@ -234,7 +238,7 @@ See the [project README](../README.md), [changelog](../CHANGELOG.md), and [store
 
 GPL-3.0-or-later. See [LICENSE](../LICENSE).
 
-Version 0.1.70 bundles its own localization and grading dependencies at the stable content-script path, so older saved registrations cannot omit them. Overview pages are ignored. Edit the grader in `../src/content/moodleContent.js` from this directory and rebuild from the repository root; packaging rejects an outdated entry point. Reload the extension and Moodle after updating.
+Version 0.1.71 bundles its own localization and grading dependencies at the stable content-script path, so older saved registrations cannot omit them. Overview pages are ignored. Edit the grader in `../src/content/moodleContent.js` from this directory and rebuild from the repository root; packaging rejects an outdated entry point. Reload the extension and Moodle after updating.
 
 
 ### Long-operation messaging

@@ -1,23 +1,38 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { unzipSync } from 'fflate';
+import { unzipSync, zipSync } from 'fflate';
 const version=JSON.parse(await fs.readFile('extension/manifest.json','utf8')).version;
 const folder=path.resolve(`release/publicar-moodlia-corrector-${version}`);
-try { await fs.access(path.join(folder, 'SHA256SUMS.txt')); }
-catch (error) {
-  if (error.code !== 'ENOENT') throw error;
-  const archive = unzipSync(await fs.readFile(`release/moodlia-corrector-submission-kit-${version}.zip`));
-  await fs.mkdir(folder, { recursive: true });
-  for (const [name, bytes] of Object.entries(archive)) {
-    const destination = path.resolve(folder, name);
-    if (!destination.startsWith(folder + path.sep)) throw new Error('Unsafe submission-kit path.');
-    await fs.mkdir(path.dirname(destination), { recursive: true });
-    // Keep any manually prepared review credentials or other existing publisher edits.
-    try { await fs.writeFile(destination, bytes, { flag: 'wx' }); }
-    catch (writeError) { if (writeError.code !== 'EEXIST') throw writeError; }
+let previousChecksums = '';
+try { previousChecksums = await fs.readFile(path.join(folder, 'SHA256SUMS.txt'), 'utf8'); }
+catch (error) { if (error.code !== 'ENOENT') throw error; }
+const previousHashes = new Map(previousChecksums.trim().split('\n').filter(Boolean).map(line => {
+  const [hash, name] = line.split('  ');
+  return [name, hash];
+}));
+const archive = unzipSync(await fs.readFile(`release/moodlia-corrector-submission-kit-${version}.zip`));
+const pendingWrites = [];
+// Preflight every managed file before writing. Refresh intact generated copies,
+// but preserve publisher edits (especially private reviewer access) on conflict.
+for (const [name, bytes] of Object.entries(archive)) {
+  if (name === 'SHA256SUMS.txt') continue;
+  const destination = path.resolve(folder, name);
+  if (!destination.startsWith(folder + path.sep)) throw new Error('Unsafe submission-kit path.');
+  let existing;
+  try { existing = await fs.readFile(destination); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (existing && !existing.equals(Buffer.from(bytes))) {
+    const hash = crypto.createHash('sha256').update(existing).digest('hex');
+    if (hash !== previousHashes.get(name)) throw new Error(`Publisher-edited file preserved: ${destination}. Back up and reconcile it before regenerating the page.`);
   }
+  pendingWrites.push([destination, bytes]);
 }
+for (const [destination, bytes] of pendingWrites) {
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, bytes);
+}
+await fs.writeFile(path.join(folder, 'SHA256SUMS.txt'), archive['SHA256SUMS.txt']);
 const listings={};
 for(const file of await fs.readdir(path.join(folder,'listings'))) listings[file.replace('.json','')]=JSON.parse(await fs.readFile(path.join(folder,'listings',file),'utf8'));
 const readDoc=async name => (await fs.readFile(path.join(folder,'documents',name),'utf8')).replace(/^\uFEFF/,'');
@@ -58,4 +73,6 @@ const sumsPath=path.join(folder,'SHA256SUMS.txt');
 const lines=(await fs.readFile(sumsPath,'utf8')).trim().split('\n').filter(line=>!line.endsWith('  index.html'));
 lines.push(crypto.createHash('sha256').update(html).digest('hex')+'  index.html');
 await fs.writeFile(sumsPath,lines.join('\n')+'\n');
+const pageFiles = { ...archive, 'index.html': Buffer.from(html), 'SHA256SUMS.txt': await fs.readFile(sumsPath) };
+await fs.writeFile(`release/moodlia-corrector-publishing-page-${version}.zip`, zipSync(pageFiles, { level: 9 }));
 console.log(path.join(folder,'index.html'));

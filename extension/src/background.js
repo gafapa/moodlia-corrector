@@ -4,7 +4,7 @@ const { getLanguageInstruction, getExpectedMaxScore, hasNumericGradeControl, get
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.1.70',
+  version: '0.1.71',
 };
 
 const MOODLE_GRADER_PATH = '/mod/assign/view.php';

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.71 - 2026-10-24
+
+- Expand source-code evidence support across C/C++ headers, JavaScript/TypeScript modules and components, shells, common programming languages and text configuration formats.
+- Decode source uploads as inert text, including base64 input, and detect linked source files in assignment references. Existing attachment limits and skipped-format reporting apply.
+- Synchronize store materials across all eight locales and remove the rejected provider-brand enumeration. Validate generated kits and copy pages, refresh intact generated copies and preserve publisher edits on conflict.
+
 ## 0.1.70
 
 - Render every PDF page as visual evidence alongside extracted text instead of filtering pages through graphics-operator heuristics.

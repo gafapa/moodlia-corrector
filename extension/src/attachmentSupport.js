@@ -1,8 +1,8 @@
 (() => {
-  const textExtensions = /\.(txt|csv|md|json|xml|html?|css|js|ts|py|java|c|cpp|log)$/i;
+  const textExtensions = /\.(txt|csv|md|markdown|json|jsonc|xml|html?|xhtml|css|scss|sass|less|js|mjs|cjs|jsx|ts|mts|cts|tsx|vue|svelte|py|pyw|ipynb|java|kt|kts|scala|c|h|cc|hh|cpp|hpp|cxx|hxx|cs|go|rs|swift|dart|php|phtml|rb|r|lua|pl|pm|sh|bash|zsh|fish|ps1|psm1|psd1|bat|cmd|sql|graphql|gql|yaml|yml|toml|ini|cfg|conf|tex|asm|s|vb|vbs|log)$/i;
   const documentExtensions = /\.(pdf|docx|odt|png|jpe?g|webp)$/i;
   const unsupportedExtensions = /\.(zip|rar|7z|doc|xls|xlsx|ods|ppt|pptx|odp|gif|svg|bmp|tiff?|heic|avif|mp[34]|wav|ogg|exe)$/i;
-  const isText = (file = {}) => textExtensions.test(file.name || '') || String(file.mimeType || file.type || '').toLowerCase().startsWith('text/') ||
+  const isText = (file = {}) => textExtensions.test(file.name || file.originalName || '') || String(file.mimeType || file.type || '').toLowerCase().startsWith('text/') ||
     ['application/json', 'application/xml', 'application/javascript'].includes(String(file.mimeType || file.type || '').split(';')[0].trim().toLowerCase());
   const assess = (file = {}) => {
     const name = file.name || file.originalName || '';
