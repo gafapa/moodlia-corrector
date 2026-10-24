@@ -653,6 +653,11 @@ try {
           const root = document.querySelector('#mca-side-panel-host').shadowRoot;
           return root.querySelector('[data-provider]').value === providerId && root.querySelector('[data-model]').value === 'fictional-vision';
         }, id);
+        // Selected controls update before the asynchronous profile save completes.
+        await page.waitForFunction(async providerId => {
+          const response = await chrome.runtime.sendMessage({ type: 'mca.getAiRuntimeStatus' });
+          return response?.ok && response.status?.appConfig?.provider === providerId;
+        }, id);
         assert.equal((await send({ type: 'mca.getAiRuntimeStatus' })).status.appConfig.provider, id);
       }
       console.log('PASS: simple and advanced panel modes share full options behavior and isolate API fields from the Moodle document.');
