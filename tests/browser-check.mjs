@@ -605,6 +605,17 @@ try {
       await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent.includes('Conexión verificada'));
       await panelField('[data-ai-mode="advanced"]').click();
       const advanced = fixturePage.frameLocator('iframe[title="Configuración avanzada de IA"]');
+      const waitForAdvancedStatus = async text => {
+        try { await advanced.locator('#status').filter({ hasText: text }).waitFor(); }
+        catch (error) {
+          const state = await advanced.locator('form').evaluate(form => ({
+            status: document.querySelector('#status').textContent,
+            provider: document.querySelector('#provider').value,
+            invalidFields: [...form.elements].filter(control => control.willValidate && !control.validity.valid).map(control => control.id),
+          }));
+          throw new Error(`${error.message}\nAdvanced fixture state: ${JSON.stringify(state)}`);
+        }
+      };
       await advanced.locator('#endpointHost').waitFor({ state: 'visible' });
       const advancedFrame = fixturePage.frames().find(frame => frame.url().includes('embedded=1'));
       await advancedFrame.waitForFunction(endpoint => document.querySelector('#baseUrl').value === endpoint, baseUrl);
@@ -617,13 +628,13 @@ try {
       await advanced.locator('#load-models').click();
       await advanced.locator('#available-models option').first().waitFor();
       await advanced.locator('#test-connection').click();
-      await advanced.locator('#status').filter({ hasText: 'Conexión verificada' }).waitFor();
+      await waitForAdvancedStatus('Conexión verificada');
       await advanced.locator('#provider').selectOption('lm-studio');
       await advanced.locator('#baseUrl').fill(`${baseUrl}/v1`);
       await advanced.locator('#model').fill('fictional-vision');
       await advanced.locator('#apiKey').fill('fictional-panel-key');
       await advanced.locator('#test-connection').click();
-      await advanced.locator('#status').filter({ hasText: 'Conexión verificada: lm-studio' }).waitFor();
+      await waitForAdvancedStatus('Conexión verificada: lm-studio');
       assert.equal((await send({ type: 'mca.getAiRuntimeStatus' })).status.appConfig.hasApiKey, true);
       await advanced.locator('#remove-api-key').click();
       await advanced.locator('#status').filter({ hasText: 'Clave de API guardada eliminada' }).waitFor();
@@ -631,7 +642,7 @@ try {
       await advanced.locator('#provider').selectOption('ollama');
       await advanced.locator('#model').fill('fictional-vision');
       await advanced.locator('button[type="submit"]').click();
-      await advanced.locator('#status').filter({ hasText: 'Configuración guardada' }).waitFor();
+      await waitForAdvancedStatus('Configuración guardada');
       await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-provider]').value === 'ollama');
       console.log('PASS: advanced panel settings save provider profiles, test generation, and add/delete a session key without leaving Moodle.');
       await fixturePage.evaluate(() => { document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('.content').scrollTop = 0; });
