@@ -1,4 +1,4 @@
-import { getDocument, GlobalWorkerOptions, OPS } from '../../lib/pdf.mjs';
+import { getDocument, GlobalWorkerOptions } from '../../lib/pdf.mjs';
 import { unzipSync, strFromU8 } from '../../lib/fflate.mjs';
 import '../attachmentSupport.js';
 
@@ -26,21 +26,18 @@ const readPdf = async (bytes) => {
       textLength += text.length;
       if (textLength > MAX_TEXT) throw new Error('PDF exceeds the text limit.');
       if (text) sections.push(`Page ${pageNumber}\n${text}`);
-      const operators = await page.getOperatorList();
-      const visualOperators = [OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject,
-        OPS.paintImageXObjectRepeat, OPS.paintImageMaskXObjectRepeat, OPS.fill, OPS.eoFill,
-        OPS.stroke, OPS.closeStroke, OPS.fillStroke, OPS.eoFillStroke, OPS.shadingFill, OPS.constructPath];
-      if (!text || operators.fnArray.some((operator) => visualOperators.includes(operator))) {
-        if (images.length >= MAX_IMAGES) throw new Error('Scanned PDF exceeds the 12 image page limit.');
-        const viewport = page.getViewport({ scale: 1.5 });
-        const scale = Math.min(1.5, 1800 / Math.max(viewport.width / 1.5, viewport.height / 1.5));
+      // Render every page: operator heuristics are not a reliable visual-content boundary.
+      {
+        if (images.length >= MAX_IMAGES) throw new Error('PDF exceeds the safe image extraction limit.');
+        const viewport = page.getViewport({ scale: 2 });
+        const scale = Math.min(2, 2400 / Math.max(viewport.width / 2, viewport.height / 2));
         const sizedViewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         canvas.width = Math.ceil(sizedViewport.width);
         canvas.height = Math.ceil(sizedViewport.height);
         // Print intent avoids animation frames, which do not run in an offscreen document.
         await page.render({ canvasContext: canvas.getContext('2d'), viewport: sizedViewport, intent: 'print' }).promise;
-        images.push({ mimeType: 'image/png', base64Data: canvas.toDataURL('image/png').split(',')[1] });
+        images.push({ pageNumber, mimeType: 'image/png', base64Data: canvas.toDataURL('image/png').split(',')[1] });
         canvas.width = canvas.height = 0;
         sections.push(`Page ${pageNumber}: visual content attached as an image.`);
       }

@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.1.67`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.1.70`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 
@@ -32,7 +32,18 @@ Version 0.1.46 also renders PDF pages containing text and graphics for vision
 review. Corrections are bound to the extracted student and submission; changes
 while the model is running require fresh extraction. Invalid scores or rubric
 levels are rejected before form edits. Statement and online text are preserved
-up to 60,000 characters each; larger inputs stop correction explicitly.
+up to 60,000 characters each; larger inline inputs stop correction explicitly.
+Attachments support up to 600,000 extracted characters and 120 images in total,
+with existing 4 MB per-file, 10 MB download and 60-page PDF safeguards retained.
+Large attachment sets are reviewed sequentially in blocks of at most 24,000
+characters and four images. Every fragment retains its source number and role.
+Evidence notes are combined, recursively when necessary, before the final
+correction and schema validation. This derived review can lose detail; teachers
+must review the suggestion against the original work. Invalid or incomplete
+block reviews stop the correction without applying grades.
+AI generation uses Ollama NDJSON or compatible SSE streaming, with a cancellable
+15-minute deadline per request. Truncated streams are rejected. Provider or
+proxy timeouts can still occur independently of this extension deadline.
 
 ### Manual and remembered-site activation
 
@@ -223,4 +234,29 @@ See the [project README](../README.md), [changelog](../CHANGELOG.md), and [store
 
 GPL-3.0-or-later. See [LICENSE](../LICENSE).
 
-Version 0.1.67 bundles its own localization and grading dependencies at the stable content-script path, so older saved registrations cannot omit them. Overview pages are ignored. Edit the grader in `../src/content/moodleContent.js` from this directory and rebuild from the repository root; packaging rejects an outdated entry point. Reload the extension and Moodle after updating.
+Version 0.1.70 bundles its own localization and grading dependencies at the stable content-script path, so older saved registrations cannot omit them. Overview pages are ignored. Edit the grader in `../src/content/moodleContent.js` from this directory and rebuild from the repository root; packaging rejects an outdated entry point. Reload the extension and Moodle after updating.
+
+
+### Long-operation messaging
+
+Correction and connection tests use a dedicated runtime port. The requesting
+page sends a heartbeat every 20 seconds to keep an active MV3 worker reachable.
+Closing or navigating away from the requesting page disconnects the port and
+cancels its operation. If Chrome restarts the worker, the client reports the
+disconnection and requires a fresh request; it never automatically repeats an
+AI correction. The overall operation deadline is 30 minutes, with a 15-minute
+limit on each provider request. Reload the extension and existing Moodle tabs
+after updating so callers and the worker use the same protocol.
+
+
+### PDF visual evidence
+
+Every PDF page is rendered locally, including pages with a text layer, and sent
+as a PNG alongside extracted text. Rendering uses scale 2, capped at 2400 pixels
+on the longest edge. The `imagePages` field maps image positions to original PDF
+page numbers, including across evidence blocks. This requires an image-capable
+model even for text-only PDFs. Ollama models must advertise vision support;
+compatible server models must support image inputs. Transport tests verify image
+pixels reaching a simulated provider; they do not establish any model's ability
+to understand the supplied images. Very small screenshot text can still require
+manual inspection of the original PDF.

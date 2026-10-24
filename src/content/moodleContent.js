@@ -1292,7 +1292,7 @@ const applyCorrectionWhenReady = async (correction) => {
   return applyCorrection(correction);
 };
 
-const sendBackgroundMessage = (message) => chrome.runtime.sendMessage(message);
+const sendBackgroundMessage = (message) => MoodliaCorrectorRuntime.send(message);
 
 const { getExpectedMaxScore, getFinalComment, normalizeCorrectionResponse } = MoodliaCorrectorSchema;
 

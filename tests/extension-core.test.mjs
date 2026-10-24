@@ -509,7 +509,8 @@ test('images use native provider schemas and text evidence is not silently trunc
   assert.ok(ollama[1].content.includes('x'.repeat(13000)));
   const compatible = api.createDirectMessages(sampleAssignment(), files, '', 'openai-compatible');
   assert.equal(compatible[1].content[1].image_url.url, 'data:image/png;base64,image-data');
-  await assert.rejects(api.prepareDirectAttachments([{ textContent: 'x'.repeat(60001) }]), /text character/);
+  assert.equal((await api.prepareDirectAttachments([{ textContent: 'x'.repeat(60001) }]))[0].textContent.length, 60001);
+  await assert.rejects(api.prepareDirectAttachments([{ textContent: 'x'.repeat(600001) }]), /safe extraction limit/);
   assert.throws(() => api.normalizeExtraFileAttachments([{ sizeBytes: 5 * 1024 * 1024 }]), /exceed/);
 });
 
@@ -738,7 +739,7 @@ async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionDat
       query(_options, callback) { callback([]); }
     }
   };
-  const sandbox = { importScripts() {}, AbortController, Blob, Buffer, URL, chrome, clearTimeout, clearInterval, console, crypto, fetch: fetchImpl, setTimeout, setInterval };
+  const sandbox = { importScripts() {}, AbortController, TextDecoder, Blob, Buffer, URL, chrome, clearTimeout, clearInterval, console, crypto, fetch: fetchImpl, setTimeout, setInterval };
   sandbox.globalThis = sandbox;
   const exports = [
     'buildCorrectionPrompt', 'updateActionForTab', 'createSettingsFrame', 'authorizeSettingsFrame',
@@ -749,8 +750,113 @@ async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionDat
     'parseCorrectionResponse',
     'requestDirectChat',
     'sanitizeAiConfig', 'saveAiConfig', 'loadBoundAiSecret', 'getDirectAiStatus', 'createDirectMessages',
-    'prepareDirectAttachments', 'fetchAiResource', 'requestDirectAiCorrection', 'normalizeExtraFileAttachments', 'readLimitedAttachment'
+    'splitEvidenceBatches', 'reviewEvidenceBatches', 'prepareDirectAttachments', 'fetchAiResource', 'requestDirectAiCorrection', 'normalizeExtraFileAttachments', 'readLimitedAttachment'
   ].join(',');
   vm.runInNewContext(`${await fs.readFile(path.join(root, "extension/src/i18nMessages.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/i18n.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/activation.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/modelCatalog.js"), "utf8")}\n${await fs.readFile(path.join(root, "extension/src/aiProviders.js"), "utf8")}\n${supportSource}\n${await fs.readFile(path.join(root, "extension/src/correctionSchema.js"), "utf8")}\n${source}\nglobalThis.__testApi = {${exports}};`, sandbox, { filename: 'background.js' });
   return { ...sandbox.MoodliaCorrectorSchema, ...sandbox.__testApi };
 }
+
+
+test('large evidence batches preserve every character, image, role and source number', async () => {
+  const api = await loadBackgroundApi();
+  const text = 'a'.repeat(23999) + '😀' + 'z'.repeat(50000);
+  const images = Array.from({ length: 19 }, (_, id) => ({ id }));
+  const files = await api.prepareDirectAttachments([{ role: 'assignment-reference', textContent: text, images }]);
+  const batches = api.splitEvidenceBatches(files);
+  assert.ok(batches.length > 1);
+  assert.equal(batches.flat().map(file => file.textContent).join(''), text);
+  assert.deepEqual(Array.from(batches.flat().flatMap(file => file.images)), images);
+  for (const batch of batches) {
+    assert.ok(batch.reduce((sum, file) => sum + file.textContent.length, 0) <= 24000);
+    assert.ok(batch.reduce((sum, file) => sum + file.images.length, 0) <= 4);
+    for (const file of batch) {
+      assert.equal(file.role, 'assignment-reference');
+      assert.equal(file.sourceAttachmentNumber, 1);
+      assert.ok(!/[\uD800-\uDBFF]$/.test(file.textContent));
+    }
+  }
+});
+
+test('AI transport reconstructs fragmented Ollama and OpenAI streams and rejects incomplete output', async () => {
+  for (const [contentType, body] of [
+    ['application/x-ndjson', JSON.stringify({ message: { content: '{"ok":' } }) + '\n' + JSON.stringify({ message: { content: 'true}' }, done: true }) + '\n'],
+    ['text/event-stream', 'data: ' + JSON.stringify({ choices: [{ delta: { content: '{"ok":true}' } }] }) + '\n\ndata: [DONE]\n\n'],
+  ]) {
+    const encoder = new TextEncoder();
+    const api = await loadBackgroundApi({ fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        const bytes = encoder.encode(body);
+        for (let i = 0; i < bytes.length; i += 3) controller.enqueue(bytes.slice(i, i + 3));
+        controller.close();
+      },
+    }), { headers: { 'content-type': contentType } }) });
+    const result = await api.fetchAiResource('http://127.0.0.1:11434/api/chat');
+    assert.equal(result.message.content, '{"ok":true}');
+  }
+  const broken = await loadBackgroundApi({ fetchImpl: async () => new Response('{"message":{"content":"partial"}}\n', { headers: { 'content-type': 'application/x-ndjson' } }) });
+  await assert.rejects(broken.fetchAiResource('http://127.0.0.1:11434/api/chat'), /before completion/);
+});
+
+test('large attachment review includes every block and fails closed on invalid notes or cancellation', async () => {
+  let count = 0;
+  const api = await loadBackgroundApi({ fetchImpl: async () => {
+    count++;
+    return Response.json({ message: { content: JSON.stringify({ facts: `block ${count}` }) } });
+  } });
+  const config = { provider: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'fictional' };
+  const files = [{ role: 'student-submission', textContent: 'x'.repeat(72001), images: [] }];
+  const notes = await api.reviewEvidenceBatches(config, {}, sampleAssignment(), files, {});
+  assert.equal(count, 4);
+  assert.equal(notes.length, 4);
+  assert.match(notes[3].textContent, /block 4/);
+  const controller = new AbortController(); controller.abort(new Error('cancelled'));
+  await assert.rejects(api.reviewEvidenceBatches(config, {}, sampleAssignment(), files, { signal: controller.signal }), /cancelled/);
+  assert.equal(count, 4);
+  const invalid = await loadBackgroundApi({ fetchImpl: async () => Response.json({ message: { content: 'invalid notes' } }) });
+  await assert.rejects(invalid.reviewEvidenceBatches(config, {}, sampleAssignment(), files, {}), /review was invalid/);
+});
+
+
+test('large attachment correction combines block notes before validating the final rubric', async () => {
+  const requests = [];
+  const api = await loadBackgroundApi({
+    localData: { 'mca.aiConfig': { provider: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'fictional' } },
+    fetchImpl: async (_url, init) => {
+      const request = JSON.parse(init.body); requests.push(request);
+      const reviewing = request.messages[0].content.includes('Return JSON evidence notes, not a final grade.');
+      return Response.json({ message: { content: JSON.stringify(reviewing ? { facts: `evidence ${requests.length}` } : {
+        studentFeedback: 'Fictional complete review', score: 8, maxScore: 10,
+        rubricSelections: [{ criterionId: 'criterion-1', levelIndex: 1, criterionFeedback: 'Fictional reasoning' }],
+      }) } });
+    },
+  });
+  const assignment = { ...sampleAssignment(), extraFiles: [{ name: 'evidence.txt', textContent: 'x'.repeat(60001), sizeBytes: 60001 }] };
+  const result = await api.requestDirectAiCorrection(assignment);
+  assert.equal(requests.length, 4);
+  assert.equal(result.parsed.score, 8);
+  assert.ok(api.isCorrectionComplete(result.parsed, assignment));
+  assert.match(requests[3].messages[1].content, /evidence 1/);
+  assert.match(requests[3].messages[1].content, /evidence 3/);
+  assert.match(requests[3].messages[1].content, /All original attachments were reviewed/);
+});
+
+
+test('PDF page identities survive image batching for both provider schemas', async () => {
+  const api = await loadBackgroundApi();
+  const files = [{ role: 'student-submission', mimeType: 'application/pdf', textContent: 'PDF evidence', images: Array.from({ length: 9 }, (_, index) => ({ pageNumber: index + 1, mimeType: 'image/png', base64Data: `page-${index + 1}` })) }];
+  const batches = api.splitEvidenceBatches(files);
+  assert.equal(batches.length, 3);
+  for (const provider of ['ollama', 'lm-studio']) {
+    const pages = [];
+    for (const batch of batches) {
+      const messages = api.createDirectMessages(sampleAssignment(), batch, '', provider);
+      const text = provider === 'ollama' ? messages[1].content : messages[1].content[0].text;
+      const evidence = JSON.parse(text.split('Attached evidence JSON:\n')[1]);
+      pages.push(...evidence.attachments.flatMap(file => file.imagePages));
+      const images = provider === 'ollama' ? messages[1].images : messages[1].content.slice(1);
+      assert.equal(images.length, evidence.attachments.reduce((sum, file) => sum + file.imagePages.length, 0));
+      assert.match(messages[0].content, /Inspect every supplied image/);
+    }
+    assert.deepEqual(pages, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  }
+});

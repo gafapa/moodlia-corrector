@@ -56,7 +56,7 @@ try {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/src/options/options.html`);
   page.on('pageerror', error => console.error('Options page error:', error.message));
-  const send = (message) => page.evaluate((value) => chrome.runtime.sendMessage(value), message);
+  const send = (message) => page.evaluate((value) => MoodliaCorrectorRuntime.send(value), message);
   await send({ type: 'mca.setAiRuntimeConfig', config: { provider: 'ollama', baseUrl, model: 'fictional-vision' } });
   const status = await send({ type: 'mca.getAiRuntimeStatus' });
   assert.equal(status.status.providers[0].available, true);
@@ -223,7 +223,7 @@ try {
   assert.equal(result.correction.parsed.score, 8);
   assert.match(lastChat.messages[1].content, /Fictional DOCX evidence/);
   assert.match(lastChat.messages[1].content, /Fictional PDF evidence/);
-  assert.equal(lastChat.messages[1].images.length, 1);
+  assert.equal(lastChat.messages[1].images.length, 2);
   assert.doesNotMatch(lastChat.messages[1].content, /fictional\.docx|fictional\.pdf/);
   console.log('PASS: bundled offscreen reader extracts PDF and DOCX locally and sends image evidence.');
   const scannedPdf = makePdf(false);
@@ -241,6 +241,25 @@ try {
   assert.match(lastChat.messages[1].content, /Fictional PDF evidence/);
   assert.equal(lastChat.messages[1].images.length, 1);
   console.log('PASS: PDF pages with both text and graphics retain both kinds of evidence.');
+  const rasterPdf = makePdf('raster');
+  const raster = await send({ type: 'mca.correctAssignment', requestId: 'raster-pdf', assignmentData: {
+    extraFiles: [{ name: 'fictional-raster.pdf', mimeType: 'application/pdf', sizeBytes: rasterPdf.length, base64Data: rasterPdf.toString('base64') }],
+  } });
+  assert.equal(raster.ok, true, raster.error);
+  assert.equal(lastChat.messages[1].images.length, 1);
+  const rasterEvidence = JSON.parse(lastChat.messages[1].content.split('Attached evidence JSON:\n')[1]);
+  assert.deepEqual(rasterEvidence.attachments[0].imagePages, [1]);
+  const pixel = await page.evaluate(async base64 => {
+    const image = new Image(); image.src = `data:image/png;base64,${base64}`;
+    await image.decode();
+    const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
+    return Array.from(ctx.getImageData(Math.round(image.width * 0.2), Math.round(image.height * 0.6), 1, 1).data);
+  }, lastChat.messages[1].images[0]);
+  assert.ok(pixel[0] > 240 && pixel[1] < 15 && pixel[2] < 15, `Embedded image pixels were lost: ${pixel}`);
+  assert.match(lastChat.messages[0].content, /Inspect every supplied image/);
+  console.log('PASS: an embedded PDF raster image reaches the provider with its page number and verified red pixels.');
+
 
   const unsupported = await send({ type: 'mca.correctAssignment', requestId: 'unsupported', assignmentData: {
     extraFiles: [{ name: 'archive.zip', base64Data: 'AA==', sizeBytes: 1 }],
@@ -957,14 +976,16 @@ try {
 
 function makePdf(withText = true) {
   const content = (withText ? 'BT /F1 16 Tf 30 100 Td (Fictional PDF evidence) Tj ET' : '') +
-    (!withText || withText === 'mixed' ? ' 0 0 1 rg 30 30 60 60 re f' : '');
+    (!withText || withText === 'mixed' ? ' 0 0 1 rg 30 30 60 60 re f' : '') +
+    (withText === 'raster' ? ' q 120 0 0 60 30 30 cm /Im1 Do Q' : '');
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 150] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 150] /Resources << /Font << /F1 4 0 R >> ${withText === 'raster' ? '/XObject << /Im1 6 0 R >>' : ''} >> /Contents 5 0 R >>`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
     `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
   ];
+  if (withText === 'raster') objects.push('<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 7 >>\nstream\nFF0000>\nendstream');
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
   for (const [index, object] of objects.entries()) {
@@ -972,6 +993,6 @@ function makePdf(withText = true) {
     pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
   }
   const xref = Buffer.byteLength(pdf);
-  pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(pdf);
 }

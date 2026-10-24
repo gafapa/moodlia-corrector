@@ -105,7 +105,7 @@ const updateProviderFields = (event) => {
 
 const loadSettings = async () => {
   const revision = settingsRevision;
-  const [response, storedProfiles] = await Promise.all([chrome.runtime.sendMessage({ type: 'mca.getAiRuntimeStatus' }), chrome.storage.local.get('mca.aiProviderConfigs')]);
+  const [response, storedProfiles] = await Promise.all([MoodliaCorrectorRuntime.send({ type: 'mca.getAiRuntimeStatus' }), chrome.storage.local.get('mca.aiProviderConfigs')]);
   if (!response?.ok) {
     throw new Error(response?.error || MoodliaCorrectorI18n.t('Could not load AI settings.'));
   }
@@ -133,7 +133,7 @@ const saveSettings = async () => {
   };
   if (endpointFields.some(field => !field.reportValidity())) throw new Error(MoodliaCorrectorI18n.t('Review the server address and port.'));
   await ensureServerAccess(config);
-  const response = await chrome.runtime.sendMessage({ type: 'mca.setAiRuntimeConfig', config });
+  const response = await MoodliaCorrectorRuntime.send({ type: 'mca.setAiRuntimeConfig', config });
   if (!response?.ok) {
     throw new Error(response?.error || MoodliaCorrectorI18n.t('Could not save AI settings.'));
   }
@@ -155,7 +155,7 @@ testButton.addEventListener('click', () => {
     await saveSettings();
     testRequestId = crypto.randomUUID();
     cancelTestButton.hidden = false;
-    const response = await chrome.runtime.sendMessage({ type: 'mca.testAiConnection', requestId: testRequestId });
+    const response = await MoodliaCorrectorRuntime.send({ type: 'mca.testAiConnection', requestId: testRequestId });
     if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('Connection test failed.'));
     setStatus(MoodliaCorrectorI18n.message`Generation verified: ${response.result.provider} / ${response.result.model} (${(response.result.elapsedMs / 1000).toFixed(1)} seconds).`);
   })().catch((error) => setStatus(error.message || String(error))).finally(() => {
@@ -166,7 +166,7 @@ testButton.addEventListener('click', () => {
 });
 
 cancelTestButton.addEventListener('click', () => {
-  if (testRequestId) void chrome.runtime.sendMessage({ type: 'mca.cancelCorrection', requestId: testRequestId }).catch((error) => setStatus(error.message));
+  if (testRequestId) void MoodliaCorrectorRuntime.send({ type: 'mca.cancelCorrection', requestId: testRequestId }).catch((error) => setStatus(error.message));
 });
 
 provider.addEventListener('change', updateProviderFields);
@@ -176,7 +176,7 @@ void loadSettings().catch((error) => setStatus(error.message || String(error)));
 
 removeKeyButton.addEventListener('click', () => {
   removeKeyButton.disabled = true;
-  void chrome.runtime.sendMessage({ type: 'mca.setAiRuntimeConfig', config: { apiKey: '' } }).then((response) => {
+  void MoodliaCorrectorRuntime.send({ type: 'mca.setAiRuntimeConfig', config: { apiKey: '' } }).then((response) => {
     if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('Could not remove the API key.'));
     apiKey.value = '';
     savedConfig = { ...response.config, hasApiKey: false };
@@ -193,7 +193,7 @@ loadModelsButton.addEventListener('click', () => {
   const revision = settingsRevision;
   void (async () => {
     await saveSettings();
-    const response = await chrome.runtime.sendMessage({ type: 'mca.getAiRuntimeStatus' });
+    const response = await MoodliaCorrectorRuntime.send({ type: 'mca.getAiRuntimeStatus' });
     if (revision !== settingsRevision) return;
     if (!response?.ok) throw new Error(response?.error || MoodliaCorrectorI18n.t('Could not list models.'));
     const connection = response.status.appConfig;

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.70
+
+- Render every PDF page as visual evidence alongside extracted text instead of filtering pages through graphics-operator heuristics.
+- Increase page rendering to scale 2 with a 2400-pixel longest-edge cap, and preserve PDF page numbers through image batching and provider prompts.
+- Explicitly require visual inspection in direct corrections and intermediate evidence reviews.
+- Verify embedded raster pixels in the real Chromium provider payload and test page mapping across both provider schemas.
+
+## 0.1.69
+
+- Move correction and connection-test requests to runtime ports with client heartbeats, avoiding a single long-lived asynchronous message response channel.
+- Cancel work when its requesting port disconnects and report worker disconnection without replaying the AI request.
+- Align the overall correction deadline with the client deadline of 30 minutes; retain the 15-minute limit per AI request.
+- Cover port responses, heartbeat cleanup, worker disconnection, deadline cancellation, and real Chromium correction flows.
+
+## 0.1.68
+
+- Review large attachment sets in bounded evidence blocks and combine their notes before grading, preserving all extracted characters, images, roles, and source numbers.
+- Support up to 600,000 extracted attachment characters and 120 images while retaining download and decompression safeguards.
+- Consume Ollama and compatible OpenAI generation streams, reject interrupted responses, and allow cancellable requests up to 15 minutes.
+- Add regression coverage for large evidence, fragmented streams, cancellation, and invalid intermediate reviews.
+
 ## 0.1.67 - 2026-10-21
 
 - Bundle localization and grading dependencies into the stable content-script entry point. Old persisted registrations no longer start the grader without `MoodliaCorrectorI18n` while background synchronization is pending.

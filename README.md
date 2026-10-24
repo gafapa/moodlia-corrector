@@ -6,7 +6,7 @@ MoodlIA Corrector is a Chrome extension that helps teachers review Moodle assign
 
 ## Status
 
-Implemented Chrome extension. Current source candidate: `0.1.67`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
+Implemented Chrome extension. Current source version: `0.1.70`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
 
 The Moodle entry point is now self-contained, including localization. It also works with old automatic-activation registrations that do not list the translation scripts. Assignment overview pages are ignored before initialization. After updating the extension, reload it in `chrome://extensions` and refresh Moodle to replace scripts already running in open tabs.
 
@@ -83,7 +83,7 @@ Endpoint and model preferences survive service-worker restarts. Remote API keys 
 
 Local Ollama requests use an extension-scoped Chrome session rule to remove the `Origin` request header on loopback HTTP and the currently configured HTTP server origin. This avoids Ollama's browser-origin rejection without changing environment variables, restarting Ollama, installing a proxy, or modifying requests from Moodle or other websites. Remote HTTPS requests retain their normal headers.
 
-PDF, DOCX, and ODT text is extracted locally using bundled PDF.js and fflate code. Scanned PDF pages, DOCX/ODT images, and PNG/JPEG/WebP attachments are sent as images to the selected provider. Ollama image requests require a model advertising vision support; compatible remote APIs must support image input. Unsupported formats are omitted and marked red in the file preview. Unreadable or oversized files in supported formats still stop correction with an explicit error. Limits: 4 MB per file, 10 MB total input, 60 PDF pages, 60,000 extracted text characters, and 12 images. Image interpretation is performed by the selected vision model, not a separate OCR service.
+PDF, DOCX, and ODT text is extracted locally using bundled PDF.js and fflate code. All PDF pages (including pages with a text layer), DOCX/ODT images, and PNG/JPEG/WebP attachments are sent as images to the selected provider. Ollama image requests require a model advertising vision support; compatible remote APIs must support image input. Unsupported formats are omitted and marked red in the file preview. Unreadable or oversized files in supported formats still stop correction with an explicit error. Limits: 4 MB per file, 10 MB total input, 60 PDF pages, 600,000 extracted attachment text characters, and 120 images. Large attachment sets are reviewed in blocks of at most 24,000 characters and four images, with derived notes combined before the final correction. Generation uses streaming where supported and a cancellable 15-minute deadline per request. Image interpretation is performed by the selected vision model, not a separate OCR service.
 
 Build the bundled dependencies and run the Chromium integration checks:
 
@@ -97,7 +97,7 @@ npm run test:locales
 
 The browser checks use a temporary profile, fictional submissions, and a loopback test provider. To also verify the existing local Ollama installation with `gemma3:4b`, run `node tests/browser-check.mjs --live`. This sends a fictional connection probe and an arithmetic correction with one rubric criterion, not student work. It does not modify the machine's Ollama configuration.
 
-Run `npm run package` to create `release/moodlia-corrector-0.1.67.zip` with the manifest at the archive root and all local parsing dependencies included.
+Run `npm run package` to create `release/moodlia-corrector-0.1.70.zip` with the manifest at the archive root and all local parsing dependencies included.
 
 Version 0.1.46 binds a correction to the Moodle assignment, student, attempt,
 and extracted submission before requesting AI and before changing form fields.

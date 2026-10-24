@@ -5,6 +5,7 @@ const sources = [
   'extension/src/i18nMessages.js',
   'extension/src/i18n.js',
   'extension/src/aiProviders.js',
+  'extension/src/runtimeClient.js',
   'extension/src/attachmentSupport.js',
   'extension/src/correctionSchema.js',
   'extension/src/savedInstructions.js',

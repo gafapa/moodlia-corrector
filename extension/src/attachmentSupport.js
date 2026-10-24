@@ -20,8 +20,8 @@
   };
   const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
   const MAX_TOTAL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-  const MAX_TEXT = 60_000;
-  const MAX_IMAGES = 12;
+  const MAX_TEXT = 600_000;
+  const MAX_IMAGES = 120;
   const MAX_EXPANDED_BYTES = 20 * 1024 * 1024;
   const bytesToBase64 = (input) => {
     const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
