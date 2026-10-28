@@ -150,7 +150,7 @@ form.addEventListener('submit', (event) => {
 testButton.addEventListener('click', () => {
   if (!form.reportValidity()) return;
   testButton.disabled = true;
-  setStatus(MoodliaCorrectorI18n.t('Testing generation with fictional data. A local model may take up to 5 minutes to load.'));
+  setStatus(MoodliaCorrectorI18n.t('Testing generation with fictional data. A local model may take up to 15 minutes to load.'));
   void (async () => {
     await saveSettings();
     testRequestId = crypto.randomUUID();

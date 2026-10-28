@@ -21,6 +21,20 @@
         </select>
         <small>Reload Moodle pages to apply a language change.</small>
       </section>
+      <section class="language-settings">
+        <label for="document-page-images">Page images of Office documents (DOCX, ODT, XLSX, ODS, PPTX, ODP)</label>
+        <select id="document-page-images">
+          <option value="visual">Only pages with images, tables, formulas or drawings</option><option value="all">Every page</option>
+        </select>
+        <small>Pages with only text are sent as text, which is faster and uses fewer tokens. Choose every page when layout or formatting is part of the assessment. PDF pages are always sent as images.</small>
+      </section>
+      <section class="language-settings">
+        <label for="pseudonymize-student">Student name</label>
+        <select id="pseudonymize-student">
+          <option value="on">Replace it with [Student] before sending</option><option value="off">Send documents as they are</option>
+        </select>
+        <small>The name Moodle shows for the student is replaced in the text and covered on page images before anything reaches the AI. Names inside photos and scanned images are not detected.</small>
+      </section>
       <form id="ai-settings">
         <label>
           Provider

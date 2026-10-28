@@ -1,6 +1,6 @@
 {
   "name": "moodlia-corrector",
-  "version": "0.1.71",
+  "version": "0.2.1",
   "private": true,
   "description": "Chrome extension for teacher-reviewed AI assistance on Moodle grading pages.",
   "type": "module",
@@ -10,7 +10,8 @@
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser-check.mjs",
     "check": "npm run build && node --check extension/src/i18n.js && node --check extension/src/activation.js && node --check extension/src/options/optionsBootstrap.js && node --check extension/src/modelCatalog.js && node --check extension/src/aiProviders.js && node --check extension/src/correctionSchema.js && node --check extension/src/attachmentSupport.js && node --check extension/src/filePreview.js && node --check extension/src/savedInstructions.js && node --check extension/src/runtimeClient.js && node --check extension/src/background.js && node --check extension/src/content/moodleContent.js && node --check extension/src/popup/popup.js && node --check extension/src/options/options.js && node --check extension/src/attachments/reader.js && npm test",
-    "test:locales": "node tests/localization-browser.mjs"
+    "test:locales": "node tests/localization-browser.mjs",
+    "test:fidelity": "node tests/fidelity-check.mjs"
   },
   "engines": {
     "node": ">=22.16"

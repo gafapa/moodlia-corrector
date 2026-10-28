@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.1.71`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.2.1`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 
@@ -20,13 +20,13 @@ Implemented extension source, version `0.1.71`. The build is a prepared candidat
 
 The API key is retained only in Chrome session storage. Provider, endpoint, and model are saved as non-secret preferences.
 
-Remote providers must use HTTPS, and AI requests reject redirects. Initial Moodle file URLs must use the HTTPS origin of the active grading page. Downloads may follow up to five HTTPS redirects to signed external storage; cookies are omitted outside the original Moodle origin. Redirect loops, credentials in URLs, and HTTP downgrades are rejected. AI prompts omit the student's name, course name, Moodle URLs, and original filenames; assignment evidence, rubric content, and readable submitted content are still sent to the provider selected by the teacher.
+Remote providers must use HTTPS, and AI requests reject redirects. Initial Moodle file URLs must use the HTTPS origin of the active grading page. Downloads may follow up to five HTTPS redirects to signed external storage; cookies are omitted outside the original Moodle origin. Redirect loops, credentials in URLs, and HTTP downgrades are rejected. AI prompts omit the student's name, course name, Moodle URLs, and original filenames (except a filename the teacher's criteria mention); assignment evidence, rubric content, and readable submitted content are still sent to the provider selected by the teacher.
 
-Use **Test connection** to verify generation with fictional data. The panel checks the server and installed models; a saved configuration alone is not reported as ready. **Cancel** aborts a running correction. Local Ollama access is handled inside the extension without changing the computer's environment or CORS configuration.
+Use **Test connection** to verify generation with fictional data. The panel checks the server and installed models; a saved configuration alone is not reported as ready. **Cancel** aborts a running correction. While correcting, the status line shows the current step and the elapsed seconds. **Correct when moving to the next student** starts the next student's correction automatically once their data is read (never twice for the same student on the page); nothing is saved without the teacher. Local Ollama access is handled inside the extension without changing the computer's environment or CORS configuration.
 
 **Supervision** includes the detected task title and a separate list of files from the task description, with filename, format, and link description. These reference links are detected without downloading them. From version 0.1.51, requesting AI correction reads their content and labels it as assignment reference material, separately from student work.
 
-PDF/DOCX/ODT extraction runs locally. Images and scanned PDF pages require a vision-capable model. Unsupported formats are omitted and marked red, with an explicit reason, in the panel. Unreadable or oversized evidence in a supported format still stops correction with an explicit error. See the project README for processing limits and browser verification commands.
+PDF/DOCX/ODT/XLSX/ODS/PPTX/ODP extraction runs locally. PDF pages are sent as page images beside each page's text. Office document pages (DOCX, ODT, spreadsheet sheets and presentation slides) are sent as images when they show images, formulas, tables, drawings, borders or shading, and as text when they show only text (Options → **Page images of Office documents** → **Every page** sends all pages as images), so images and such pages require a vision-capable model. DOCX and ODT text drawn so that a reader cannot see it, or covered by a picture, is left out (`invisible-text-excluded`), and list numbers are included in the text. The student's name is replaced with `[Student]` before sending and covered on page images (Options → **Student name**); text in the work addressed to the AI is shown as a warning. With an Ollama model that reports no image input, Office documents are sent as text only and the receipt reports `page-images-not-sent`. Unsupported formats are omitted and marked red, with an explicit reason, in the panel. Unreadable or oversized evidence in a supported format still stops correction with an explicit error. See the project README for processing limits and browser verification commands.
 
 Version 0.1.46 also renders PDF pages containing text and graphics for vision
 review. Corrections are bound to the extracted student and submission; changes
@@ -34,13 +34,43 @@ while the model is running require fresh extraction. Invalid scores or rubric
 levels are rejected before form edits. Statement and online text are preserved
 up to 60,000 characters each; larger inline inputs stop correction explicitly.
 Attachments support up to 600,000 extracted characters and 120 images in total,
-with existing 4 MB per-file, 10 MB download and 60-page PDF safeguards retained.
+with 20 MB per-file, 40 MB total input and 60-page PDF/DOCX/ODT safeguards retained.
 Large attachment sets are reviewed sequentially in blocks of at most 24,000
 characters and four images. Every fragment retains its source number and role.
 Evidence notes are combined, recursively when necessary, before the final
 correction and schema validation. This derived review can lose detail; teachers
-must review the suggestion against the original work. Invalid or incomplete
-block reviews stop the correction without applying grades.
+must review the suggestion against the original work. An invalid or oversized
+block review is condensed once with a text-only request; if it is still
+invalid, the correction stops without applying grades.
+
+Moodle's grader shows online text as a 140-character summary and keeps the
+complete text in a hidden box. From 0.1.74 the extension reads that complete
+box whether or not the teacher expanded it.
+From 0.2.1 DOCX and ODT files are laid out from their own styles and rendered
+page by page, like a PDF. Headings, tables (with repeated header rows and Word
+table styles), numbered lists, equations, images, footnotes, headers and footers
+appear on each page image, and the text is split by page. Pages follow the page
+breaks Word or Writer saved, when present. Images in EMF, WMF or TIFF, charts,
+SmartArt and linked images are marked on the page and counted in
+`omittedImages`. If rendering fails, the file keeps its text and embedded images
+(GIF and BMP converted to PNG) and the receipt reports `page-rendering-failed`.
+See [`../docs/office-page-rendering.md`](../docs/office-page-rendering.md).
+From 0.2.1 spreadsheets (XLSX, ODS) and presentations (PPTX, ODP) are read the
+same way. Sheets are printed on landscape A4 pages with gridlines, column
+letters repeated on every page and row numbers; columns that do not fit
+continue on the following pages. Their text lists each non-empty cell as
+`A1: value`, with formulas in parentheses after the saved result, and cell
+comments as `[Comment A1: ...]`. Slides become one page each at the slide
+size; placeholders take their position and style from the layout and master.
+Their text starts with `[Slide N]`, follows the reading order and ends with
+`[Speaker notes]`. Hidden sheets, rows, columns and slides are left out and
+counted as `hidden-text-excluded`; charts, SmartArt and media are marked on the
+page and counted in `omittedImages`. Limits: 10,000 non-empty cells per
+spreadsheet, 60 visible slides per presentation.
+Version 0.1.75 preserves ODT CDATA, checks the remaining text budget before
+expanding repeated spaces, and rejects invalid repetition counts. Cancelling
+DOCX or ODT extraction stops after the current image decode settles, releases
+its bitmap and canvas, and prevents subsequent image conversions.
 AI generation uses Ollama NDJSON or compatible SSE streaming, with a cancellable
 15-minute deadline per request. Truncated streams are rejected. Provider or
 proxy timeouts can still occur independently of this extension deadline.
@@ -54,6 +84,23 @@ This is an activation policy, separate from the network permissions needed for s
 ## Usage
 
 ### Current flow
+
+Version 0.1.77 keys **Case** criteria by the real Moodle user and attempt. In
+the grader, Moodle's hidden `userid` input is `0` for every student, so earlier
+versions stored one shared set of case criteria for all students. Case criteria
+written before 0.1.77 stay under that shared key and are not shown or migrated.
+Attempt `-1` (latest) resolves to the real attempt number.
+
+Version 0.1.77 also:
+
+- reads only Moodle submission file-area links as submitted files, excluding
+  plagiarism reports and portfolio buttons in the same row;
+- refuses to apply a frozen rubric (grade locked or overridden in the gradebook);
+- writes editor feedback as escaped HTML paragraphs into the textarea and TinyMCE;
+- shows grading-guide and scale modes as filled manually, because only the
+  overall feedback is written there (version 0.2.1 fills them: see below);
+- lets the Moodle panel switch only between saved AI servers and models, while
+  new addresses and keys are entered in Options.
 
 Version 0.1.56 copies the last used course and assignment criteria into a new
 context when that context has no saved value. Copying stays within the Moodle
@@ -74,6 +121,24 @@ take precedence over broader guidance where compatible with the Moodle rubric
 and available evidence. Older global instructions remain stored and can be
 copied to the current assignment with the recovery button; they are not
 automatically assigned to a course or student.
+
+Teacher criteria take precedence over the entire assignment statement, linked descriptions,
+and reference attachments in every assessment matter: objectives, topics, content,
+activities, deliverables, formats, filenames, length, deadlines, penalties, and exceptions.
+Priority between teacher scopes is Case, then Assignment, then Course. Requirements
+not overridden remain applicable. Overrides apply consistently to grading, rubric
+interpretation, and all feedback, including block review and schema repair; a superseded
+requirement must not return as a penalty or resubmission request. Moodle's technical
+scale, criterion identities, allowed levels, and output schema remain unchanged, and
+the model must not invent inspected evidence.
+
+Teacher criteria can, for example, replace the PDF or topic requested in the assignment.
+For example: "Use Alternative.pdf instead of Original.pdf; do not penalize this substitution."
+The alternative must be available as a submission or an additional file. Names explicitly
+mentioned in the criteria are mapped to attachment numbers, including during block review
+and schema repair; unrelated filenames and file URLs remain omitted. This does not
+download new URLs from criteria or turn reference material into student-authored work.
+Unavailable contents must still be reported, and model compliance requires teacher review.
 
 Version 0.1.54 simplifies the side panel. The main view shows file purposes,
 saved instructions, and readable proposed grades/feedback. Three SVG icon
@@ -139,6 +204,23 @@ Rules:
 - Each item must identify its criterion explicitly, using `criterionId`, `criterionNumber`, or `criterionIndex`. Array position and fuzzy description matching are never used as criterion identities. AI-generated corrections must use exact `criterionId` values.
 - `levelIndex` is zero-based: the first visible level is `0`, the next is `1`, and so on.
 - `criterionFeedback` is copied to the criterion comment textarea.
+- With a Moodle marking guide, add `guideScores`: one `{ "criterionId", "score", "remark" }` item per guide criterion (`criterionNumber` or `criterionIndex` also identify it). `score` goes from 0 to the criterion's maximum and is written with a dot decimal separator; `remark` goes to the criterion's remark box. Every criterion needs a valid score and a remark, or nothing is applied. Moodle adds the scores into the grade, so `score` stays `null`.
+- With a scale grade (a select), add `scaleGrade` with one of the scale's visible labels (case and spaces are ignored). An unknown label is refused before any field changes; without `scaleGrade` the select, including "No grade", is left as it is.
+
+### Marking guides, scales and evidence warnings (0.2.1)
+
+The panel fills a Moodle marking guide (`gradingform_guide`, the same renderer
+in Moodle 4.5, 5.0, 5.1, 5.2 and the main branch): each criterion's `advancedgrading[criteria][<id>][score]`
+input and `[remark]` textarea. The AI receives each criterion's short name,
+description for students and markers, and maximum, and the Ollama schema bounds
+each score; Moodle sums the scores into the grade, so no grade input is written.
+A guide rendered `evaluate frozen` (grade locked or overridden in the gradebook),
+`review` or `view` is refused like a frozen rubric. For a scale grade the AI
+chooses one of the select's labels (the schema lists them as an enum); "No grade"
+(`-1`) is never offered. Before the first AI request the panel shows the plan
+(pages, images, estimated tokens and blocks). The result lists, as a warning,
+excerpts of student text addressed to the AI, and notes how many times the
+student's name was replaced in what was sent.
 
 For the PLATEGA example shown in the prompt, the recommended JSON uses numbers instead of Moodle ids:
 
@@ -193,11 +275,16 @@ The advanced form uses an extension-origin frame. A short-lived token is issued 
 
 ### Source-code evidence
 
-Source-code evidence is read as literal UTF-8 text, never executed or rendered as HTML. Supported extensions include C/C++ (`.c`, `.h`, `.cc`, `.cpp`, `.hpp`, `.cxx`), web source (`.html`, `.css`, `.scss`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.tsx`, `.vue`, `.svelte`), Python, Java/Kotlin, C#, Go, Rust, PHP, Ruby, R, Lua, SQL, shell/PowerShell scripts and common text configuration formats. The same reader supports Moodle submissions, linked assignment references and teacher-added files. Upload source files individually; archives and compiled executables remain unsupported.
+Source-code evidence is read as literal text (UTF-8, UTF-16 with a byte-order mark, or Windows-1252), never executed or rendered as HTML. Supported extensions include C/C++ (`.c`, `.h`, `.cc`, `.cpp`, `.hpp`, `.cxx`), web source (`.html`, `.css`, `.scss`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.tsx`, `.vue`, `.svelte`), Python, Java/Kotlin, C#, Go, Rust, PHP, Ruby, R, Lua, SQL, shell/PowerShell scripts and common text configuration formats. The same reader supports Moodle submissions, linked assignment references and teacher-added files. Upload source files individually; archives and compiled executables remain unsupported.
 
 ## Development
 
 Build and validation commands run from the repository root: `npm ci`, `npm run check`, `npm run test:browser`, and `npm run test:locales`.
+
+See [the Moodle-to-Ollama pipeline](../docs/ollama-request-pipeline.md) for the
+source fields, privacy boundary, local extraction, evidence phases, native JSON
+schema, streaming behavior and a shortened request example. Native Ollama uses
+the final correction schema; evidence reviews request observations only.
 
 ### Versioning
 
@@ -248,19 +335,75 @@ page sends a heartbeat every 20 seconds to keep an active MV3 worker reachable.
 Closing or navigating away from the requesting page disconnects the port and
 cancels its operation. If Chrome restarts the worker, the client reports the
 disconnection and requires a fresh request; it never automatically repeats an
-AI correction. The overall operation deadline is 30 minutes, with a 15-minute
+AI correction. The overall operation deadline is 60 minutes, with a 15-minute
 limit on each provider request. Reload the extension and existing Moodle tabs
 after updating so callers and the worker use the same protocol.
 
 
 ### PDF visual evidence
 
+The chat API receives extracted text and rendered PDF/DOCX/ODT page images rather than a
+native PDF binary attachment. An application-generated `attachmentEvidence`
+receipt preserves each original document's number, role, format, page count and
+supplied representations through block review, synthesis and schema repair.
+Derived observations are marked `review-notes` and carry
+`reviewedAttachmentNumbers`; their container does not change the original
+document's authorship. Prompts distinguish unavailable original images during
+synthesis from a document that was never supplied. Receipt does not establish
+readability, correctness or satisfaction of a rubric requirement.
+
+PDF, DOCX and ODT evidence blocks keep each page's extracted text beside its rendered image.
+A single unusually long page can still span text fragments. Every character and
+image is retained, and original attachment numbers survive page splitting.
+Evidence-note reduction stops if it does not shrink or exceeds four rounds;
+failure leaves Moodle grades untouched.
+
 Every PDF page is rendered locally, including pages with a text layer, and sent
 as a PNG alongside extracted text. Rendering uses scale 2, capped at 2400 pixels
-on the longest edge. The `imagePages` field maps image positions to original PDF
+on the longest edge. From 0.1.77, a page whose PNG exceeds 1.2 MB of base64
+(typical for scans and photos) is sent as JPEG, and a PDF whose page images
+exceed 48 MB stops with an explicit error instead of exceeding Chrome's 64 MiB
+message limit. The `imagePages` field maps image positions to original PDF
 page numbers, including across evidence blocks. This requires an image-capable
 model even for text-only PDFs. Ollama models must advertise vision support;
 compatible server models must support image inputs. Transport tests verify image
 pixels reaching a simulated provider; they do not establish any model's ability
 to understand the supplied images. Very small screenshot text can still require
 manual inspection of the original PDF.
+
+### Ollama context length and large PDFs
+
+The extension leaves Ollama's context length unchanged: chat requests do not set
+`num_ctx`. The server's actual configuration applies, not the model's advertised
+maximum or a context value selected in an unrelated chat client. Check the
+allocated context and CPU/GPU split with `ollama ps` while a request is running.
+See [Ollama context length](https://docs.ollama.com/context-length).
+
+By default Ollama cuts a prompt that exceeds the allocated context without
+reporting it. Ollama 0.40.11 shortened a 6,023-token request to 1,027 prompt
+tokens in a 2,048-token context. From 0.1.74 every chat request sends
+`truncate: false`, so an oversized request stops with an error such as
+"request (6023 tokens) exceeds the available context size (2048 tokens)" and no
+grades are applied. Increase the server context (for example
+`OLLAMA_CONTEXT_LENGTH`) or reduce the material. Ollama versions that do not
+support `truncate` ignore the field and keep their truncating behaviour.
+
+A 128K context does not remove the independent 20 MB/file, 40 MB total, 60-page,
+extraction, or operation deadlines. Evidence blocks remain limited to 24,000
+characters and four images. A 60-page PDF therefore needs at least 15 visual
+review requests plus synthesis, even if its text is short. Each block repeats
+the assignment and rubric, which also consume context.
+
+Larger context allocation increases model memory requirements; rendered PDF
+pages add vision processing. With limited VRAM, CPU offloading or model loading
+can dominate runtime. Start by comparing a 16K or 32K server context against the
+same fictional PDF and inspect actual allocation and timing before increasing
+it. These are diagnostic starting points, not a model-independent capacity
+guarantee. The extension does not change server settings or unload other models.
+
+`node tests/live-pdf-check.mjs` optionally checks a generated nine-page PDF
+against an already-installed local `gemma4:e4b` model. Set `MCA_LIVE_MODEL` to
+choose another installed vision model. It uses an isolated Chromium profile,
+fictional evidence and per-request 128K context overrides; no server settings or
+student records are changed. This is an opt-in model check, not a standard
+offline test or a guarantee about arbitrary PDFs.

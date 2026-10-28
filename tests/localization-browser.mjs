@@ -47,6 +47,11 @@ try {
     assert.equal(await panel.locator('h2.title').textContent(), expected(locale, 'Moodle Corrector'));
     assert.equal(await panel.locator('label[for="mca-course-instructions"]').textContent(), expected(locale, 'For the course'));
     assert.match(await panel.locator('[data-grading-mode]').textContent(), new RegExp(expected(locale, 'Simple direct grading')));
+    // Summary, detected data and JSON hints must not keep Spanish source strings.
+    if (locale === 'en') {
+      const panelText = await panel.locator('.content').evaluateAll(elements => elements.map(element => element.textContent).join(' '));
+      assert.doesNotMatch(panelText, /Instrucciones|caracteres|Tarea Moodle|Formato recomendado|Descripción enlazada|Mode: Mode/);
+    }
     await panel.locator('[data-course-instructions]').fill('Curso');
     assert.equal(await panel.locator('[data-course-instructions]').inputValue(), 'Curso');
     assert.match(await grader.locator('.assignsubmission_onlinetext').textContent(), /A pond contains producers/);
@@ -63,6 +68,8 @@ try {
     await panel.locator('[data-ai-mode="advanced"]').click();
     const advanced = grader.frameLocator('iframe[title]');
     await advanced.locator('#interface-language').waitFor();
+    const advancedFrame = grader.frames().find(frame => frame.url().includes('embedded=1'));
+    await advancedFrame.waitForFunction(locale => document.querySelector('#interface-language')?.value === locale, locale);
     assert.equal(await advanced.locator('#interface-language').inputValue(), locale);
     assert.equal(await advanced.locator('label[for="interface-language"]').textContent(), expected(locale, 'Interface language'));
     if (['en', 'es', 'de'].includes(locale)) {

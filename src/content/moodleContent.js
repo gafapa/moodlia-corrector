@@ -11,7 +11,7 @@ const PAGE_STYLE_ID = 'mca-page-layout-style';
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.1.71',
+  version: '0.2.1',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -60,6 +60,78 @@ const getVisibleText = (element) => {
   }
 
   return String(element.innerText ?? element.textContent ?? '').replace(/\s+/g, ' ').trim();
+};
+
+// Preserve document structure and code indentation; compact label extraction
+// above is intentionally separate from evidence extraction.
+// layoutIndependent reads content that Moodle hides with CSS, such as the
+// complete online text behind the grader's 140-character summary.
+const getStructuredText = (element, { layoutIndependent = false } = {}) => {
+  if (!element) return '';
+  if (!layoutIndependent && element.ownerDocument?.defaultView && element.isConnected && typeof element.innerText === 'string') {
+    return element.innerText.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ');
+  }
+  const copy = element.cloneNode(true);
+  copy.querySelectorAll('script, style, noscript, [hidden], [aria-hidden="true"], .expandsummaryicon').forEach(node => node.remove());
+  copy.querySelectorAll('br').forEach(node => node.replaceWith('\n'));
+  copy.querySelectorAll('td, th').forEach(node => node.after('\t'));
+  copy.querySelectorAll('p, div, pre, li, tr, h1, h2, h3, h4, h5, h6, blockquote').forEach(node => {
+    node.before('\n'); node.after('\n');
+  });
+  return String(copy.textContent || '').replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ')
+    .replace(/\n{3,}/g, '\n\n').replace(/^(?:[ \t]*\n)+/, '').replace(/(?:\n[ \t]*)+$/, '');
+};
+
+const onlineSubmissionSelectors = ['.assignsubmission_onlinetext', '[class*="assignsubmission_onlinetext"]', '[id*="assignsubmission_onlinetext"]', '.submissiontext'];
+// Moodle's grader renders online text in summary mode: a visible summary
+// shortened to 140 characters and the complete text in a CSS-hidden
+// `.hidefull.full_assignsubmission_onlinetext_<id>` box. Read the complete box
+// whenever it exists, independent of whether the teacher expanded it.
+// A collapsed grading panel hides every container, so a second pass accepts
+// hidden containers rather than silently sending no online text.
+const getOnlineSubmissionContent = () => findOnlineSubmissionContent(true) || findOnlineSubmissionContent(false);
+const findOnlineSubmissionContent = (requireVisible) => {
+  for (const element of document.querySelectorAll(onlineSubmissionSelectors.join(', '))) {
+    if (element.closest('.attempthistory') || requireVisible && !element.getClientRects().length) continue;
+    if (!requireVisible && element.closest('[hidden], [aria-hidden="true"]')) continue;
+    const full = element.matches('[class*="full_assignsubmission_onlinetext"]') ? element
+      : element.querySelector('[class*="full_assignsubmission_onlinetext"]');
+    if (full) return { root: full, complete: true };
+    if (/\b(?:summary|full)_assignsubmission_onlinetext/.test(element.className)) {
+      const container = element.closest('.assignsubmission_onlinetext');
+      const sibling = container?.querySelector('[class*="full_assignsubmission_onlinetext"]');
+      if (sibling) return { root: sibling, complete: true };
+    }
+    if (getStructuredText(element, { layoutIndependent: !requireVisible }).trim() || element.querySelector('img[src]')) return { root: element, complete: !requireVisible };
+  }
+  return null;
+};
+
+const extractOnlineSubmissionImages = () => {
+  const files = [];
+  let omitted = 0;
+  const seen = new Set();
+  const content = getOnlineSubmissionContent();
+  for (const image of content?.root.querySelectorAll('img[src]') || []) {
+    // The complete box is hidden by Moodle, so visibility only applies to inline content.
+    if (image.closest('.expandsummaryicon') || image.classList.contains('icon')) continue;
+    if (image.closest('[hidden], [aria-hidden="true"]')) continue;
+    if (!content.complete && !image.getClientRects().length) continue;
+    let url;
+    try { url = new URL(image.getAttribute('src'), location.href); } catch { omitted++; continue; }
+    // Only the online-text file area: other same-origin URLs could be files the
+    // teacher can open but the student did not submit.
+    if (url.protocol !== 'https:' || url.origin !== location.origin || !isMoodleFileAreaUrl(url, 'assignsubmission_onlinetext')) { omitted++; continue; }
+    url.hash = '';
+    url.searchParams.delete('forcedownload');
+    if (seen.has(url.href)) continue;
+    seen.add(url.href);
+    let originalName;
+    try { originalName = decodeURIComponent(url.pathname.split('/').pop()); } catch { originalName = url.pathname.split('/').pop(); }
+    files.push({ id: `online-image-${files.length + 1}`, name: `online-image-${files.length + 1}${getFileExtension(originalName)}`,
+      originalName, url: url.href, source: 'online-text-image' });
+  }
+  return { files, omitted };
 };
 
 const findFirstText = (selectors) => {
@@ -123,6 +195,15 @@ const extractCourseName = () => {
   return findFirstText(['.page-context-header .page-header-headings h1', '#page-navbar a']);
 };
 
+// Moodle serves submission files through pluginfile.php, either as a path or,
+// without slash arguments, as the ?file= parameter.
+const isMoodleFileAreaUrl = (url, component) => {
+  if (!/\/pluginfile\.php(?:\/|$)/i.test(url.pathname)) return false;
+  const path = /\/pluginfile\.php$/i.test(url.pathname) ? url.searchParams.get('file') || '' : url.pathname.replace(/^.*?\/pluginfile\.php/i, '');
+  // Moodle file URLs are /pluginfile.php/<contextid>/<component>/<filearea>/...
+  return new RegExp(`^/\\d+/${component}/`, 'i').test(path);
+};
+
 const extractSubmissionFiles = () => {
   const links = [
     ...document.querySelectorAll(
@@ -133,14 +214,25 @@ const extractSubmissionFiles = () => {
   const seen = new Set();
   return links
     .filter((link) => {
-      if (!link.closest('.assignsubmission_file, .fileuploadsubmission') && !/\/assignsubmission_file\//i.test(link.href)) return false;
-      if (seen.has(link.href)) return false;
-      seen.add(link.href);
+      // Plagiarism reports and portfolio buttons share Moodle's file rows; only
+      // the submission file area itself is student evidence.
+      let url;
+      try { url = new URL(link.href); } catch { return false; }
+      if (!isMoodleFileAreaUrl(url, 'assignsubmission_file')) return false;
+      // Previous attempts are listed in Moodle's attempt history, not as current evidence.
+      if (link.closest('.attempthistory')) return false;
+      const key = new URL(link.href);
+      key.hash = '';
+      key.searchParams.delete('forcedownload');
+      if (seen.has(key.href)) return false;
+      seen.add(key.href);
       return true;
     })
     .map((link, index) => {
-      const originalName =
-        getVisibleText(link) || link.getAttribute('title') || link.href.split('/').pop() || 'File';
+      const label = getVisibleText(link) || link.getAttribute('title') || '';
+      let pathName;
+      try { pathName = decodeURIComponent(new URL(link.href).pathname.split('/').pop()); } catch { pathName = ''; }
+      const originalName = getFileExtension(label) ? label : pathName || label || 'File';
       const extension = getFileExtension(originalName);
 
       return {
@@ -149,7 +241,7 @@ const extractSubmissionFiles = () => {
         originalName,
         url: link.href,
       };
-    });
+    }).concat(extractOnlineSubmissionImages().files.filter(file => !seen.has(file.url)));
 };
 
 const getFileExtension = (fileName) => {
@@ -160,12 +252,8 @@ const getFileExtension = (fileName) => {
 
 
 const extractOnlineText = () => {
-  return findFirstText([
-    '.assignsubmission_onlinetext',
-    '[class*="assignsubmission_onlinetext"]',
-    '[id*="assignsubmission_onlinetext"]',
-    '.submissiontext',
-  ]);
+  const content = getOnlineSubmissionContent();
+  return getStructuredText(content?.root, { layoutIndependent: Boolean(content?.complete) });
 };
 
 const isSameOriginUrl = (url) => {
@@ -226,7 +314,7 @@ const getAssignmentFileType = (extension) => ({
   '.zip': MoodliaCorrectorI18n.t('Archivo comprimido (ZIP)'), '.txt': MoodliaCorrectorI18n.t('Archivo de texto'), '.csv': MoodliaCorrectorI18n.t('Datos CSV'),
   '.png': MoodliaCorrectorI18n.t('Imagen PNG'), '.jpg': MoodliaCorrectorI18n.t('Imagen JPEG'), '.jpeg': MoodliaCorrectorI18n.t('Imagen JPEG'), '.webp': MoodliaCorrectorI18n.t('Imagen WebP'), '.gif': MoodliaCorrectorI18n.t('Imagen GIF'), '.svg': MoodliaCorrectorI18n.t('Imagen SVG'),
   '.mp4': MoodliaCorrectorI18n.t('Vídeo MP4'), '.mp3': MoodliaCorrectorI18n.t('Audio MP3'),
-}[extension] || (MoodliaCorrectorAttachmentSupport.isText({ name: `file${extension}` }) ? MoodliaCorrectorI18n.t('Archivo de texto') : extension ? `Archivo ${extension.slice(1).toUpperCase()}` : MoodliaCorrectorI18n.t('Archivo enlazado')));
+}[extension] || (MoodliaCorrectorAttachmentSupport.isText({ name: `file${extension}` }) ? MoodliaCorrectorI18n.t('Archivo de texto') : extension ? MoodliaCorrectorI18n.message`Archivo ${extension.slice(1).toUpperCase()}` : MoodliaCorrectorI18n.t('Archivo enlazado')));
 
 const extractAssignmentFiles = (doc = document, pageUrl = location.href) => {
   const seen = new Set();
@@ -274,7 +362,7 @@ const createAssignmentFileList = (files = []) => {
     link.rel = 'noopener noreferrer';
     link.textContent = file.name;
     const description = document.createElement('p');
-    description.textContent = `${file.typeDescription}. ${file.embedded ? 'Imagen incluida en el enunciado.' : file.label || MoodliaCorrectorI18n.t('Archivo enlazado desde el enunciado.')}`;
+    description.textContent = `${file.typeDescription}. ${file.embedded ? MoodliaCorrectorI18n.t('Imagen incluida en el enunciado.') : file.label || MoodliaCorrectorI18n.t('Archivo enlazado desde el enunciado.')}`;
     const state = document.createElement('p');
     state.className = 'hint';
     state.textContent = MoodliaCorrectorI18n.t('Material de referencia del enunciado, no trabajo del alumno. Su contenido se leerá al solicitar la corrección con IA, si el formato y el acceso son compatibles.');
@@ -287,7 +375,7 @@ const createAssignmentFileList = (files = []) => {
 const extractDescriptionFromDocument = (doc) => {
   for (const selector of assignmentDescriptionSelectors) {
     const element = doc.querySelector(selector);
-    const text = getVisibleText(element);
+    const text = getStructuredText(element);
     if (text) {
       return text;
     }
@@ -362,9 +450,35 @@ const getInstructionContext = () => {
   return {
     site: `${url.origin}${basePath}`, courseId,
     assignmentId: url.searchParams.get('id') || '',
-    userId: document.querySelector('input[name="userid"]')?.value || url.searchParams.get('userid') || '',
-    attemptId: document.querySelector('input[name="attemptnumber"]')?.value || url.searchParams.get('attemptnumber') || '0',
+    userId: getGradedUserId(),
+    attemptId: getGradedAttemptNumber(),
   };
+};
+
+// The grader loads its form through core_get_fragment, where the hidden
+// `userid` input renders optional_param('userid', 0): it is "0" for every
+// student. The Quickform marker `_qf__mod_assign_grade_form_<userid>` and the
+// grader URL carry the real user.
+const getGradedUserId = () => {
+  for (const input of document.querySelectorAll('input[name^="_qf__mod_assign_grade_form_"]')) {
+    const id = input.name.match(/_(\d+)$/)?.[1];
+    if (id && id !== '0') return id;
+  }
+  const fromUrl = new URL(location.href).searchParams.get('userid');
+  if (/^[1-9]\d*$/.test(fromUrl || '')) return fromUrl;
+  const fromInput = document.querySelector('input[name="userid"]')?.value || '';
+  return /^[1-9]\d*$/.test(fromInput) ? fromInput : '';
+};
+
+// Moodle uses attempt -1 for "the latest attempt". Resolve it to the real
+// number, so a reopened attempt does not reuse the previous attempt's notes.
+const getGradedAttemptNumber = () => {
+  const candidates = [document.querySelector('input[name="attemptnumber"]')?.value, new URL(location.href).searchParams.get('attemptnumber')];
+  const explicit = candidates.find(value => /^\d+$/.test(value || ''));
+  if (explicit) return explicit;
+  const attempts = [...document.querySelectorAll('input[name="select-attemptnumber"]')]
+    .map(input => Number(input.value)).filter(Number.isInteger);
+  return attempts.length ? String(Math.max(...attempts)) : '0';
 };
 
 // This snapshot stays inside the extension; it is excluded from the AI prompt.
@@ -376,18 +490,20 @@ const getGradingContext = () => {
     assignment: url.searchParams.get('id'),
     user: url.searchParams.get('userid'),
     attempt: url.searchParams.get('attemptnumber'),
-    formUser: document.querySelector('input[name="userid"]')?.value || '',
+    formUser: getGradedUserId(),
     student: extractStudentName(),
     submission: extractSubmissionText(),
     files: extractSubmissionFiles().map((file) => file.url),
     maxScore: extractMaxScore(),
     rubric: extractRubric().map(({ id, levels }) => ({ id, levels: levels.map(({ id, value, text, score, index }) => ({ id, value, text, score, index })) })),
+    guide: extractGradingGuide().map(({ id, maxScore }) => ({ id, maxScore })),
+    scale: extractGradeScaleOptions(),
   });
 };
 
 const assertGradingContext = (expected) => {
   if (!expected || expected !== getGradingContext()) {
-    throw new Error(MoodliaCorrectorI18n.t('El alumno, la tarea o la entrega han cambiado. Vuelve a extraer los datos y solicita otra corrección.'));
+    throw Object.assign(new Error(MoodliaCorrectorI18n.t('El alumno, la tarea o la entrega han cambiado. Vuelve a extraer los datos y solicita otra corrección.')), { gradingContextChanged: true });
   }
 };
 
@@ -406,14 +522,31 @@ const extractMaxScore = () => {
     const match = label.match(/(?:calificaci[oó]n|cualificaci[oó]n|grade|score|nota|puntuaci[oó]n)\s*(?:sobre|out\s+of|maximum|max\.?|m[aá]xima|\/)\s*[:(]?\s*(\d+(?:[.,]\d+)?)/i);
     if (match) return Number(match[1].replace(',', '.'));
   }
+  // Moodle's "gradeoutof" label is translated ("Note sur 20", "Bewertung (von 100)",
+  // "Qualificació sobre 10"...). A grade label with exactly one number states the maximum.
+  for (const label of labels) {
+    const numbers = label.match(/\d+(?:[.,]\d+)?/g) || [];
+    if (numbers.length === 1) return Number(numbers[0].replace(',', '.'));
+  }
   return null;
 };
 
-const describeGradingMode = (assignmentData) => {
+const gradingModeParts = (assignmentData) => {
   const labels = { 'simple-direct': MoodliaCorrectorI18n.t('Calificación directa simple'), rubric: MoodliaCorrectorI18n.t('Rúbrica'), 'grading-guide': MoodliaCorrectorI18n.t('Guía de evaluación') };
   const label = labels[assignmentData?.correctionMethod] || MoodliaCorrectorI18n.t('Método no detectado');
-  if (assignmentData?.correctionMethod !== 'simple-direct') return MoodliaCorrectorI18n.message`Modo: ${label}`;
-  return MoodliaCorrectorI18n.message`Modo: ${label} · ${assignmentData.maxScore === null ? MoodliaCorrectorI18n.t('máximo no detectado') : MoodliaCorrectorI18n.message`sobre ${assignmentData.maxScore}`}`;
+  if (assignmentData?.correctionMethod === 'grading-guide') {
+    const criteria = (assignmentData.gradingGuide || []).filter(criterion => criterion.controls?.score && Number.isFinite(Number(criterion.maxScore)) && criterion.maxScore !== null);
+    // A frozen guide (grade locked or overridden in the gradebook) has no score inputs.
+    if (!criteria.length) return [label, MoodliaCorrectorI18n.t('las puntuaciones por criterio se introducen a mano')];
+    return [label, MoodliaCorrectorI18n.message`sobre ${criteria.reduce((sum, criterion) => sum + Number(criterion.maxScore), 0)}`];
+  }
+  if (assignmentData?.gradingControls?.gradeScale) return [MoodliaCorrectorI18n.t('Escala'), MoodliaCorrectorI18n.message`${(assignmentData.gradeScaleOptions || []).length} valores`];
+  if (assignmentData?.correctionMethod !== 'simple-direct') return [label];
+  return [label, assignmentData.maxScore === null ? MoodliaCorrectorI18n.t('máximo no detectado') : MoodliaCorrectorI18n.message`sobre ${assignmentData.maxScore}`];
+};
+const describeGradingMode = (assignmentData) => {
+  const [label, detail] = gradingModeParts(assignmentData);
+  return detail ? MoodliaCorrectorI18n.message`Modo: ${label} · ${detail}` : MoodliaCorrectorI18n.message`Modo: ${label}`;
 };
 
 const getUniqueElements = (elements) => {
@@ -445,7 +578,8 @@ const getRubricRoot = () => {
     return explicitRoot;
   }
 
-  const criterion = document.querySelector('[id^="advancedgrading-criteria-"]:not([id*="-levels-"])');
+  const criterion = [...document.querySelectorAll('[id^="advancedgrading-criteria-"]:not([id*="-levels-"])')]
+    .find((element) => !element.closest('.gradingform_guide'));
   return criterion?.closest('table, tbody, form, [data-region="grade"]') || null;
 };
 
@@ -727,25 +861,71 @@ const extractRubric = () => {
     .filter((criterion) => criterion.description || criterion.levels.length > 0);
 };
 
+// Moodle marking guide (gradingform_guide renderer, unchanged from 4.5 to 5.2):
+// <div class="gradingform_guide evaluate editable"><table class="criteria"><tr class="criterion" id="advancedgrading-criteria-12">
+// <td class="descriptionreadonly"><div class="criterionshortname"/><div class="criteriondescription"/><div class="criteriondescriptionmarkers"/></td>
+// <td class="remark"><textarea name="advancedgrading[criteria][12][remark]"/></td>
+// <td class="score"><input type="text" name="advancedgrading[criteria][12][score]"/><div>/10</div></td></tr>.
+// A locked or overridden grade renders "evaluate frozen" with no score input; review and view modes are read-only.
+const getGuideRoot = () => document.querySelector('.gradingform_guide, [data-grading-method="guide"]');
+
+const isGuideFrozen = (element) => Boolean(element?.closest('.gradingform_guide.frozen, .gradingform_guide.review, .gradingform_guide.view'));
+
+const getGuideCriterionElements = (root = getGuideRoot()) => root
+  ? getUniqueElements([...root.querySelectorAll('.criterion, tr[id*="criterion" i], [data-criterion-id]')])
+    .filter((row) => !row.closest('table.comments') && !/-comments-/.test(row.id || '') && !row.parentElement?.closest('.criterion, [data-criterion-id]'))
+  : [];
+
+const findGuideScoreInput = (row) => row?.querySelector('input[name$="[score]"], input[id$="-score"]') || null;
+const findGuideRemarkBox = (row) => row?.querySelector('textarea[name$="[remark]"], textarea[id$="-remark"]') || null;
+
+const getGuideMaxScore = (row) => {
+  const declared = findGuideScoreInput(row)?.getAttribute('max');
+  if (declared?.trim() && Number.isFinite(Number(declared))) return Number(declared);
+  const text = getVisibleText(row.querySelector('td.score, .score')) || getVisibleText(row.querySelector('.criteriondescriptionscore'));
+  const match = text.match(/\/\s*(\d+(?:[.,]\d+)?)/) || (row.querySelector('.criteriondescriptionscore') ? text.match(/(\d+(?:[.,]\d+)?)/) : null);
+  return match ? Number(match[1].replace(',', '.')) : null;
+};
+
 const extractGradingGuide = () => {
-  const guideRoot = document.querySelector('.gradingform_guide, [data-grading-method="guide"]');
+  const guideRoot = getGuideRoot();
   if (!guideRoot) {
     return [];
   }
 
-  return [...guideRoot.querySelectorAll('.criterion, tr[id*="criterion" i], [data-criterion-id]')]
-    .map((row, index) => ({
-      id: row.getAttribute('data-criterion-id') || row.id || `guide-criterion-${index + 1}`,
-      description:
-        getVisibleText(row.querySelector('.description, .criteriondescription, th')) ||
-        getVisibleText(row).slice(0, 500),
-      maxScore:
-        row.querySelector('input[name*="score" i], input[id*="score" i]')?.getAttribute('max') ||
-        row.querySelector('[class*="score" i]')?.textContent?.trim() ||
-        null,
-    }))
+  return getGuideCriterionElements(guideRoot)
+    .map((row, index) => {
+      const scoreInput = findGuideScoreInput(row);
+      const remarkBox = findGuideRemarkBox(row);
+      const shortName = getVisibleText(row.querySelector('.criterionshortname'));
+      // textContent: Moodle hides the student or marker descriptions with a "hide" class by user preference.
+      const description = (row.querySelector('.criteriondescription, .description')?.textContent || '').replace(/\s+/g, ' ').trim();
+      return {
+        id: row.getAttribute('data-criterion-id') || row.id || `guide-criterion-${index + 1}`,
+        shortName,
+        description: description || shortName || getVisibleText(row.querySelector('th')) || getVisibleText(row).slice(0, 500),
+        markerDescription: (row.querySelector('.criteriondescriptionmarkers')?.textContent || '').replace(/\s+/g, ' ').trim(),
+        maxScore: getGuideMaxScore(row),
+        controls: {
+          score: Boolean(scoreInput && !isGuideFrozen(scoreInput) && isWritableElement(scoreInput)),
+          remark: Boolean(remarkBox && !isGuideFrozen(remarkBox) && isWritableElement(remarkBox)),
+        },
+      };
+    })
     .filter((criterion) => criterion.description);
 };
+
+const findGuideCriterionElement = (criterionId) => getGuideCriterionElements().find((row, index) =>
+  (row.getAttribute('data-criterion-id') || row.id || `guide-criterion-${index + 1}`) === criterionId) || null;
+
+// Scale grading renders <select name="grade"> with "-1" for "No grade" and one option per scale item.
+// A locked grade is frozen by Moodle into static text, so it has no select.
+const findGradeScaleSelect = () => [...document.querySelectorAll('select#id_grade, select[name="grade"]')]
+  .find((select) => !select.disabled) || null;
+
+const extractGradeScaleOptions = (select = findGradeScaleSelect()) => [...(select?.options || [])]
+  .map((option) => ({ value: option.value, label: option.textContent.replace(/\s+/g, ' ').trim() }))
+  .filter((option) => option.value !== '-1' && option.value !== '' && option.label);
 
 const extractCorrectionMethod = () => {
   const rubric = extractRubric();
@@ -825,7 +1005,32 @@ const waitForGradingPanelReady = (timeoutMs = 30_000) => {
   });
 };
 
+// Resolves once the page has had no DOM changes for quietMs (or after maxMs).
+const waitForQuietPage = (quietMs = 500, maxMs = 5000) => new Promise((resolve) => {
+  let quietTimer;
+  const finish = () => { clearTimeout(quietTimer); clearTimeout(maxTimer); observer.disconnect(); resolve(); };
+  const observer = new MutationObserver(() => { clearTimeout(quietTimer); quietTimer = setTimeout(finish, quietMs); });
+  const maxTimer = setTimeout(finish, maxMs);
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  quietTimer = setTimeout(finish, quietMs);
+});
+
+// A real Moodle grader keeps filling the student's form after it appears, which
+// resets the panel as a page change. Extraction for the same student and attempt
+// is repeated once the page is quiet, up to three times.
 const extractAssignmentData = async () => {
+  for (let attempt = 1; ; attempt++) {
+    const studentKey = currentStudentKey();
+    try {
+      return await extractAssignmentDataOnce();
+    } catch (error) {
+      if (attempt >= 3 || !error.gradingContextChanged || currentStudentKey() !== studentKey) throw error;
+      await waitForQuietPage();
+    }
+  }
+};
+
+const extractAssignmentDataOnce = async () => {
   await waitForGradingPanelReady();
   const gradingContext = getGradingContext();
   const descriptionLink = extractAssignmentDescriptionLink();
@@ -834,9 +1039,11 @@ const extractAssignmentData = async () => {
   const correctionMethod = extractCorrectionMethod();
   const finalFeedbackBox = findCommentBox();
   const gradeInput = findGradeInput();
+  const gradeScaleOptions = extractGradeScaleOptions();
   const rubric = correctionMethod.rubric;
   const inlinePrompt = extractDescriptionFromDocument(document);
   const assignmentFiles = extractAssignmentFiles(document);
+  const omittedOnlineImages = extractOnlineSubmissionImages().omitted;
   for (const file of linkedDescription?.files || []) {
     if (!assignmentFiles.some((existing) => existing.url === file.url)) assignmentFiles.push(file);
   }
@@ -858,11 +1065,18 @@ const extractAssignmentData = async () => {
     submissionStatus: getFieldRows(document).slice(0, 30),
     submissionFiles,
     submissionText: extractSubmissionText(),
+    submissionImageLimitations: omittedOnlineImages
+      ? [{ reason: 'inline-images-outside-moodle-or-unsupported-url', count: omittedOnlineImages }] : [],
     rubric,
     gradingGuide: correctionMethod.guide,
+    gradeScaleOptions: gradeInput ? [] : gradeScaleOptions,
     gradingControls: {
       grade: Boolean(gradeInput),
       gradeType: getElementControlType(gradeInput),
+      // Scale grading renders a select; the AI chooses one of its item labels.
+      gradeScale: !gradeInput && gradeScaleOptions.length > 0,
+      guideCriteriaWithScoreInputs: correctionMethod.guide.filter((criterion) => criterion.controls.score).length,
+      guideCriteriaWithRemarkBoxes: correctionMethod.guide.filter((criterion) => criterion.controls.remark).length,
       finalFeedback: Boolean(finalFeedbackBox),
       finalFeedbackType: getElementControlType(finalFeedbackBox),
       rubricCriteriaWithLevelControls: rubric.filter(
@@ -878,8 +1092,9 @@ const extractAssignmentData = async () => {
 
 const findGradeInput = () => {
   for (const selector of ['#id_grade', 'input[name="grade"]', '[data-region="grade"] input[name*="grade" i]']) {
+    // Marking guide score inputs ("advancedgrading[criteria][12][score]") are not the grade.
     const candidate = [...document.querySelectorAll(selector)].find((input) =>
-      ['text', 'number'].includes(input.type) && !input.disabled && !input.readOnly);
+      ['text', 'number'].includes(input.type) && !input.disabled && !input.readOnly && !/^advancedgrading\[/i.test(input.name || ''));
     if (candidate) return candidate;
   }
   return null;
@@ -948,7 +1163,7 @@ const findAssociatedEditable = (element) => {
   return null;
 };
 
-const setTinyMceIframeValue = (element, value) => {
+const setTinyMceIframeValue = (element, value, markup = null) => {
   const id = element?.id || '';
   if (!id) {
     return false;
@@ -960,7 +1175,8 @@ const setTinyMceIframeValue = (element, value) => {
     return false;
   }
 
-  body.textContent = value;
+  if (markup === null) body.textContent = value;
+  else body.innerHTML = markup;
   body.dispatchEvent(new Event('input', { bubbles: true }));
   body.dispatchEvent(new Event('change', { bubbles: true }));
   return true;
@@ -995,25 +1211,55 @@ const findCriterionCommentBox = (criterionElement) => {
   return null;
 };
 
-const setElementValue = (element, value) => {
-  if (!element) {
+const isWritableElement = (element) => Boolean(element && !element.matches(':disabled') && !element.readOnly &&
+  !element.closest('[inert], [aria-disabled="true"]') &&
+  (!element.id || document.getElementById(`${element.id}_ifr`)?.contentDocument?.body?.getAttribute('contenteditable') !== 'false'));
+
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+
+// Moodle stores editor feedback as HTML. Escape the AI text and keep its
+// paragraphs and line breaks; nothing in it is interpreted as markup.
+const textToHtml = (text) => String(text).replace(/\r\n?/g, '\n').trim().split(/\n{2,}/)
+  .map(paragraph => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`).join('');
+
+// An editor (TinyMCE, Atto) or an explicit FORMAT_HTML (1) means the field holds HTML.
+const isHtmlFeedbackField = (element) => {
+  const name = element?.getAttribute?.('name') || '';
+  const format = name.endsWith('[text]') ? document.querySelector(`[name="${CSS.escape(name.replace(/\[text\]$/, '[format]'))}"]`)?.value : undefined;
+  if (format !== undefined && format !== '') return format === '1';
+  return Boolean(element?.matches?.('[contenteditable="true"]') || findAssociatedEditable(element) ||
+    element?.id && document.getElementById(`${element.id}_ifr`));
+};
+
+// FORMAT_MOODLE (0) keeps line breaks but is cleaned as HTML when shown, so "<stdio.h>" must be escaped.
+const isMoodleFormatField = (element) => {
+  const name = element?.getAttribute?.('name') || '';
+  return name.endsWith('[text]') && document.querySelector(`[name="${CSS.escape(name.replace(/\[text\]$/, '[format]'))}"]`)?.value === '0';
+};
+
+const setElementValue = (element, value, { html = false } = {}) => {
+  if (!isWritableElement(element)) {
     return false;
   }
 
   const editable = findAssociatedEditable(element);
+  const markup = html ? textToHtml(value) : null;
 
   if ('value' in element) {
-    element.value = value;
+    element.value = markup ?? value;
+  } else if (markup !== null) {
+    element.innerHTML = markup;
   } else {
     element.textContent = value;
   }
 
   if (editable && editable !== element) {
-    editable.textContent = value;
+    if (markup !== null) editable.innerHTML = markup;
+    else editable.textContent = value;
     editable.dispatchEvent(new Event('input', { bubbles: true }));
     editable.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  setTinyMceIframeValue(element, value);
+  setTinyMceIframeValue(element, value, markup);
 
   element.dispatchEvent(new Event('input', { bubbles: true }));
   element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1039,7 +1285,7 @@ const clickElement = (element) => {
 };
 
 const selectInputChoice = (input) => {
-  if (!input) {
+  if (!isWritableElement(input)) {
     return false;
   }
 
@@ -1099,11 +1345,7 @@ const markRubricLevelElement = (criterionElement, targetLevel, input = null) => 
   return true;
 };
 
-const selectRubricLevel = (criterionElement, levelIndex, expectedLevelValues = []) => {
-  if (!criterionElement || !Number.isInteger(levelIndex)) {
-    return { applied: false, reason: 'missing-criterion-or-level-index' };
-  }
-
+const getRubricSelectionTarget = (criterionElement, levelIndex, expectedLevelValues = []) => {
   const expectedValues = Array.isArray(expectedLevelValues)
     ? expectedLevelValues.map((value) => String(value))
     : [String(expectedLevelValues || '')].filter(Boolean);
@@ -1113,6 +1355,22 @@ const selectRubricLevel = (criterionElement, levelIndex, expectedLevelValues = [
   const candidateValues = [...new Set([...expectedValues, ...levelValues])];
 
   const input = findLevelInputByValues(criterionElement, candidateValues) || findLevelInput(targetLevel, criterionElement, levelIndex);
+  return { expectedValues, levelNodes, targetLevel, candidateValues, input };
+};
+
+// Moodle renders a rubric in DISPLAY_EVAL_FROZEN mode ("evaluate frozen")
+// when the grade is locked or overridden in the gradebook. Its hidden levelid
+// inputs are displayed but never saved, so writing them would falsely report success.
+const isRubricFrozen = (criterionElement) => Boolean(criterionElement?.closest('.gradingform_rubric.frozen, .gradingform_rubric.review, .gradingform_rubric.view'));
+
+const selectRubricLevel = (criterionElement, levelIndex, expectedLevelValues = []) => {
+  if (!criterionElement || !Number.isInteger(levelIndex)) {
+    return { applied: false, reason: 'missing-criterion-or-level-index' };
+  }
+  const { expectedValues, levelNodes, targetLevel, candidateValues, input } = getRubricSelectionTarget(criterionElement, levelIndex, expectedLevelValues);
+  if (isRubricFrozen(criterionElement) || !isWritableElement(criterionElement) || input && !isWritableElement(input) || targetLevel && !isWritableElement(targetLevel)) {
+    return { applied: false, reason: 'locked-grading-field' };
+  }
 
   if (input) {
     if (targetLevel) {
@@ -1251,25 +1509,83 @@ const applyCorrection = (correction) => {
   if (!parsedInput || typeof parsedInput !== 'object' || Array.isArray(parsedInput)) throw new Error(MoodliaCorrectorI18n.t('La corrección debe ser un objeto JSON.'));
   const parsed = normalizeCorrectionResponse(parsedInput, currentAssignmentData || {});
   if (!parsed) throw new Error(MoodliaCorrectorI18n.t('El JSON no contiene una corrección válida.'));
+  if (parsed.guideScores?.some((entry) => entry.score === null || !entry.remark)) {
+    throw new Error(MoodliaCorrectorI18n.t('La guía de evaluación necesita una puntuación válida y un comentario para cada criterio. Revisa la corrección antes de aplicarla.'));
+  }
   if (parsed?.needsRepair || parsed?.rubricSelections?.some((selection) => !Number.isInteger(selection.levelIndex))) {
     throw new Error(MoodliaCorrectorI18n.t('La rúbrica contiene una selección inválida. Revisa la corrección antes de aplicarla.'));
   }
+  const scaleProvided = typeof parsedInput.scaleGrade === 'string' && parsedInput.scaleGrade.trim() !== '';
+  if (scaleProvided && !parsed.scaleGrade) {
+    throw new Error(MoodliaCorrectorI18n.t('La nota de escala no coincide con ningún valor de la escala de Moodle. Revisa la corrección antes de aplicarla.'));
+  }
+  const scaleSelect = parsed.scaleGrade ? findGradeScaleSelect() : null;
+  const scaleOption = scaleSelect && (currentAssignmentData?.gradeScaleOptions || []).find((option) => option.label === parsed.scaleGrade);
+  if (parsed.scaleGrade && (!scaleSelect || !scaleOption || ![...scaleSelect.options].some((option) => option.value === scaleOption.value) || !isWritableElement(scaleSelect))) {
+    throw new Error(MoodliaCorrectorI18n.t('Moodle has locked a grading field. Unlock it or reload the grading page before applying a correction.'));
+  }
+  const guideTargets = (parsed.guideScores || []).map((entry) => {
+    const row = findGuideCriterionElement(entry.criterionId);
+    return { entry, row, scoreInput: findGuideScoreInput(row), remarkBox: findGuideRemarkBox(row) };
+  });
+  // A frozen guide (grade locked or overridden in the gradebook) is never written, like a frozen rubric.
+  if (guideTargets.some(({ row, scoreInput, remarkBox }) => !row || !scoreInput || isGuideFrozen(row) ||
+      !isWritableElement(scoreInput) || remarkBox && !isWritableElement(remarkBox))) {
+    throw new Error(MoodliaCorrectorI18n.t('Moodle has locked a grading field. Unlock it or reload the grading page before applying a correction.'));
+  }
   for (const selection of parsed.rubricSelections || []) {
     const definition = getRubricCriterionDefinition(selection);
-    if (!definition || !findCriterionElement(selection.criterionId) || !getRubricLevelDefinition(definition, selection.levelIndex)) {
+    const criterion = findCriterionElement(selection.criterionId);
+    const level = getRubricLevelDefinition(definition, selection.levelIndex);
+    if (!definition || !criterion || !level) {
       throw new Error(MoodliaCorrectorI18n.t('No se ha podido identificar el criterio de rúbrica. Actualiza los datos antes de aplicar.'));
+    }
+    const target = getRubricSelectionTarget(criterion, selection.levelIndex, getRubricLevelCandidateValues(level));
+    const hidden = findRubricLevelHiddenInput(criterion);
+    const comment = findCriterionCommentBox(criterion);
+    if (isRubricFrozen(criterion) || !isWritableElement(criterion) || !target.targetLevel && !target.input ||
+        [target.targetLevel, target.input, hidden, comment].some(element => element && !isWritableElement(element))) {
+      throw new Error(MoodliaCorrectorI18n.t('Moodle has locked a grading field. Unlock it or reload the grading page before applying a correction.'));
     }
   }
   const feedback = parsed?.studentFeedback || parsed?.feedback || '';
   const score = parsed?.score;
   const commentBox = findCommentBox();
   const gradeInput = findGradeInput();
+  // Validate all known targets before the first Moodle field or editor is changed.
+  if (feedback && commentBox && (!isWritableElement(commentBox) ||
+      findAssociatedEditable(commentBox) && !isWritableElement(findAssociatedEditable(commentBox)))) {
+    throw new Error(MoodliaCorrectorI18n.t('Moodle has locked a grading field. Unlock it or reload the grading page before applying a correction.'));
+  }
 
-  const commentApplied = feedback ? setElementValue(commentBox, feedback) : false;
+  const commentApplied = feedback
+    ? setElementValue(commentBox, isMoodleFormatField(commentBox) ? escapeHtml(feedback) : feedback, { html: isHtmlFeedbackField(commentBox) })
+    : false;
   const gradeApplied =
     score !== undefined && score !== null ? setElementValue(gradeInput, String(score)) : false;
   const rubricApplied = applyRubricSelections(parsed?.rubricSelections);
+  // Moodle's validation uses is_numeric(), so scores are written with a dot decimal separator.
+  const guideDetails = guideTargets.map(({ entry, scoreInput, remarkBox }) => ({
+    criterionId: entry.criterionId,
+    scoreApplied: setElementValue(scoreInput, String(entry.score)),
+    remarkApplied: Boolean(remarkBox && setElementValue(remarkBox, entry.remark)),
+  }));
+  const scaleApplied = Boolean(scaleOption && setElementValue(scaleSelect, scaleOption.value));
+  const guideRoot = getGuideRoot();
   const result = {
+    // The proposed score, before validation drops it for a form without a grade field.
+    scoreProvided: rawScore !== undefined && rawScore !== null,
+    // A graded assignment whose form shows no grade input: Moodle's static "grade locked" element
+    // (gradedisabled), or a detected maximum. The AI was then not asked for a score.
+    gradeExpected: maximum !== null || Boolean(document.querySelector('#fitem_id_gradedisabled, #id_gradedisabled')) || Boolean(guideRoot),
+    scaleProvided: Boolean(parsed.scaleGrade),
+    scaleApplied,
+    guideScoreCount: guideTargets.length,
+    guideCriteriaFound: getGuideCriterionElements(guideRoot).filter((row) => !isGuideFrozen(row) && isWritableElement(findGuideScoreInput(row))).length,
+    guideScoresApplied: guideDetails.filter((detail) => detail.scoreApplied).length,
+    guideRemarksApplied: guideDetails.filter((detail) => detail.remarkApplied).length,
+    guideDetails,
+    feedbackProvided: Boolean(feedback),
     commentFound: Boolean(commentBox),
     gradeFound: Boolean(gradeInput),
     rubricSelectionCount: Array.isArray(parsed?.rubricSelections) ? parsed.rubricSelections.length : 0,
@@ -1286,6 +1602,20 @@ const applyCorrection = (correction) => {
   return result;
 };
 
+// The status says what Moodle actually received: a grade locked or overridden in the
+// gradebook has no input, and some forms have no feedback box.
+const appliedStatus = (result) => {
+  const gradeMissing = result?.scoreProvided && !result.gradeApplied && !result.rubricSelectionCount && !result.guideScoreCount && !result.scaleApplied ||
+    result?.scaleProvided && !result.scaleApplied ||
+    result?.guideScoreCount > 0 && result.guideScoresApplied < result.guideScoreCount ||
+    result?.gradeExpected && !result.gradeFound && !result.rubricCriteriaFound && !result.guideCriteriaFound;
+  const commentMissing = result?.feedbackProvided && !result.commentApplied;
+  if (gradeMissing && commentMissing) return MoodliaCorrectorI18n.t('No se ha podido aplicar ni la nota ni los comentarios: Moodle no muestra campos editables. Copia la sugerencia a mano.');
+  if (gradeMissing) return MoodliaCorrectorI18n.t('Comentarios aplicados, pero no la nota: Moodle no muestra un campo de nota editable (puede estar bloqueada o modificada en el libro de calificaciones). Introdúcela a mano.');
+  if (commentMissing) return MoodliaCorrectorI18n.t('Nota aplicada, pero no se ha encontrado el cuadro de comentarios. Copia los comentarios a mano desde la sugerencia.');
+  return MoodliaCorrectorI18n.t('Corrección aplicada en Moodle. Revisa la nota y los comentarios antes de guardar.');
+};
+
 const applyCorrectionWhenReady = async (correction) => {
   await waitForGradingPanelReady();
   assertGradingContext(correction?.gradingContext || currentAssignmentData?.gradingContext);
@@ -1296,19 +1626,34 @@ const sendBackgroundMessage = (message) => MoodliaCorrectorRuntime.send(message)
 
 const { getExpectedMaxScore, getFinalComment, normalizeCorrectionResponse } = MoodliaCorrectorSchema;
 
+// Status text for the progress the service worker reports during a correction.
+const progressStatus = (progress = {}) => {
+  const { current, total } = progress;
+  switch (progress.stage) {
+    case 'plan': return MoodliaCorrectorI18n.message`Se enviarán ${Number(progress.pages) || 0} página(s), ${Number(progress.images) || 0} imagen(es) y unos ${Math.round(Number(progress.estimatedTokens) || 0).toLocaleString()} tokens en ${Number(progress.blocks) || 1} bloque(s).`;
+    case 'download': return MoodliaCorrectorI18n.message`Descargando archivos de Moodle (${current} de ${total})...`;
+    case 'read': return MoodliaCorrectorI18n.message`Leyendo archivos (${current} de ${total})...`;
+    case 'model': return MoodliaCorrectorI18n.t('Comprobando el modelo...');
+    case 'review': return MoodliaCorrectorI18n.message`Revisando la evidencia por bloques (${current} de ${total})...`;
+    case 'grade': return MoodliaCorrectorI18n.t('Redactando la corrección...');
+    case 'repair': return MoodliaCorrectorI18n.t('Completando la respuesta de la IA...');
+    default: return '';
+  }
+};
+
 let activeCorrectionRequestId = null;
-const requestAiCorrectionFromPage = async (assignmentData) => {
+const requestAiCorrectionFromPage = async (assignmentData, { onProgress } = {}) => {
   if (activeCorrectionRequestId) throw new Error(MoodliaCorrectorI18n.t('Ya hay una corrección en curso.'));
   const gradingContext = assignmentData.gradingContext;
   assertGradingContext(gradingContext);
   const requestId = crypto.randomUUID();
   activeCorrectionRequestId = requestId;
   try {
-    const response = await sendBackgroundMessage({
+    const response = await MoodliaCorrectorRuntime.send({
       type: 'mca.correctAssignment',
       assignmentData,
       requestId,
-    });
+    }, { onProgress: progress => { if (activeCorrectionRequestId === requestId) onProgress?.(progress); } });
 
     assertGradingContext(gradingContext);
     if (!response?.ok) {
@@ -1361,7 +1706,7 @@ const renderAssignmentSummary = (container, assignmentData) => {
     [MoodliaCorrectorI18n.t('Curso'), assignmentData.courseName || MoodliaCorrectorI18n.t('No detectado')],
     [MoodliaCorrectorI18n.t('Tarea'), assignmentData.assignmentTitle || MoodliaCorrectorI18n.t('No detectada')],
     [MoodliaCorrectorI18n.t('Alumno/a'), assignmentData.studentName || MoodliaCorrectorI18n.t('No detectado')],
-    [MoodliaCorrectorI18n.t('Corrección'), describeGradingMode(assignmentData).replace(/^Modo: /, '')],
+    [MoodliaCorrectorI18n.t('Corrección'), gradingModeParts(assignmentData).join(' · ')],
     [
       MoodliaCorrectorI18n.t('Descripción'),
       assignmentData.assignmentDescriptionLink?.url
@@ -1412,7 +1757,7 @@ const renderAssignmentSummary = (container, assignmentData) => {
   });
   addSection(MoodliaCorrectorI18n.t('Controles de corrección'), controlsList);
   addSection(
-    assignmentData.linkedAssignmentDescription?.text ? 'Descripción enlazada de la tarea' : 'Instrucciones',
+    assignmentData.linkedAssignmentDescription?.text ? MoodliaCorrectorI18n.t('Descripción enlazada de la tarea') : MoodliaCorrectorI18n.t('Instrucciones'),
     assignmentData.assignmentPrompt ||
       assignmentData.linkedAssignmentDescription?.error ||
       MoodliaCorrectorI18n.t('No detectado'),
@@ -1454,8 +1799,8 @@ const renderAssignmentSummary = (container, assignmentData) => {
       const title = document.createElement('summary');
       title.textContent = criterion.description || criterion.id;
       const controls = document.createElement('p');
-      controls.textContent = `Niveles: ${criterion.controls?.levelSelection ? 'seleccionables' : MoodliaCorrectorI18n.t('no seleccionables')} · Comentario: ${
-        criterion.controls?.criterionComment ? `detectado (${criterion.controls.criterionCommentType})` : MoodliaCorrectorI18n.t('no detectado')
+      controls.textContent = MoodliaCorrectorI18n.message`Niveles: ${criterion.controls?.levelSelection ? MoodliaCorrectorI18n.t('seleccionables') : MoodliaCorrectorI18n.t('no seleccionables')} · Comentario: ${
+        criterion.controls?.criterionComment ? MoodliaCorrectorI18n.message`detectado (${criterion.controls.criterionCommentType})` : MoodliaCorrectorI18n.t('no detectado')
       }`;
       const levels = document.createElement('ol');
       levels.className = 'level-list';
@@ -1467,7 +1812,7 @@ const renderAssignmentSummary = (container, assignmentData) => {
       } else {
         for (const levelData of criterion.levels) {
           const level = document.createElement('li');
-          const status = levelData.selectable ? 'seleccionable' : 'detectado';
+          const status = levelData.selectable ? MoodliaCorrectorI18n.t('seleccionable') : MoodliaCorrectorI18n.t('detectado');
           level.textContent = `${levelData.text || MoodliaCorrectorI18n.message`Nivel ${levelData.index + 1}`} (${status})`;
           levels.appendChild(level);
         }
@@ -1487,9 +1832,9 @@ const renderAssignmentSummary = (container, assignmentData) => {
       const item = document.createElement('details');
       item.className = 'rubric-item';
       const title = document.createElement('summary');
-      title.textContent = criterion.description || criterion.id;
+      title.textContent = criterion.shortName || criterion.description || criterion.id;
       const score = document.createElement('p');
-      score.textContent = criterion.maxScore ? MoodliaCorrectorI18n.message`Puntuación máxima: ${criterion.maxScore}` : MoodliaCorrectorI18n.t('No se ha detectado puntuación');
+      score.textContent = criterion.maxScore !== null && criterion.maxScore !== undefined ?MoodliaCorrectorI18n.message`Puntuación máxima: ${criterion.maxScore}` : MoodliaCorrectorI18n.t('No se ha detectado puntuación');
       item.append(title, score);
       guide.appendChild(item);
     }
@@ -1547,6 +1892,10 @@ const createPanelStyles = () => {
     }
     [data-result] { white-space: pre-wrap; overflow-wrap: anywhere; }
     .result-score { font-size: 16px; font-weight: 700; }
+    .result-warning { margin: 0 0 10px; padding: 8px 10px; border: 1px solid #d9822b; border-left-width: 4px; border-radius: 6px; background: #fff6ec; color: #6b3500; }
+    .result-warning-title { margin: 0 0 4px; font-weight: 700; }
+    .result-warning ul { margin: 0; padding-left: 18px; white-space: normal; }
+    .result-note { color: #596b83; font-size: 12px; }
 
     button {
       border: 0;
@@ -2053,6 +2402,12 @@ const createPanelStyles = () => {
       margin: 0;
     }
 
+    .footer-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     .footer .action-button {
       min-width: 142px;
       white-space: nowrap;
@@ -2149,14 +2504,73 @@ const renderCorrectionResult = (correction) => {
     score.textContent = MoodliaCorrectorI18n.message`Nota propuesta: ${parsed.score}${parsed.maxScore !== null && parsed.maxScore !== undefined ? ` / ${parsed.maxScore}` : ''}`;
     container.appendChild(score);
   }
+  if (typeof parsed.scaleGrade === 'string' && parsed.scaleGrade) {
+    const scale = document.createElement('p');
+    scale.className = 'result-score';
+    scale.textContent = MoodliaCorrectorI18n.message`Nota de escala propuesta: ${parsed.scaleGrade}`;
+    container.appendChild(scale);
+  }
+  const guideScores = Array.isArray(parsed.guideScores) ? parsed.guideScores : [];
+  const guideCriteria = guideScores.map(entry => currentAssignmentData?.gradingGuide?.find(item => item.id === entry?.criterionId) || null);
+  if (guideScores.length && guideScores.every(entry => Number.isFinite(Number(entry?.score)) && entry?.score !== null)) {
+    const total = document.createElement('p');
+    total.className = 'result-score';
+    const sum = guideScores.reduce((value, entry) => value + Number(entry.score), 0);
+    const maximum = guideCriteria.every(criterion => Number.isFinite(Number(criterion?.maxScore)) && criterion?.maxScore !== null)
+      ? guideCriteria.reduce((value, criterion) => value + Number(criterion.maxScore), 0) : null;
+    total.textContent = MoodliaCorrectorI18n.message`Guía de evaluación: ${Math.round(sum * 100) / 100}${maximum !== null ? ` / ${Math.round(maximum * 100) / 100}` : ''}`;
+    container.appendChild(total);
+  }
+  // Student work that addresses the AI is shown first, as untrusted text.
+  if (Array.isArray(correction.evidenceWarnings) && correction.evidenceWarnings.length) {
+    const warning = document.createElement('div');
+    warning.className = 'result-warning';
+    warning.setAttribute('role', 'alert');
+    const heading = document.createElement('p');
+    heading.className = 'result-warning-title';
+    heading.textContent = MoodliaCorrectorI18n.t('La entrega contiene texto dirigido a la IA; revisa la nota con cuidado:');
+    const list = document.createElement('ul');
+    for (const item of correction.evidenceWarnings.slice(0, 10)) {
+      const entry = document.createElement('li');
+      const source = String(item?.source || '').slice(0, 200);
+      const excerpt = String(item?.excerpt || '').slice(0, 300);
+      entry.textContent = source ? `${source === 'online text' ? MoodliaCorrectorI18n.t('texto en línea') : source}: «${excerpt}»` : `«${excerpt}»`;
+      list.appendChild(entry);
+    }
+    warning.append(heading, list);
+    container.prepend(warning);
+  }
   const feedback = document.createElement('p');
   feedback.textContent = getFinalComment(parsed) || MoodliaCorrectorI18n.t('Sin comentario final.');
   container.appendChild(feedback);
   for (const [index, criterion] of (parsed.rubricSelections || []).entries()) {
     const paragraph = document.createElement('p');
-    paragraph.textContent = `${currentAssignmentData?.rubric?.[index]?.description || MoodliaCorrectorI18n.message`Criterio ${index + 1}`}: ${criterion.criterionFeedback || ''}`;
+    // Match by identity: selections can arrive in a different order than the rubric.
+    const rubricCriterion = currentAssignmentData?.rubric?.find(item => item.id === criterion.criterionId);
+    paragraph.textContent = `${rubricCriterion?.description || MoodliaCorrectorI18n.message`Criterio ${index + 1}`}: ${criterion.criterionFeedback || ''}`;
     container.appendChild(paragraph);
   }
+  for (const [index, entry] of guideScores.entries()) {
+    const paragraph = document.createElement('p');
+    const criterion = guideCriteria[index];
+    const name = criterion?.shortName || criterion?.description || MoodliaCorrectorI18n.message`Criterio ${index + 1}`;
+    paragraph.textContent = `${name} (${entry?.score ?? '?'}${criterion?.maxScore !== null && criterion?.maxScore !== undefined ? ` / ${criterion.maxScore}` : ''}): ${entry?.remark || ''}`;
+    container.appendChild(paragraph);
+  }
+  if (Number(correction.pseudonymized?.replacements) > 0) {
+    const note = document.createElement('p');
+    note.className = 'result-note';
+    note.textContent = MoodliaCorrectorI18n.message`El nombre del alumno/a se ha sustituido en lo enviado a la IA (${Number(correction.pseudonymized.replacements)} apariciones).`;
+    container.appendChild(note);
+  }
+};
+
+const showCorrectionPlan = (text) => {
+  const note = document.createElement('p');
+  note.className = 'result-note';
+  note.dataset.correctionPlan = 'true';
+  note.textContent = text;
+  getPanelElements().result.replaceChildren(note);
 };
 
 const organizePanelWorkflow = (panel) => {
@@ -2337,6 +2751,7 @@ const createSidePanel = () => {
           <textarea id="mca-extra-instructions" data-extra-instructions placeholder="Ej.: valora especialmente la claridad de las actividades, penaliza si no hay evidencias del uso de IA..."></textarea>
           <label for="mca-extra-files">Archivos adicionales</label>
           <input class="file-input" id="mca-extra-files" data-extra-files type="file" multiple />
+          <p class="hint">Hasta 20 MB por archivo y 40 MB en total.</p>
           <p class="hint" data-extra-files-summary>Sin archivos adicionales.</p>
         </div>
       </section>
@@ -2346,11 +2761,12 @@ const createSidePanel = () => {
       </section>
       <section class="section">
         <h3 class="section-title">Sugerencia de IA</h3>
-        <textarea data-correction spellcheck="false"></textarea>
+        <textarea data-correction spellcheck="false" aria-label="Sugerencia de IA"></textarea>
       </section>
     </div>
     <footer class="footer">
       <p class="footer-note">Revisa antes de guardar. La extensión no envía el formulario.</p>
+      <label class="footer-toggle"><input type="checkbox" data-auto-correct> Corregir al pasar al siguiente alumno</label>
       <button class="action-button" type="button" data-correct>Corregir con IA</button>
       <button class="action-button secondary" type="button" data-cancel-correction hidden style="display:none">Cancelar</button>
     </footer>
@@ -2362,6 +2778,9 @@ const createSidePanel = () => {
   panel.querySelector('[data-close]').addEventListener('click', closePanel);
   panel.querySelector('[data-correct]').addEventListener('click', () => void requestCorrectionFromPanel().catch(error => setPanelStatus(error.message || String(error))));
   panel.querySelector('[data-cancel-correction]').addEventListener('click', () => void cancelCorrectionFromPage().catch((error) => setPanelStatus(error.message)));
+  const autoCorrect = panel.querySelector('[data-auto-correct]');
+  void chrome.storage.local.get(AUTO_CORRECT_STORAGE_KEY).then(stored => { autoCorrect.checked = stored[AUTO_CORRECT_STORAGE_KEY] === true; }).catch(() => {});
+  autoCorrect.addEventListener('change', () => void chrome.storage.local.set({ [AUTO_CORRECT_STORAGE_KEY]: autoCorrect.checked }).catch(() => {}));
   panel.querySelector('[data-apply-correction]').addEventListener('click', () => {
     void applyCorrectionFromPanel().catch(error => { setPanelStatus(error.message || String(error)); addPanelDiagnostic('manualCorrection.error', { message: error.message || String(error) }); });
   });
@@ -2438,7 +2857,12 @@ const updateExtraFilesSummary = () => {
   }
 
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-  extraFilesSummary.textContent = MoodliaCorrectorI18n.message`${files.length} archivo(s) adicional(es), ${(totalBytes / 1024 / 1024).toFixed(2)} MB.`;
+  const { MAX_ATTACHMENT_BYTES, MAX_TOTAL_ATTACHMENT_BYTES } = MoodliaCorrectorAttachmentSupport;
+  const oversized = files.some(file => file.size > MAX_ATTACHMENT_BYTES) || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES;
+  extraFilesSummary.textContent = [
+    MoodliaCorrectorI18n.message`${files.length} archivo(s) adicional(es), ${(totalBytes / 1024 / 1024).toFixed(2)} MB.`,
+    ...(oversized ? [MoodliaCorrectorI18n.t('Superan el límite de 20 MB por archivo o 40 MB en total: quita alguno antes de corregir.')] : []),
+  ].join(' ');
 };
 
 const readExtraFilesFromPanel = async () => {
@@ -2533,25 +2957,25 @@ const updateDetectedList = (assignmentData) => {
   gradingMode.textContent = describeGradingMode(assignmentData);
   const gradingControls = assignmentData.gradingControls || {};
   const entries = [
-    ['Tarea Moodle', assignmentData.page.detectedAsMoodleAssignment ? 'Sí' : MoodliaCorrectorI18n.t('No')],
+    [MoodliaCorrectorI18n.t('Tarea Moodle'), assignmentData.page.detectedAsMoodleAssignment ? MoodliaCorrectorI18n.t('Sí') : MoodliaCorrectorI18n.t('No')],
     [MoodliaCorrectorI18n.t('Título'), assignmentData.assignmentTitle || MoodliaCorrectorI18n.t('No detectado')],
     [
       MoodliaCorrectorI18n.t('Descripción'),
       assignmentData.assignmentDescriptionLink?.url
         ? assignmentData.linkedAssignmentDescription?.text
-          ? 'Enlace y contenido recuperados'
-          : 'Enlace detectado'
+          ? MoodliaCorrectorI18n.t('Enlace y contenido recuperados')
+          : MoodliaCorrectorI18n.t('Enlace detectado')
         : MoodliaCorrectorI18n.t('No detectada'),
     ],
-    ['Instrucciones', assignmentData.assignmentPrompt ? `${assignmentData.assignmentPrompt.length} caracteres` : MoodliaCorrectorI18n.t('No detectadas')],
-    [MoodliaCorrectorI18n.t('Texto en línea'), assignmentData.submissionText ? `${assignmentData.submissionText.length} caracteres` : MoodliaCorrectorI18n.t('No detectado')],
+    [MoodliaCorrectorI18n.t('Instrucciones'), assignmentData.assignmentPrompt ? MoodliaCorrectorI18n.message`${assignmentData.assignmentPrompt.length} caracteres` : MoodliaCorrectorI18n.t('No detectadas')],
+    [MoodliaCorrectorI18n.t('Texto en línea'), assignmentData.submissionText ? MoodliaCorrectorI18n.message`${assignmentData.submissionText.length} caracteres` : MoodliaCorrectorI18n.t('No detectado')],
     [MoodliaCorrectorI18n.t('Archivos entregados'), MoodliaCorrectorI18n.message`${assignmentData.submissionFiles.length} archivo(s)`],
     [MoodliaCorrectorI18n.t('Archivos del enunciado'), MoodliaCorrectorI18n.message`${assignmentData.assignmentFiles?.length || 0} archivo(s)`],
     [MoodliaCorrectorI18n.t('Rúbrica'), MoodliaCorrectorI18n.message`${assignmentData.rubric.length} criterio(s)`],
     [
       MoodliaCorrectorI18n.t('Controles de rúbrica'),
       assignmentData.rubric.length
-        ? `${gradingControls.rubricCriteriaWithLevelControls || 0}/${assignmentData.rubric.length} controles de nivel, ${gradingControls.rubricCriteriaWithCommentBoxes || 0}/${assignmentData.rubric.length} comentarios`
+        ? MoodliaCorrectorI18n.message`${gradingControls.rubricCriteriaWithLevelControls || 0}/${assignmentData.rubric.length} controles de nivel, ${gradingControls.rubricCriteriaWithCommentBoxes || 0}/${assignmentData.rubric.length} comentarios`
         : MoodliaCorrectorI18n.t('No detectados'),
     ],
     [
@@ -2611,6 +3035,8 @@ const refreshPanelData = async () => {
     rubricCommentBoxes: currentAssignmentData.gradingControls.rubricCriteriaWithCommentBoxes,
     finalFeedback: currentAssignmentData.gradingControls.finalFeedback,
     guideCriteria: currentAssignmentData.gradingGuide.length,
+    guideScoreInputs: currentAssignmentData.gradingControls.guideCriteriaWithScoreInputs,
+    scaleOptions: currentAssignmentData.gradeScaleOptions?.length || 0,
     onlineText: Boolean(currentAssignmentData.submissionText),
   });
 };
@@ -2687,7 +3113,7 @@ const getAiCostText = (source) => {
   }
 
   if (source.free === true || source.isFree === true) {
-    return 'free';
+    return MoodliaCorrectorI18n.t('free');
   }
 
   const pricing = source.pricing || source.price || source.cost || source.billing;
@@ -2724,17 +3150,17 @@ const getAiCostText = (source) => {
   if (inputRate || outputRate) {
     const costUnit = inputRate?.unit || outputRate?.unit || unit || '1M tokens';
     return [
-      inputRate ? `input ${formatCostAmount(inputRate.value, currency)}` : '',
-      outputRate ? `output ${formatCostAmount(outputRate.value, currency)}` : '',
+      inputRate ? MoodliaCorrectorI18n.message`input ${formatCostAmount(inputRate.value, currency)}` : '',
+      outputRate ? MoodliaCorrectorI18n.message`output ${formatCostAmount(outputRate.value, currency)}` : '',
     ]
       .filter(Boolean)
       .join(' / ')
-      .concat(` per ${costUnit}`);
+      .concat(' ', MoodliaCorrectorI18n.message`per ${costUnit}`);
   }
 
   const flatAmount = pricing.amount ?? pricing.value ?? pricing.rate;
   if (flatAmount !== undefined && flatAmount !== null && flatAmount !== '') {
-    return `${formatCostAmount(flatAmount, currency)}${unit ? ` per ${unit}` : ''}`;
+    return `${formatCostAmount(flatAmount, currency)}${unit ? ` ${MoodliaCorrectorI18n.message`per ${unit}`}` : ''}`;
   }
 
   return '';
@@ -2802,7 +3228,7 @@ const refreshAiRuntimeStatus = async () => {
     addPanelDiagnostic('ai.status.start');
     const response = await sendBackgroundMessage({ type: 'mca.getAiRuntimeStatus' });
     if (!response?.ok) {
-      throw new Error(response?.error || 'No se ha podido leer el estado de la IA.');
+      throw new Error(response?.error || MoodliaCorrectorI18n.t('No se ha podido leer el estado de la IA.'));
     }
 
     if (revision !== aiStatusRevision) return;
@@ -2825,7 +3251,10 @@ const refreshAiRuntimeStatus = async () => {
   }
 };
 
+let aiSelectionRevision = 0;
 const saveAiRuntimeSelection = async (providerChanged) => {
+  const revision = ++aiSelectionRevision;
+  ++aiStatusRevision;
   const { provider, model } = getPanelElements();
   const config = {
     ...(provider.value ? { provider: provider.value } : {}),
@@ -2834,8 +3263,9 @@ const saveAiRuntimeSelection = async (providerChanged) => {
 
   if (providerChanged) {
     const stored = await chrome.storage.local.get('mca.aiProviderConfigs');
-    const profile = stored['mca.aiProviderConfigs']?.[provider.value];
-    config.baseUrl = profile?.baseUrl || MoodliaCorrectorAiProviders[provider.value].baseUrl;
+    if (revision !== aiSelectionRevision) return;
+    const profile = stored['mca.aiProviderConfigs']?.[config.provider];
+    config.baseUrl = profile?.baseUrl || MoodliaCorrectorAiProviders[config.provider].baseUrl;
     config.model = profile?.model || '';
   }
 
@@ -2843,6 +3273,7 @@ const saveAiRuntimeSelection = async (providerChanged) => {
     type: 'mca.setAiRuntimeConfig',
     config,
   });
+  if (revision !== aiSelectionRevision) return;
 
   if (!response?.ok) {
     setPanelStatus(response?.error || MoodliaCorrectorI18n.t('No se ha podido guardar la configuración de IA.'));
@@ -2855,7 +3286,7 @@ const saveAiRuntimeSelection = async (providerChanged) => {
   };
   renderAiRuntimeControls();
   await refreshAiRuntimeStatus();
-  setPanelStatus(MoodliaCorrectorI18n.t('Configuración de IA guardada.'));
+  if (revision === aiSelectionRevision) setPanelStatus(MoodliaCorrectorI18n.t('Configuración de IA guardada.'));
 };
 
 let settingsFrame = null;
@@ -2942,7 +3373,17 @@ const requestCorrectionFromPanel = async () => {
 
   try {
     addPanelDiagnostic('correction.pageAi.start');
-    const result = await requestAiCorrectionFromPage(assignmentForCorrection);
+    const startedAt = Date.now();
+    const result = await requestAiCorrectionFromPage(assignmentForCorrection, {
+      onProgress: (progress) => {
+        const status = progressStatus(progress);
+        if (!status || revision !== gradingPageRevision) return;
+        // The plan stays visible in the result area while the later stages update the status.
+        if (progress.stage === 'plan') showCorrectionPlan(status);
+        setPanelStatus(`${status} (${Math.round((Date.now() - startedAt) / 1000)} s)`);
+      },
+    });
+    correctedStudents.add(currentStudentKey());
     if (revision !== gradingPageRevision) return;
     currentCorrection = result;
     updateExtraFilesSummary();
@@ -2950,9 +3391,7 @@ const requestCorrectionFromPanel = async () => {
     correction.value = JSON.stringify(currentCorrection.parsed || currentCorrection.text, null, 2);
     const applyResult = await applyCorrectionWhenReady(currentCorrection);
     if (revision !== gradingPageRevision) return;
-    setPanelStatus(
-      MoodliaCorrectorI18n.t('Corrección aplicada en Moodle. Revisa la nota y los comentarios antes de guardar.'),
-    );
+    setPanelStatus(appliedStatus(applyResult));
     addPanelDiagnostic('correction.ok', {
       provider: currentCorrection.provider,
       model: currentCorrection.model,
@@ -2994,7 +3433,7 @@ const applyCorrectionFromPanel = async () => {
     parsed = JSON.parse(editedValue);
   } catch (error) {
     const message = error.message || String(error);
-    setPanelStatus(`JSON inválido: ${message}`);
+    setPanelStatus(MoodliaCorrectorI18n.message`JSON inválido: ${message}`);
     addPanelDiagnostic('manualCorrection.invalidJson', { message });
     return;
   }
@@ -3010,9 +3449,7 @@ const applyCorrectionFromPanel = async () => {
     if (revision !== gradingPageRevision) return;
     currentCorrection = correctionToApply;
     renderCorrectionResult(currentCorrection);
-    setPanelStatus(
-      MoodliaCorrectorI18n.t('Corrección aplicada en Moodle. Revisa la nota y los comentarios antes de guardar.'),
-    );
+    setPanelStatus(appliedStatus(result));
     addPanelDiagnostic('manualCorrection.applied', result);
   } catch (error) {
     if (revision === gradingPageRevision) throw error;
@@ -3031,10 +3468,23 @@ const getNavigationIdentity = () => JSON.stringify({
   files: [...document.querySelectorAll('.assignsubmission_file a[href], .fileuploadsubmission a[href], a[href*="/assignsubmission_file/"]')].map(link => link.href),
 });
 
+// With "correct when moving to the next student" on, a correction starts once the
+// next student's data is read. It never starts again for a student already
+// corrected on this page (saving reloads the same student), and nothing is saved:
+// the teacher still reviews and saves each grade.
+const AUTO_CORRECT_STORAGE_KEY = 'mca.autoCorrectNext';
+const correctedStudents = new Set();
+const currentStudentKey = () => JSON.stringify([location.pathname, new URLSearchParams(location.search).get('id'),
+  document.querySelector('input[name="userid"]')?.value || new URLSearchParams(location.search).get('userid') || '',
+  document.querySelector('input[name="attemptnumber"]')?.value || '']);
+let lastStudentKey = null;
+
 const resetAssistantForNavigation = (refresh = true) => {
   gradingPageRevision++;
+  const previousStudentKey = lastStudentKey;
+  lastStudentKey = currentStudentKey();
   if (panelConnectionTestId) { void sendBackgroundMessage({ type: 'mca.cancelCorrection', requestId: panelConnectionTestId }).catch(() => {}); panelConnectionTestId = null; getPanelElements().panel.querySelector('[data-runtime-options]').textContent = MoodliaCorrectorI18n.t('Probar conexión'); }
-  if (settingsFrame) { settingsFrame.contentWindow.postMessage({ type: 'mca.cancelSettingsTest', token: new URL(settingsFrame.src).searchParams.get('token') }, '*'); settingsFrame.remove(); settingsFrame = null; }
+  if (settingsFrame) { settingsFrame.contentWindow.postMessage({ type: 'mca.cancelSettingsTest', token: new URL(settingsFrame.src).searchParams.get('token') }, new URL(settingsFrame.src).origin); settingsFrame.remove(); settingsFrame = null; }
   void setAiSettingsMode('simple');
   savedInstructionsReady = instructionsController.setContext(isSupportedGraderUrl() ? getInstructionContext() : {});
   const requestId = activeCorrectionRequestId;
@@ -3065,8 +3515,13 @@ const resetAssistantForNavigation = (refresh = true) => {
   document.getElementById(FLOATING_BUTTON_ID).hidden = false;
   if (refresh && elements.panel.dataset.open === 'true') {
     const revision = gradingPageRevision;
+    const studentKey = lastStudentKey;
+    const autoStart = previousStudentKey !== null && studentKey !== previousStudentKey && !correctedStudents.has(studentKey) && elements.panel.querySelector('[data-auto-correct]')?.checked;
     panelRefreshTimer = setTimeout(() => {
-      void refreshPanelData().catch((error) => {
+      void refreshPanelData().then(() => {
+        if (autoStart && revision === gradingPageRevision && currentStudentKey() === studentKey) return requestCorrectionFromPanel();
+        return undefined;
+      }).catch((error) => {
         if (revision === gradingPageRevision) setPanelStatus(error.message);
       });
     }, 300);
@@ -3074,6 +3529,7 @@ const resetAssistantForNavigation = (refresh = true) => {
 };
 
 const watchGradingNavigation = () => {
+  lastStudentKey = currentStudentKey();
   let identity = getNavigationIdentity();
   let active = false;
   let checkTimer = null;
@@ -3179,7 +3635,7 @@ if (isSupportedGraderUrl()) {
           message.assignmentData || extractAssignmentData(),
         )
         .then((assignmentData) => {
-          currentAssignmentData = assignmentData;
+          if (!message.assignmentData) currentAssignmentData = assignmentData;
           return requestAiCorrectionFromPage(assignmentData);
         })
         .then((correction) => sendResponse({ ok: true, correction }))

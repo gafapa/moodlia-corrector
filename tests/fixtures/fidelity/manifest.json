@@ -1,0 +1,233 @@
+{
+  "reference": "LibreOffice 26.8 PDF export of each DOCX/ODT, rasterized by the extension's pdf.js reader",
+  "rationale": [
+    "Pages are compared as grids of ~1.2 mm cells holding mean ink (darkness), measured on the full-resolution page images of both renderers.",
+    "match: F1 of reference/rendered ink cells that have ink of the other side within matchRadius cells (3 = ~3.7 mm); tolerates font substitution and small shifts, drops when content is missing, extra or moved.",
+    "rows / columns: Pearson correlation of the smoothed row and column ink profiles; rows drops when vertical rhythm (line spacing, page breaks) drifts, columns when widths or horizontal placement change.",
+    "coverage: smaller / larger total ink; drops when content, images or shading are lost or added.",
+    "gutters: agreement of wide vertical gaps (columns, text beside pictures, table cells, tab stops) found in sliding windows of gutterBand rows; catches lost columns or wrapping that leave the amount of ink unchanged.",
+    "aspect: page shape ratio; a wrong page size or orientation, or a page extended by overflowing content, falls below 0.98.",
+    "Defaults were set from the pages that render like LibreOffice (tables-styled.docx, table-long.docx, landscape-sections.docx, math-formula.docx and the unaffected pages of other files score match >= 0.95, rows >= 0.85, columns >= 0.95, coverage >= 0.9, gutters >= 0.85), with headroom for font substitution.",
+    "A file below the defaults is listed as a known difference with its reason; its own minimums are the observed values minus 0.05, so the check still fails if it gets worse. Observed values are recorded for reference."
+  ],
+  "settings": {
+    "gridWidth": 170,
+    "inkThreshold": 0.08,
+    "profileRadius": 4,
+    "matchRadius": 3,
+    "gutterBand": 24,
+    "gutterMin": 4,
+    "gutterFloor": 30
+  },
+  "defaults": {
+    "pageTolerance": 0,
+    "min": {
+      "match": 0.9,
+      "rows": 0.8,
+      "columns": 0.9,
+      "coverage": 0.85,
+      "gutters": 0.7,
+      "aspect": 0.98
+    }
+  },
+  "documents": {
+    "prose-multipage": {
+      "odt": {
+        "pages": 3,
+        "knownDifference": "Page 1 ends with a single justified line of a split paragraph (no fo:widows in the corpus style, as in LibreOffice); the descenders of the line above fall into the last 3 cm measuring window, which then holds only that line, and its word gaps count as gutters (11 band-cells against a floor of 30). The text, line positions and page breaks match (match 1.0, rows 0.97).",
+        "min": {
+          "gutters": 0.58
+        },
+        "observed": {
+          "renderedPages": 3,
+          "match": 1,
+          "rows": 0.973,
+          "columns": 1,
+          "coverage": 0.994,
+          "gutters": 0.633,
+          "aspect": 0.999
+        }
+      },
+      "docx": {
+        "pages": 3
+      }
+    },
+    "headings-outline": {
+      "odt": {
+        "pages": 3
+      },
+      "docx": {
+        "pages": 3
+      }
+    },
+    "lists-nested": {
+      "odt": {
+        "pages": 2
+      },
+      "docx": {
+        "pages": 2
+      }
+    },
+    "tables-styled": {
+      "odt": {
+        "pages": 1
+      },
+      "docx": {
+        "pages": 1
+      }
+    },
+    "table-long": {
+      "odt": {
+        "pages": 3,
+        "knownDifference": "Page 3 holds one or two rows fewer or more than LibreOffice's: row heights differ by a fraction of a pixel per row (Liberation fonts and cell padding rounding), which adds up over a 70-row table, so the last page carries a different number of rows and its ink coverage differs. Header repetition, widths and shading match.",
+        "min": {
+          "coverage": 0.79
+        },
+        "observed": {
+          "renderedPages": 3,
+          "match": 0.953,
+          "rows": 0.963,
+          "columns": 0.999,
+          "coverage": 0.847,
+          "gutters": 1,
+          "aspect": 0.999
+        }
+      },
+      "docx": {
+        "pages": 3
+      }
+    },
+    "images": {
+      "odt": {
+        "pages": 2,
+        "knownDifference": "LibreOffice keeps the 12 x 8 cm chart (wrap none, style:flow-with-text=\"false\") on page 1 hanging into the bottom margin and, because the chart then covers the last line of the paragraph above, moves that one line (\"the persistent fog.\") to page 2; the extension also hangs the chart into the margin but keeps the line on page 1, so page 2 starts one line higher. Small bitmaps scaled up are smoothed by Chromium, while pdf.js draws them with sharp pixels.",
+        "min": {
+          "match": 0.56,
+          "rows": 0.51
+        },
+        "observed": {
+          "renderedPages": 2,
+          "match": 0.613,
+          "rows": 0.567,
+          "columns": 0.982,
+          "coverage": 0.958,
+          "gutters": 0.878,
+          "aspect": 0.999
+        }
+      },
+      "docx": {
+        "pages": 2
+      }
+    },
+    "notes": {
+      "odt": {
+        "pages": 3
+      },
+      "docx": {
+        "pages": 2
+      }
+    },
+    "header-footer": {
+      "odt": {
+        "pages": 3,
+        "knownDifference": "Page 2: the last body line is a split, fully justified line just above the footer; the descenders of the line before it fall into the same 3 cm measuring window as the footer, and the gaps between the justified words and around \"Page 2 of 3\" count as gutters on our side only. Header and footer tab stops, the different first page and the page fields match (match 1.0, rows 0.97).",
+        "min": {
+          "gutters": 0.55
+        },
+        "observed": {
+          "renderedPages": 3,
+          "match": 1,
+          "rows": 0.973,
+          "columns": 1,
+          "coverage": 0.996,
+          "gutters": 0.602,
+          "aspect": 0.999
+        }
+      },
+      "docx": {
+        "pages": 3
+      }
+    },
+    "landscape-sections": {
+      "odt": {
+        "pages": 3
+      },
+      "docx": {
+        "pages": 3
+      }
+    },
+    "math-formula": {
+      "odt": {
+        "pages": 1,
+        "knownDifference": "Formulas are typeset by Chromium MathML instead of LibreOffice Math: about 20% smaller and spaced differently (content complete), so the text after each formula sits higher. Gutters: as in math-formula.docx, the last short line of the page shares its measuring window with the descenders of the line above.",
+        "min": {
+          "match": 0.83,
+          "gutters": 0
+        },
+        "observed": {
+          "renderedPages": 1,
+          "match": 0.889,
+          "rows": 0.845,
+          "columns": 0.996,
+          "coverage": 0.973,
+          "gutters": 0,
+          "aspect": 0.999
+        }
+      },
+      "docx": {
+        "pages": 1,
+        "knownDifference": "The last line of the page (\"ended.\") shares the last 3 cm measuring window with only the descenders of the line above, so the empty width beside it counts as gutters on our side (a metric artifact since the 1.15 DOCX line-height factor moved the text by a pixel); match 0.996, rows 0.995 and columns 0.997 show the page itself matches. Formulas are typeset by Chromium MathML, with wider operator spacing than LibreOffice's.",
+        "min": {
+          "gutters": 0
+        },
+        "observed": {
+          "renderedPages": 1,
+          "match": 0.996,
+          "rows": 0.995,
+          "columns": 0.997,
+          "coverage": 0.981,
+          "gutters": 0,
+          "aspect": 0.999
+        }
+      }
+    },
+    "breaks": {
+      "odt": {
+        "pages": 4
+      },
+      "docx": {
+        "pages": 4
+      }
+    },
+    "text-boxes": {
+      "odt": {
+        "pages": 1,
+        "knownDifference": "LibreOffice also wraps the title paragraph above the anchor paragraph around the paragraph-anchored \"Tip\" frame (its title breaks onto two lines), which pushes everything below down by one title line; the extension wraps only the anchor paragraph and the ones after it. The frame position, fill, outline and the full-width notice match.",
+        "min": {
+          "match": 0.84,
+          "rows": 0.63
+        },
+        "observed": {
+          "renderedPages": 1,
+          "match": 0.899,
+          "rows": 0.685,
+          "columns": 0.97,
+          "coverage": 0.989,
+          "gutters": 0.833,
+          "aspect": 0.999
+        }
+      },
+      "docx": {
+        "pages": 1
+      }
+    },
+    "mixed-fonts": {
+      "odt": {
+        "pages": 1
+      },
+      "docx": {
+        "pages": 1
+      }
+    }
+  }
+}

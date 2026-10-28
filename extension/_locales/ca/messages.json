@@ -1,4 +1,8 @@
 {
+  "m3f35c76cdd95": {
+    "message": "Moodle ha bloquejat un camp d’avaluació. Desbloqueja’l o torna a carregar la pàgina abans d’aplicar una correcció.",
+    "description": "Moodle has locked a grading field. Unlock it or reload the grading page before applying a correction."
+  },
   "m4969e7a2bd2b": {
     "message": "Obre el corrector de Moodle",
     "description": "Open Moodle Corrector"
@@ -293,6 +297,18 @@
   },
   "m9f4a106271aa": {
     "message": "No detectada",
+    "description": "Not detected"
+  },
+  "m821eaf4bee29": {
+    "message": "No detectades",
+    "description": "Not detected"
+  },
+  "mf3a056b6b867": {
+    "message": "No detectat",
+    "description": "Not detected"
+  },
+  "m583842c5b77d": {
+    "message": "No detectats",
     "description": "Not detected"
   },
   "m493c68b0b005": {
@@ -611,9 +627,9 @@
     "message": "Actualitza la llista o escriu l’identificador exacte del model.",
     "description": "No models listed. Refresh models or enter a model ID manually."
   },
-  "m90570f8ac5e0": {
-    "message": "Provant la generació amb dades fictícies. Pot trigar fins a 5 minuts.",
-    "description": "Testing generation with fictional data. A local model may take up to 5 minutes to load."
+  "m1430e6cb3283": {
+    "message": "Provant la generació amb dades fictícies. Pot trigar fins a 15 minuts.",
+    "description": "Testing generation with fictional data. A local model may take up to 15 minutes to load."
   },
   "m2096cefba06a": {
     "message": "Curs",
@@ -1177,6 +1193,10 @@
     "message": "Fitxer enllaçat",
     "description": "Linked file"
   },
+  "m9c370348a0db": {
+    "message": "Fitxer enllaçat des de l’enunciat.",
+    "description": "File linked from the assignment statement."
+  },
   "m47c3e221d78a": {
     "message": "MP3 àudio",
     "description": "MP3 audio"
@@ -1248,6 +1268,506 @@
   "m1f5265d4bfbb": {
     "message": "MP4 vídeo",
     "description": "MP4 video"
+  },
+  "m18cbad535542": {
+    "message": "les puntuacions per criteri s’introdueixen a mà",
+    "description": "criterion scores are entered manually"
+  },
+  "mf102986b39ef": {
+    "message": "Escala",
+    "description": "Scale"
+  },
+  "m3233a1e77e23": {
+    "message": "MoodlIA Corrector · Llocs",
+    "description": "MoodlIA Corrector · Sites"
+  },
+  "m2c95656c8895": {
+    "message": "Configuració d’IA de MoodlIA Corrector",
+    "description": "MoodlIA Corrector AI settings"
+  },
+  "mfd686f91ce8e": {
+    "message": "El tauler de correcció només pot triar un servidor d’IA desat. Canvia l’adreça del servidor a Opcions.",
+    "description": "The correction panel can only select a saved AI server. Change the server address in Options."
+  },
+  "med96a2f8c7dc": {
+    "message": "Els llocs recordats només es poden canviar des de l’extensió.",
+    "description": "Remembered sites can only be changed from the extension."
+  },
+  "m83927c543ec0": {
+    "message": "Fes servir un URL HTTP(S) sense credencials, paràmetres ni fragment.",
+    "description": "Use an HTTP(S) URL without credentials, a query string, or a fragment."
+  },
+  "m66824494bad1": {
+    "message": "Afegeix una clau d’API a la configuració de MoodlIA Corrector abans d’utilitzar un proveïdor compatible amb OpenAI.",
+    "description": "Add an API key in MoodlIA Corrector settings before using an OpenAI-compatible provider."
+  },
+  "mace8cfcbf173": {
+    "message": "Sol·licitud a la IA cancel·lada.",
+    "description": "AI request cancelled."
+  },
+  "me354b8585417": {
+    "message": "La resposta de la IA supera el límit de sortida segur.",
+    "description": "AI response exceeds the safe output limit."
+  },
+  "m4a06f696cb13": {
+    "message": "La resposta de la IA supera el límit segur de 8 MB.",
+    "description": "AI response exceeds the safe response limit of 8 MB."
+  },
+  "mc05d5e03a89e": {
+    "message": "El flux de la IA conté un esdeveniment massa gran.",
+    "description": "AI stream contains an oversized event."
+  },
+  "mff620ee845d8": {
+    "message": "Permet l’accés a aquest servidor a Opcions abans de connectar.",
+    "description": "Allow access to this server in Options before connecting."
+  },
+  "mfde550896aaa": {
+    "message": "La baixada de l’adjunt ha superat el temps d’espera.",
+    "description": "Attachment download timed out."
+  },
+  "me90a8572521e": {
+    "message": "L’adjunt supera el límit de cinc redireccions.",
+    "description": "Attachment exceeds the five redirect limit."
+  },
+  "m36903c750dfb": {
+    "message": "S’ha detectat un bucle de redireccions a l’adjunt.",
+    "description": "Attachment redirect loop detected."
+  },
+  "ma5ccf8e9f32b": {
+    "message": "Les redireccions de l’adjunt han d’utilitzar HTTPS sense credencials a l’URL.",
+    "description": "Attachment redirects must use HTTPS without URL credentials."
+  },
+  "me1bd43c451f1": {
+    "message": "Els adjunts superen el límit de 20 MB per fitxer o 40 MB en total.",
+    "description": "Attachments exceed the 20 MB per file or 40 MB total limit."
+  },
+  "mca4277610a69": {
+    "message": "Els adjunts superen el límit segur d’extracció de 600.000 caràcters o 120 imatges. No s’ha retallat cap evidència.",
+    "description": "Attachments exceed the safe extraction limit of 600,000 characters or 120 images. No evidence was truncated."
+  },
+  "m6f8bd083013c": {
+    "message": "Tria un model a la configuració de MoodlIA Corrector abans de demanar una correcció.",
+    "description": "Choose a model in MoodlIA Corrector settings before requesting a correction."
+  },
+  "m49876fb86bcd": {
+    "message": "La correcció ha superat el temps màxim de 60 minuts.",
+    "description": "Correction timed out after 60 minutes."
+  },
+  "m096e91c953ff": {
+    "message": "No s’ha pogut resoldre la redirecció de l’adjunt. Torna a carregar l’extensió amb el permís de xarxa activat.",
+    "description": "Could not resolve the attachment redirect. Reload the extension with its network permission enabled."
+  },
+  "m3879c6dc0668": {
+    "message": "Les notes d’evidència no s’han pogut reduir en quatre rondes de revisió. No s’ha aplicat cap nota.",
+    "description": "Evidence notes could not be reduced within four review rounds. No grades were applied."
+  },
+  "mdc447c6ec253": {
+    "message": "Les notes d’evidència no s’han escurçat durant la reducció. No s’ha aplicat cap nota.",
+    "description": "Evidence notes did not become shorter during reduction. No grades were applied."
+  },
+  "m435e17040f76": {
+    "message": "La revisió d’evidències no era vàlida o era massa llarga, fins i tot després de condensar-la. No s’ha aplicat cap nota.",
+    "description": "Evidence review was invalid or too long, even after condensing. No grades were applied."
+  },
+  "mee711926d0e4": {
+    "message": "Els fitxers addicionals superen el límit de 20 MB per fitxer o 40 MB en total.",
+    "description": "Extra attachments exceed the 20 MB per file or 40 MB total limit."
+  },
+  "mf8c6e846af2b": {
+    "message": "L’extracció local de l’adjunt ha superat el temps d’espera.",
+    "description": "Local attachment extraction timed out."
+  },
+  "mb7d4c1fb83f2": {
+    "message": "Els adjunts de Moodle han d’utilitzar HTTPS i l’origen de la pàgina de Moodle.",
+    "description": "Moodle attachments must use HTTPS and the Moodle page origin."
+  },
+  "m57907116878a": {
+    "message": "Moodle ha redirigit l’adjunt a la pàgina d’accés. Torna a iniciar la sessió abans de demanar una correcció.",
+    "description": "Moodle redirected the attachment to its sign-in page. Sign in again before requesting a correction."
+  },
+  "m292b48683536": {
+    "message": "La configuració integrada requereix una pestanya de qualificació de Moodle.",
+    "description": "Settings frames require a Moodle grader tab."
+  },
+  "m982e56c48414": {
+    "message": "Els fitxers lliurats superen el límit de 20 MB per fitxer o 40 MB en total.",
+    "description": "Submission attachments exceed the 20 MB per file or 40 MB total limit."
+  },
+  "m650e2c849fb2": {
+    "message": "Els URL dels fitxers lliurats no poden incloure credencials.",
+    "description": "Submitted file URLs cannot include credentials."
+  },
+  "m71b7dfc0f342": {
+    "message": "El proveïdor d’IA ha retornat una resposta JSON no vàlida.",
+    "description": "The AI provider returned an invalid JSON response."
+  },
+  "ma64e0454e7a6": {
+    "message": "L’URL del proveïdor d’IA no pot incloure credencials, paràmetres ni fragment.",
+    "description": "The AI provider URL cannot include credentials, a query string, or a fragment."
+  },
+  "mc03a404679a9": {
+    "message": "El proveïdor ha interromput la resposta de la IA.",
+    "description": "The AI response was interrupted by the provider."
+  },
+  "m18c380901b27": {
+    "message": "La IA ha retornat una correcció incompleta després de tornar-ho a provar. No s’ha aplicat cap nota.",
+    "description": "The AI returned an incomplete correction after retrying. No grades were applied."
+  },
+  "m8bcb431710e7": {
+    "message": "La resposta de la IA ha acabat abans de completar-se. No s’ha aplicat cap nota.",
+    "description": "The AI stream ended before completion. No grades were applied."
+  },
+  "m7cdb9287e699": {
+    "message": "L’enunciat o el text en línia supera el límit de 60.000 caràcters. No s’ha retallat cap evidència.",
+    "description": "The assignment statement or online submission exceeds the 60,000 character limit. No evidence was truncated."
+  },
+  "mc8d894ed679d": {
+    "message": "El proveïdor ha respost, però no ha retornat el JSON de prova esperat.",
+    "description": "The provider responded but did not return the expected test JSON."
+  },
+  "m75b84c27291e": {
+    "message": "La pàgina que ha fet la sol·licitud s’ha desconnectat.",
+    "description": "The requesting page disconnected."
+  },
+  "mdac2e9546fba": {
+    "message": "El model d’Ollama seleccionat no admet imatges. Tria un model amb visió.",
+    "description": "The selected Ollama model does not support images. Choose a vision model."
+  },
+  "m5ffef4592ce2": {
+    "message": "Fes servir HTTPS per a proveïdors d’IA remots. Els servidors d’IA locals poden usar HTTP amb l’accés d’amfitrió de Chrome.",
+    "description": "Use HTTPS for remote AI providers. Local AI server providers may use HTTP with Chrome host access."
+  },
+  "m81a940eff6f4": {
+    "message": "Aquest servidor no inclou el model configurat.",
+    "description": "The configured model is not listed by this server."
+  },
+  "m934652dce41d": {
+    "message": "Instruccions",
+    "description": "Instructions"
+  },
+  "m1cc16693a47f": {
+    "message": "Tasca de Moodle",
+    "description": "Moodle assignment"
+  },
+  "md7d361df14b9": {
+    "message": "$value1$ caràcters",
+    "description": "$1 characters",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m1dcbe8c431a1": {
+    "message": "seleccionable",
+    "description": "selectable"
+  },
+  "mb96da48a63e7": {
+    "message": "detectat",
+    "description": "detected"
+  },
+  "mb4c69d7ab6e8": {
+    "message": "Nivells: $value1$ · Comentari: $value2$",
+    "description": "Levels: $1 · Comment: $2",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m49e8bff1a346": {
+    "message": "detectat ($value1$)",
+    "description": "detected ($1)",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m28fe70b7c750": {
+    "message": "Format recomanat: finalComment i rubricSelections amb criterionNumber, levelIndex i criterionFeedback. No cal conèixer els ids de Moodle.",
+    "description": "Recommended format: finalComment and rubricSelections with criterionNumber, levelIndex and criterionFeedback. Moodle ids are not needed."
+  },
+  "mb829ec30414e": {
+    "message": "JSON no vàlid: $value1$",
+    "description": "Invalid JSON: $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m4a50c4db6d6e": {
+    "message": "No s’ha pogut llegir l’estat de la IA.",
+    "description": "Could not read the AI status."
+  },
+  "mad95d5fa651b": {
+    "message": "gratuït",
+    "description": "free"
+  },
+  "ma2eb5a0ef6a9": {
+    "message": "entrada $value1$",
+    "description": "input $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "md0317593ae17": {
+    "message": "sortida $value1$",
+    "description": "output $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mda5135df4192": {
+    "message": "per $value1$",
+    "description": "per $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m7ba4307b65f8": {
+    "message": "$value1$/$value2$ controls de nivell, $value3$/$value4$ comentaris",
+    "description": "$1/$2 level controls, $3/$4 comments",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      },
+      "value3": {
+        "content": "$3",
+        "example": "Example 3"
+      },
+      "value4": {
+        "content": "$4",
+        "example": "Example 4"
+      }
+    }
+  },
+  "m546fa6c92d57": {
+    "message": "No s’ha pogut aplicar ni la nota ni els comentaris: Moodle no mostra camps editables. Copia el suggeriment a mà.",
+    "description": "Neither the grade nor the feedback could be applied: Moodle shows no editable fields. Copy the suggestion by hand."
+  },
+  "m7507c92b1cd2": {
+    "message": "Comentaris aplicats, però no la nota: Moodle no mostra cap camp de nota editable (pot estar bloquejada o modificada al llibre de qualificacions). Introdueix-la a mà.",
+    "description": "Feedback applied, but not the grade: Moodle shows no editable grade field (it may be locked or overridden in the gradebook). Enter it by hand."
+  },
+  "m8fd459cf87e6": {
+    "message": "Nota aplicada, però no s’ha trobat el quadre de comentaris. Copia els comentaris del suggeriment a mà.",
+    "description": "Grade applied, but no feedback box was found. Copy the feedback from the suggestion by hand."
+  },
+  "m352e6d779805": {
+    "message": "Fins a 20 MB per fitxer i 40 MB en total.",
+    "description": "Up to 20 MB per file and 40 MB in total."
+  },
+  "m00ab2fcf6f8e": {
+    "message": "Superen el límit de 20 MB per fitxer o 40 MB en total: treu-ne algun abans de corregir.",
+    "description": "They exceed the 20 MB per file or 40 MB total limit: remove some before correcting."
+  },
+  "m41866a7baea7": {
+    "message": "Els fitxers de text addicionals superen el límit de 600.000 caràcters.",
+    "description": "Extra text files exceed the 600,000 character limit."
+  },
+  "m13b8769046c2": {
+    "message": "La sol·licitud de correcció no coincideix amb la pàgina de Moodle que la va enviar.",
+    "description": "The correction request does not match the Moodle page that sent it."
+  },
+  "m7eac9f31d3be": {
+    "message": "Corregeix en passar a l’alumne següent",
+    "description": "Correct when moving to the next student"
+  },
+  "m4cb9103623ef": {
+    "message": "Baixant fitxers de Moodle ($value1$ de $value2$)...",
+    "description": "Downloading Moodle files ($1 of $2)...",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m335aa16e9b97": {
+    "message": "Llegint fitxers ($value1$ de $value2$)...",
+    "description": "Reading files ($1 of $2)...",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "mea9727084e3d": {
+    "message": "Comprovant el model...",
+    "description": "Checking the model..."
+  },
+  "m17a61c1db5e8": {
+    "message": "Revisant l’evidència per blocs ($value1$ de $value2$)...",
+    "description": "Reviewing the evidence in blocks ($1 of $2)...",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m70db5e2f361c": {
+    "message": "Redactant la correcció...",
+    "description": "Writing the correction..."
+  },
+  "mf95b091764d7": {
+    "message": "Completant la resposta de la IA...",
+    "description": "Completing the AI response..."
+  },
+  "m2de0db505f00": {
+    "message": "Imatges de les pàgines de documents Office (DOCX, ODT, XLSX, ODS, PPTX, ODP)",
+    "description": "Page images of Office documents (DOCX, ODT, XLSX, ODS, PPTX, ODP)"
+  },
+  "m40f8dfe0e10f": {
+    "message": "Només pàgines amb imatges, taules, fórmules o dibuixos",
+    "description": "Only pages with images, tables, formulas or drawings"
+  },
+  "mb879e5a49e14": {
+    "message": "Totes les pàgines",
+    "description": "Every page"
+  },
+  "m138298bfe979": {
+    "message": "Les pàgines que només tenen text s’envien com a text, cosa que és més ràpida i gasta menys tokens. Tria totes les pàgines si la maquetació o el format formen part de l’avaluació. Les pàgines PDF sempre s’envien com a imatges.",
+    "description": "Pages with only text are sent as text, which is faster and uses fewer tokens. Choose every page when layout or formatting is part of the assessment. PDF pages are always sent as images."
+  },
+  "m6f660800856b": {
+    "message": "L’operació ha superat els 60 minuts i s’ha cancel·lat. No s’ha aplicat cap resultat.",
+    "description": "The operation exceeded 60 minutes and was cancelled. No result was applied."
+  },
+  "mbde20ed34279": {
+    "message": "Nom de l’alumne",
+    "description": "Student name"
+  },
+  "mf2adac7fb1fa": {
+    "message": "Substituir-lo per [Student] abans d’enviar",
+    "description": "Replace it with [Student] before sending"
+  },
+  "m8934feac0055": {
+    "message": "Enviar els documents tal com són",
+    "description": "Send documents as they are"
+  },
+  "m7b2af540990a": {
+    "message": "El nom que Moodle mostra per a l’alumne se substitueix al text i es tapa a les imatges de pàgina abans que res arribi a la IA. Els noms dins de fotos i imatges escanejades no es detecten.",
+    "description": "The name Moodle shows for the student is replaced in the text and covered on page images before anything reaches the AI. Names inside photos and scanned images are not detected."
+  },
+  "mf897b6e3f582": {
+    "message": "La guia d’avaluació necessita una puntuació vàlida i un comentari per a cada criteri. Revisa la correcció abans d’aplicar-la.",
+    "description": "The marking guide needs a valid score and a remark for every criterion. Review the correction before applying it."
+  },
+  "m2d66531962cd": {
+    "message": "La nota de l’escala no coincideix amb cap valor de l’escala de Moodle. Revisa la correcció abans d’aplicar-la.",
+    "description": "The scale grade does not match any value of the Moodle scale. Review the correction before applying it."
+  },
+  "mecb941a500f4": {
+    "message": "S’enviaran $value1$ pàgina(es), $value2$ imatge(s) i uns $value3$ tokens en $value4$ bloc(s).",
+    "description": "About to send $1 page(s), $2 image(s) and about $3 tokens in $4 block(s).",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      },
+      "value3": {
+        "content": "$3",
+        "example": "Example 3"
+      },
+      "value4": {
+        "content": "$4",
+        "example": "Example 4"
+      }
+    }
+  },
+  "m9d731e772812": {
+    "message": "Nota d’escala proposada: $value1$",
+    "description": "Proposed scale grade: $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mb51459676019": {
+    "message": "Guia d’avaluació: $value1$$value2$",
+    "description": "Marking guide: $1$2",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      },
+      "value2": {
+        "content": "$2",
+        "example": "Example 2"
+      }
+    }
+  },
+  "m76de3e5193cf": {
+    "message": "El lliurament conté text adreçat a la IA; revisa la nota amb cura:",
+    "description": "The submission contains text addressed to the AI; review the grade carefully:"
+  },
+  "m1b6e0ab2e7de": {
+    "message": "text en línia",
+    "description": "online text"
+  },
+  "m2ac6283b6614": {
+    "message": "El nom de l’alumne/a s’ha substituït en allò enviat a la IA ($value1$ aparicions).",
+    "description": "The student's name was replaced in what was sent to the AI ($1 occurrences).",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "mca5adcd99c7a": {
+    "message": "$value1$ valors",
+    "description": "$1 values",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
   },
   "extensionName": {
     "message": "MoodlIA Corrector"

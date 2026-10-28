@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-28",
+  "version": "0.2.1",
+  "unit_tests_passed": 99,
+  "browser_checks_passed": 122,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 244,
+  "archive_matches_source": true,
+  "archive_sha256": "44fd8a5ec5668b82d1ae494aad6df42304c23a695b9647052b01a4cf1ce3d2b7",
+  "validation_scope": "Local source review in four areas, synthetic Chromium fixtures, LibreOffice-generated and hand-written fictional DOCX/ODT files, and fictional nine-page PDF inference; no authenticated production Moodle or arbitrary-document qualification. After the review, improvements were validated with a LibreOffice fidelity corpus (26 renderings, 0 failing), opt-in local DOCX/ODT inference, and the real-Moodle lab check on disposable Moodle 4.5.12 and 5.2.4 sites (see docs/improvements-2026-10-28-0.2.1.md).",
+  "npm_audit_vulnerabilities": 0,
+  "findings_fixed": 43,
+  "live_pdf": {
+    "model": "gemma4:e4b",
+    "context_length": 131072,
+    "pages": 9,
+    "requests": 4,
+    "elapsed_ms": 94075,
+    "score": 10,
+    "rubric_criteria": 2,
+    "prompt_tokens": 4344,
+    "completion_tokens": 1037,
+    "context_override": "The isolated harness adds num_ctx to its own replay; the extension does not change server defaults."
+  },
+  "store_metadata": {
+    "locales": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "pt_BR",
+      "it",
+      "gl",
+      "ca"
+    ],
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false,
+  "fidelity": {
+    "renderings": 26,
+    "within_defaults": 19,
+    "known_differences": 7,
+    "failing": 0
+  },
+  "live_office": {
+    "model": "gemma4:e4b",
+    "documents": [
+      "docx",
+      "odt"
+    ],
+    "score": [
+      10,
+      10
+    ],
+    "context_chosen_by_extension": 12288
+  },
+  "moodle_lab": {
+    "sites": [
+      "4.5.12",
+      "5.2.4"
+    ],
+    "steps_passed": 16,
+    "host": "S1 (disposable containers, removed afterwards)"
+  }
+}

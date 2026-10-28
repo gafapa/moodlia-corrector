@@ -1,0 +1,106 @@
+name: Moodle lab
+
+# Runs the built extension against real, disposable Moodle sites started from the
+# public MoodlIA lab images (ghcr.io/gafapa/moodlia-lab:<branch>-core, amd64,
+# SQLite). See tests/moodle-lab-check.mjs and tests/moodle-lab/setup.php.
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: Moodle branches as a JSON list
+        default: '["4.5", "5.0", "5.1", "5.2", "5.3"]'
+  schedule:
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  grader:
+    name: Moodle ${{ matrix.moodle }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        moodle: ${{ fromJSON(github.event.inputs.versions || '["4.5", "5.0", "5.1", "5.2", "5.3"]') }}
+    env:
+      # The extension only runs on HTTPS grader pages. The container speaks HTTP on
+      # HTTP_PORT; the check serves MOODLE_URL as a TLS proxy to it. Neither port may
+      # be 8080 or 443: with REVERSEPROXY and SSLPROXY, Moodle rejects requests whose
+      # host and port equal wwwroot.
+      HTTP_PORT: '18080'
+      MOODLE_URL: https://127.0.0.1:18443
+      MOODLE_UPSTREAM: http://127.0.0.1:18080
+      CONTAINER: mca-lab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Start the Moodle ${{ matrix.moodle }} lab site
+        run: |
+          set -euo pipefail
+          # The fixture holds the teacher password: keep it outside the artifacts.
+          {
+            echo "MOODLE_LAB_ARTIFACTS=$RUNNER_TEMP/mca-lab-artifacts"
+            echo "MOODLE_LAB_FIXTURE=$RUNNER_TEMP/mca-lab-private/fixture.json"
+          } >> "$GITHUB_ENV"
+          docker run -d --name "$CONTAINER" --label moodlia-lab=true \
+            -p "127.0.0.1:${HTTP_PORT}:8080" \
+            -e "SITE_URL=${MOODLE_URL}" -e SSLPROXY=true -e REVERSEPROXY=true \
+            -e DB_TYPE=sqlite3 -e MOODLE_DATABASE_TYPE=sqlite3 -e RUN_CRON_TASKS=false \
+            "ghcr.io/gafapa/moodlia-lab:${{ matrix.moodle }}-core" >/dev/null
+          for _ in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINER")" = healthy ] && break
+            sleep 3
+          done
+          if [ "$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINER")" != healthy ]; then
+            docker logs --tail 100 "$CONTAINER"
+            echo "::error::The lab container did not become healthy"
+            exit 1
+          fi
+          # runtime.php sets a random admin password, issues a token, creates
+          # missing contexts and switches SQLite to WAL. Its output holds the
+          # token, which this job does not need: discard it.
+          docker exec "$CONTAINER" php /opt/moodlia-lab/runtime.php core >/dev/null
+
+      - name: Create the corrector fixture
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$(dirname "$MOODLE_LAB_FIXTURE")"
+          docker cp tests/moodle-lab/setup.php "$CONTAINER:/tmp/mca-lab-setup.php"
+          docker exec "$CONTAINER" php /tmp/mca-lab-setup.php > "$RUNNER_TEMP/mca-lab-setup.out"
+          tail -n 1 "$RUNNER_TEMP/mca-lab-setup.out" > "$MOODLE_LAB_FIXTURE"
+          rm -f "$RUNNER_TEMP/mca-lab-setup.out"
+          chmod 600 "$MOODLE_LAB_FIXTURE"
+          echo "::add-mask::$(jq -r .teacher.password "$MOODLE_LAB_FIXTURE")"
+          jq 'del(.teacher.password)' "$MOODLE_LAB_FIXTURE"
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run the extension on Moodle's grader
+        run: node tests/moodle-lab-check.mjs
+
+      - name: Collect container logs
+        if: failure()
+        run: |
+          mkdir -p "$MOODLE_LAB_ARTIFACTS"
+          docker logs "$CONTAINER" > "$MOODLE_LAB_ARTIFACTS/container.log" 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: moodle-lab-${{ matrix.moodle }}
+          path: ${{ runner.temp }}/mca-lab-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Remove the lab site
+        if: always()
+        run: docker rm -f "$CONTAINER" >/dev/null 2>&1 || true

@@ -61,7 +61,19 @@ test('long request deadline disconnects its port and short requests retain norma
   assert.equal(api.messages.length, 0);
   const pending = api.send({ type: 'mca.correctAssignment' });
   for (const deadline of [...api.timers]) deadline();
-  await assert.rejects(pending, /exceeded 30 minutes/);
+  await assert.rejects(pending, /exceeded 60 minutes/);
   assert.equal(api.disconnects(), 1);
   assert.equal(api.intervals.size, 0);
+});
+
+test('progress messages reach the caller without settling the long request', async () => {
+  const api = setup();
+  const progress = [];
+  const pending = api.send({ type: 'mca.correctAssignment', requestId: 'fictional' }, { onProgress: value => progress.push(value) });
+  api.reply({ type: 'mca.progress', progress: { stage: 'read', current: 1, total: 2 } });
+  api.reply({ type: 'mca.progress', progress: { stage: 'grade' } });
+  assert.equal(api.disconnects(), 0);
+  api.reply({ ok: true, correction: 'fictional' });
+  assert.equal((await pending).correction, 'fictional');
+  assert.deepEqual(progress.map(value => value.stage), ['read', 'grade']);
 });

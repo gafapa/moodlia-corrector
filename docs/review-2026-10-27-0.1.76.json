@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-27",
+  "version": "0.1.76",
+  "unit_tests_passed": 80,
+  "browser_checks_passed": 75,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 239,
+  "archive_matches_source": true,
+  "archive_sha256": "8137fd149dd120647e4c92d08c32dd0fb0b5d18158eefeb97466b773288aafc3",
+  "validation_scope": "Local source review, synthetic Chromium fixtures and fictional nine-page PDF inference; no authenticated production Moodle or arbitrary-document qualification.",
+  "npm_audit_vulnerabilities": 0,
+  "findings_fixed": 8,
+  "live_pdf": {
+    "model": "gemma4:e4b",
+    "context_length": 131072,
+    "pages": 9,
+    "requests": 4,
+    "elapsed_ms": 123039,
+    "score": 10,
+    "rubric_criteria": 2,
+    "prompt_tokens": 4319,
+    "completion_tokens": 973,
+    "context_override": "The isolated harness adds num_ctx to its own replay; the extension does not change server defaults."
+  },
+  "store_metadata": {
+    "locales": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "pt_BR",
+      "it",
+      "gl",
+      "ca"
+    ],
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

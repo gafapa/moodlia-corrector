@@ -30,6 +30,12 @@ for (const name of ['marketplace/SUBMISSION.md', 'marketplace/chrome-web-store-l
   assert.ok(text.includes(version), `Missing current version: ${name}`);
   assert.ok(!/0\.1\.67/.test(text), `Stale submission version: ${name}`);
 }
+// Both privacy-policy copies cover the current version and carry the same review line.
+const privacyMarkdown = await fs.readFile('marketplace/privacy-policy.md', 'utf8');
+const privacyHtml = await fs.readFile('marketplace/privacy-policy.html', 'utf8');
+const coverage = (text) => text.match(/Effective date: [^.]+\. Version covered: [^ ]+\. Last reviewed: [^.<]+\./)?.[0];
+assert.ok(coverage(privacyMarkdown)?.includes(`Version covered: ${version}.`), 'Privacy policy does not cover the current version.');
+assert.equal(coverage(privacyHtml), coverage(privacyMarkdown), 'The Markdown and HTML privacy policies differ.');
 console.log(`PASS: ${locales.length} localized listings and current submission documents; rejected provider enumeration absent.`);
 
 if (process.argv.includes('--artifacts')) {

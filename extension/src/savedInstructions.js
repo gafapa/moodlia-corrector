@@ -72,12 +72,15 @@
         state.defaultKey = getDefaultKey(context, scope);
         const revision = ++state.revision;
         fields[scope].value = '';
-        fields[scope].disabled = !key;
+        // Stay disabled until the saved value loads: typing earlier would be
+        // written over the stored criteria when the load is discarded.
+        fields[scope].disabled = true;
         fields[scope].title = key ? '' : MoodliaCorrectorI18n.t('Este contexto todavía no se ha detectado en Moodle.');
         if (!key) continue;
         const defaultKey = state.defaultKey;
         loads.push(writes.then(() => chrome.storage.local.get(defaultKey ? [key, defaultKey] : key)).then(values => {
           if (state.key !== key || state.revision !== revision) return;
+          fields[scope].disabled = false;
           const ownValue = typeof values[key] === 'string';
           const fallback = defaultKey && typeof values[defaultKey] === 'string' ? values[defaultKey] : '';
           fields[scope].value = ownValue ? values[key] : fallback;
@@ -86,7 +89,10 @@
             fields[scope].dispatchEvent(new Event('input', { bubbles: true }));
             return writes;
           }
-        }).catch(() => onError(MoodliaCorrectorI18n.t('No se han podido recuperar los criterios guardados.'))));
+        }).catch(() => {
+          // Keep the field locked: an unknown stored value must not be overwritten.
+          onError(MoodliaCorrectorI18n.t('No se han podido recuperar los criterios guardados.'));
+        }));
       }
       if (legacyButton) legacyButton.disabled = !keys.assignment;
       ready = Promise.all([ready, ...loads]).then(() => undefined);

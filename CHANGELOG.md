@@ -1,5 +1,139 @@
 # Changelog
 
+## 0.2.1 - 2026-10-28
+
+- Render DOCX and ODT files as pages, like PDFs. Each page is laid out locally from the document's styles and sent as an image beside that page's text. The layout covers:
+  - fonts (including Word theme fonts), colours, highlighting and alignment;
+  - tables with merged cells, repeated header rows and Word table-style shading;
+  - numbered and bulleted lists, including Word multilevel numbering, and heading numbers;
+  - images, ODT formulas, and Word equations converted to MathML;
+  - footnotes, and DOCX endnotes after the body;
+  - headers and footers with page fields and Word tab stops;
+  - first-page headers, and landscape page styles and sections.
+
+  Pages follow the page breaks Word or Writer saved, or are measured when there are none. The receipt reports the page count; unsupported images, charts, SmartArt and linked images are marked on the page and counted; documents above 60 pages stop; a rendering failure keeps the previous text-and-images reading and is reported. Equations add a linear form to the text. See `docs/office-page-rendering.md`.
+- Raise the decompressed-size guard for DOCX and ODT archives from 20 MB to 48 MB, so image-heavy documents within the new 20 MB file limit can be read.
+- Read spreadsheets (XLSX, ODS) and presentations (PPTX, ODP) as student submissions and references, locally, like DOCX and ODT: page text beside a rendered page image, with the same limits, fallback, cancellation, hidden-text and invisible-text rules. Legacy XLS and PPT files remain unsupported. See `docs/office-page-rendering.md`.
+  - Spreadsheets: each visible sheet is printed on landscape A4 pages with gridlines, column letters repeated on every page and row numbers; columns that do not fit continue on the following pages, and long runs of empty rows or columns collapse into one marker. Cells show their saved values with their number formats (decimals, percentages, thousands separators, dates and times), fonts, fills, borders, alignment and merges; anchored pictures and text boxes are drawn, charts are marked. The text lists each non-empty cell as `A1: value`, formulas as `B3: 12 (=SUM(B1:B2))`, and cell comments as `[Comment A1: ...]` (also printed under the rows, without author names).
+  - Presentations: one page per visible slide at the slide size. Placeholders take their position and text style from the slide layout and master; master decorations, backgrounds, pictures (cropped), solid and gradient fills, outlines, common preset shapes, connectors, groups, bullets, numbering and tables (including PowerPoint's default table style) are drawn; charts, SmartArt and media are marked. The text starts with `[Slide N]`, follows the reading order (title first) and adds `[Speaker notes]`.
+  - Hidden sheets, rows, columns (and values hidden by a `;;;` number format), hidden slides and hidden shapes are left out and counted as `hidden-text-excluded`. Text over a picture is checked for visibility against the picture's colour, so white titles on dark photos stay.
+  - Limits: 10,000 non-empty cells per spreadsheet (ODS repeated rows and cells count every copy that holds content; empty repeats cost nothing), 200,000 drawn table elements, 60 visible slides, 5,000 shapes and 20,000 table cells per presentation.
+  - Options: the page-image setting is now "Page images of Office documents (DOCX, ODT, XLSX, ODS, PPTX, ODP)". Prompts, the evidence receipt (format and page count) and text-only Ollama models handle the new formats like DOCX and ODT.
+- Review fixes (`docs/review-2026-10-28-0.2.1.md`), document reading:
+  - Bound the elements built from repeated ODT table cells and rows (200,000 per document): a nested table under 1 KB could hang the reader for minutes.
+  - Leave hidden text (Word `w:vanish`, ODT `text:display="none"`) out of what is sent, as it is not drawn on the page, and count it in the receipt as `hidden-text-excluded`.
+  - List each footnote once, on the page that cites it, including notes cited in repeated table header rows, and look notes up by id instead of scanning them.
+  - Draw tables made only of header rows. Start the next page after a mid-paragraph Word page break. Drop invalid `w:sym` codes and control characters instead of failing the whole document. Leave moved-from tracked text out once. Leave DOCX `FILENAME` field results out of the page and the text.
+  - List a header or footer on the first page that shows it, not only on page 1. Draw ODT endnotes after the body.
+  - Measure the pages again when saved page breaks are stale (a saved page holding half a page more than fits).
+  - Decode attachments without boxing every byte (a 20 MB file needed about 700 MB of memory), and wait for images with their load event in the offscreen document.
+- Review fixes, correction:
+  - Keep each page's text in the same review block as its page image, and cap the image data of a block at 32 MB so remote APIs accept the request.
+  - With an Ollama model that reports no image input, send DOCX and ODT files as text without their page images (receipt: `page-images-not-sent`) instead of refusing the correction.
+  - Raise the deadlines: two minutes per Moodle download, three minutes per local document read, 60 minutes per correction.
+  - Refuse a correction request whose Moodle page URL differs from the page that sent it. Name files, not positions, in attachment errors. Keep a DOCX or ODT named `.pdf` as its real format in the receipt. Mention DOCX and ODT pages wherever prompts named only PDF pages, and stop asking for a "teacher notes" disclosure that had no field.
+- Review fixes, Moodle panel:
+  - Report "feedback applied, but not the grade" (or the reverse) when Moodle shows no editable grade field or feedback box, instead of "applied".
+  - Escape feedback written to a plain-text Moodle editor (`FORMAT_MOODLE`), so text such as `<stdio.h>` is not removed when Moodle shows it.
+  - Show the 20 MB / 40 MB limits next to the extra-files picker and flag an oversized selection before correcting; refuse extra text files above 600,000 characters before sending them.
+  - Accept submission files only when the Moodle file component follows the context id in the URL.
+  - Translate the remaining panel strings (summary, detected data, JSON hint, rubric controls, cost labels, errors) and fix "Mode: Mode:" in English.
+- Raise the attachment limits from 4 MB per file and 10 MB in total to 20 MB per file and 40 MB in total. Each file crosses Chrome's 64 MiB runtime message limit on its own when it is read, and all manually added files cross it together (40 MB is about 53 MB of base64).
+- Improvements after the review (`docs/improvements-2026-10-28-0.2.1.md`):
+  - Leave out DOCX and ODT text that is drawn but cannot be seen: a colour too close to its background (contrast below 1.25), a size under about 2.6 pt, glyphs squeezed together, or text outside the page or a clipping box. The receipt counts it as `invisible-text-excluded`. Word page colours (`w:background`) and ODT page backgrounds are drawn, so light text on a dark page stays.
+  - Put list and heading numbers (and bullets) in the extracted text, as drawn on the page: `1. Answer`, `1.1. Detail`.
+  - Continue Word numbering across lists that share one definition without an override, and restart it for a list with a level override, as LibreOffice shows such documents (checked with four LibreOffice-converted cases). Previously each `w:num` counted on its own.
+  - By default, send a DOCX or ODT page as an image only when it shows images, formulas, tables, drawings, borders, shading or struck-through text; a page with only text is sent as text and labelled "text only". Options has a "DOCX and ODT page images" setting to send every page. PDF pages are always images.
+  - Draw a page much taller than its size (thousands of notes, a very long table row) as up to four images, top to bottom, instead of one shrunken image.
+  - Encode a page as JPEG when its PNG is over 400,000 characters and the JPEG is under half that size (photos and scans), and keep typed pages in PNG.
+  - Reuse the pages already drawn when the same file is corrected again with the same page-image setting: the offscreen reader keeps up to eight drawn documents in memory for 30 minutes, keyed by the file's SHA-256.
+  - Show progress in the panel while correcting: downloads, reading each file, the model check, each evidence block, and writing the correction, with the elapsed seconds.
+  - Add "Correct when moving to the next student" to the panel. With it on, the next student's correction starts once their data is read; a student already corrected on the page is not corrected again, and nothing is saved.
+  - Fix the panel cancelling a correction after 30 minutes while the service worker allows 60.
+  - Report "feedback applied, but not the grade" for an AI correction when Moodle shows its static "grade locked" element instead of a grade input (the AI is not asked for a score then), not only for pasted corrections with a score.
+  - Repeat the extraction of assignment data, up to three times once the page is quiet, when a real Moodle grader is still filling the student's form: the panel took that as a page change and the first extraction failed with "the student, assignment or submission changed". Found by the real-Moodle check.
+  - Layout fixes found by the fidelity check: ODT proportional line spacing (`fo:line-height="115%"`) is relative to the font's line height, not its size (lines were about 13% too tight and documents lost pages); ODT tables aligned to the margins span the text width, and columns with only relative widths share it; a paragraph that does not fit is split across pages with at least two lines on each (it moved whole, and long documents gained pages); a DOCX paragraph whose runs are all smaller than its style takes the largest run size. 12 of the 26 corpus renderings now match LibreOffice within the default thresholds (4 before).
+  - Second round of fidelity fixes: anchored pictures and text boxes wrap the text (DOCX square, tight and through wrapping and ODT parallel, left and right wrapping become floats on their side, top-and-bottom stays a block, DOCX no-wrap and ODT run-through objects are placed over or behind their paragraph; a float that does not fit moves to the next page with its paragraph); text boxes draw their fill and outline (ODT `draw:fill-color` and `svg:stroke-color`, DOCX `a:solidFill` and `a:ln`, VML `fillcolor` and `strokecolor`) and no longer inherit the justification of their anchor paragraph; ODT centre, right and decimal tab stops are applied; multi-column sections (DOCX `w:cols`, ODT `style:columns`) are drawn in columns and continue on the next page without losing text; ODT endnotes start on their own page. Page ends: spacing above a paragraph or table moved to a new page is dropped, spacing below the last paragraph no longer pushes it over, ODT paragraph spacing adds up instead of collapsing, documents without widow control may leave one line on a page, `w:keepLines` and `fo:keep-together` keep a paragraph whole, DOCX automatic line spacing uses 1.15 (was 1.14), and empty DOCX paragraphs follow Word: one that closes a section keeps its line, and the empty rest of a paragraph after its page break takes a line on the next page in compatibility mode 15 (Word 2013 and later) and none in older modes. 19 of 26 renderings now match LibreOffice and every page count matches; the 7 remaining differences are explained in `docs/rendering-fidelity.md`.
+  - `tests/attachment-reader-checks.mjs` checks the drawn pages for floating pictures and text boxes, a float moved whole to the next page, text box fill and outline colours, ODT tab stops and two-column sections (DOCX and ODT), including long sections over several pages.
+  - Add `tests/live-office-check.mjs` (opt-in local inference with a fictional DOCX and ODT), `tests/moodle-lab-check.mjs` with `.github/workflows/moodle-lab.yml` (the extension against real disposable Moodle sites: simple direct grading, a marking guide, a scale, a locked grade and TinyMCE feedback), and `npm run test:fidelity` (our DOCX/ODT pages compared with LibreOffice PDFs over a fictional corpus).
+- Privacy and safety (`docs/improvements-2026-10-28-0.2.1.md`):
+  - Replace the student's name, as Moodle's grader shows it, with `[Student]` in everything sent to the AI: online text, extracted document text and teacher criteria. The full name matches in any case and in "Surname, Name" order; each capitalised name part of three or more letters matches as a whole word, also in capitals and without accents. The name is covered with a black bar on PDF and Office page images. The prompt says the name was replaced; `[Student]` in the AI's feedback is shown with the first name. On by default; Options → **Student name** turns it off. Names inside photos and scans are not detected.
+  - Flag visible text in the student's work that addresses the AI or asks for a grade ("ignore the rubric", "ponme un 10", "note to the AI") in several languages. The correction result lists up to three excerpts per source for the teacher, and the prompt reminds the model that such text is evidence, never an instruction.
+  - Leave out Office text covered by a picture drawn over it (60% of each line under one picture), as on slides; text drawn over a picture stays.
+- Ollama context: the largest request of a correction is estimated before sending (3.5 characters per token, 800 tokens per image, 4,096 for the answer). When it exceeds the context the model is loaded with (`/api/ps`), or Ollama's 4,096-token default when it is not loaded, every request of that correction asks for `num_ctx` rounded up to 4,096 and capped at the model's maximum (`/api/show`). One size per correction avoids reloading the model between requests. With Ollama's default settings, a correction prompt alone exceeded 4,096 tokens and failed.
+- The panel shows the plan before the first AI request: pages, images, estimated tokens and evidence blocks.
+- Fill Moodle marking guides. The AI returns `guideScores` (`criterionId`, `score`, `remark`) for every guide criterion; the Ollama schema fixes the criterion ids and bounds each score between 0 and the criterion's maximum, and incomplete or out-of-range scores need repair. The panel writes each criterion's score input and remark box; Moodle sums the scores into the grade, so no grade input is written. A frozen, review or view guide (grade locked or overridden in the gradebook) is refused before any field changes, like a frozen rubric. Guide score inputs are no longer mistaken for the grade input.
+- Fill scale grades. The AI chooses `scaleGrade` from the visible labels of Moodle's scale select (an enum in the schema, without "No grade"), and the panel selects that item. Without a choice the select, including "No grade" (`-1`), is left as it is; an unknown label is refused before any field changes.
+- The correction result shows a warning listing student text addressed to the AI (with its file or "online text"), a note with the number of name replacements when the student's name was pseudonymized, the guide total and per-criterion scores, and the proposed scale item. The plan stays in the result area while the correction runs.
+
+## 0.1.77 - 2026-10-27
+
+- Key student/attempt ("case") teacher criteria by the real Moodle user. Inside the grader, the hidden `userid` input is `0` for every student, so all students previously shared one set of case criteria; the user now comes from the grade form's `_qf__mod_assign_grade_form_<userid>` marker or the grader URL. Attempt `-1` (latest) resolves to the real attempt number, so a reopened attempt no longer reuses the previous attempt's criteria. Criteria saved under the shared key are not migrated.
+- Keep scanned and photographed PDF pages within Chrome's 64 MiB message limit: pages whose PNG exceeds 1.2 MB of base64 are encoded as JPEG, and a PDF whose page images exceed 48 MB stops with an explicit error. The receipt reports no extracted text for pages without a text layer.
+- Accept only Moodle submission file-area links as submitted files, excluding plagiarism reports and portfolio buttons in the same file row. Online-text images must come from the online-text file area.
+- Refuse to apply a frozen Moodle rubric (locked or overridden gradebook grade) instead of reporting levels Moodle will not save.
+- Write editor feedback as escaped HTML paragraphs into both the textarea and TinyMCE, preserving line breaks and treating `<`/`&` in feedback as text.
+- Treat a returned `maxScore` on another scale as a correction that needs repair; `studentFeedback` takes precedence over legacy feedback keys. The prompt's score template is a placeholder instead of the example `7.5`.
+- Read DOCX text boxes once (without their VML fallback copy), keep non-breaking hyphens and symbols, and report charts, SmartArt and embedded objects. Read ODT frames and notes once and exclude comments, tracked deletions and alt text.
+- Identify PDF, DOCX, ODT, PNG, JPEG and WebP from their bytes. A renamed legacy `.doc` is skipped as unsupported instead of stopping the correction, images use their real type, and a teacher file without an extension is read as text.
+- Detect UTF-16 without a byte-order mark, and measure decoded text against its original byte size.
+- Show grading-guide and scale modes as filled manually, and detect translated "grade out of" labels.
+- Stop typing during the load of saved criteria from overwriting them; label criteria results by identity; give the AI suggestion field an accessible name.
+- Bind each settings-frame token to the first frame that uses it and post its messages to the exact parent origin. Moodle-page content scripts can only switch between saved AI servers and models and cannot change remembered sites.
+- Ignore SSE `id:`/`retry:` fields, accept Ollama versions that do not report model capabilities, and redirect final-grade wording to notes during evidence review.
+- Translate 44 provider and download errors and the page titles into all eight interface languages, and stop repeated English sources from merging different translations.
+- Exclude documentation, source maps and hidden files from the extension package.
+- Update the privacy policy for filenames mentioned in teacher criteria and copied course/assignment defaults.
+
+## 0.1.76 - 2026-10-27
+
+- Bound non-streaming AI response bodies to 8 MB and generated content to 200,000 characters; reject interrupted compatible JSON completions as well as interrupted streams.
+- Measure attachment content when enforcing file and aggregate byte budgets, rejecting invalid declared sizes instead of trusting missing or understated metadata.
+- Preserve complete evidence-note input during condensing instead of silently dropping everything after 60,000 characters.
+- Validate locked Moodle feedback and rubric controls before changing grading fields; do not force disabled inputs into a selected state.
+- Exclude explicitly hidden online images while retaining the full submission box hidden by Moodle's own summary UI.
+- Check GIF/BMP dimensions before decoding, report oversized embedded images in the receipt, and enforce Office image counts before further conversion.
+- Discard stale provider-profile lookups so rapid provider changes cannot mix a previous provider with the latest provider's endpoint.
+- Add regression coverage and a complete local review report in `docs/review-2026-10-27-0.1.76.md`.
+
+## 0.1.75 - 2026-10-27
+
+- Preserve XML CDATA in ODT paragraphs alongside ordinary text, tabs and line breaks.
+- Check the cumulative ODT text budget before expanding repeated spaces, including paragraph separators, and reject invalid repetition counts without allocating oversized strings.
+- Propagate cancellation through DOCX/ODT image extraction. Stop subsequent conversions, preserve the cancellation error, and release decoded bitmaps and temporary canvases even when conversion fails or is cancelled.
+- Add real Chromium regressions for text preservation, exact and exceeded text limits, invalid counts, and cancellation during image decoding and encoding in both Office formats.
+
+## 0.1.74 - 2026-10-26
+
+- Separate evidence-block observation prompts from final correction and repair prompts. Native Ollama corrections now use a rubric-aware JSON schema instead of JSON syntax alone.
+- Preserve online submission paragraphs, code indentation and same-origin inline images; report omitted image URLs and deduplicate download variants.
+- Reject PDF/login-page substitutions, resolve generic download names from response metadata, recognize unnamed octet-stream PDFs, and keep document parsing ahead of misleading text MIME types.
+- Retain original filenames locally for explicit teacher references while omitting unmentioned names, file URLs, selected rubric levels and DOM values from inference payloads.
+- Stop offscreen PDF work on cancellation/deadline, reject truncated Ollama responses, and retain token counts, durations and stop reasons without storing reasoning output.
+- Document the full extraction and HTTP contract in `docs/ollama-request-pipeline.md` and expand the fictional local/browser regressions.
+- Read the complete online text from Moodle's hidden `full_assignsubmission_onlinetext` box. The grader shows only a 140-character summary unless expanded, so corrections previously received a shortened submission. Images inside the complete text are included; Moodle UI icons are excluded. Attempt-history content is never read as the current submission.
+- Send `truncate: false` to Ollama so an oversized request fails with a context error instead of being silently cut by the server. The error explains how to increase the context; no grades are applied.
+- Number AI block notes by `notesBlock` with the `ai-review-notes` role, so they no longer reuse an original `attachmentNumber` with a different role and format during synthesis.
+- Keep DOCX/ODT text when an embedded image cannot be supplied. GIF and BMP images are converted locally to PNG; EMF, WMF, SVG, TIFF and other formats are reported as `omittedImages` in the document receipt instead of excluding the whole document. DOCX text keeps tabs and manual line breaks and lists the body before notes, headers and footers.
+- Condense an invalid or oversized evidence-block note once with a text-only request instead of failing the correction.
+- Send teacher criteria, the attachment receipt and the synthesis instruction once, in the system message. Evidence-block reviews get their own phase instructions, without the final-grade checklist. Listed submission, reference and teacher files carry the `attachmentNumber` used by the evidence.
+- Decode text and source files as UTF-8, UTF-16 with a byte-order mark or Windows-1252, instead of UTF-8 only.
+- See `docs/ollama-request-fixes-2026-10-27.md`.
+
+## 0.1.73 - 2026-10-26
+
+- Preserve a trusted original-document receipt through PDF block review, final synthesis and schema repair, including document role, format, page count and supplied representations.
+- Mark intermediate observations as derived review notes and map them back to original attachment numbers, preserving student authorship separately from the notes container.
+- Explain PDF text/image transport explicitly so the absence of native PDF binaries or original images during synthesis is not treated as a missing submission. Preserve specific unreadable-evidence limitations.
+- Add an opt-in nine-page PDF receipt check against an installed local vision model, using isolated Chromium and fictional evidence.
+
+## 0.1.72 - 2026-10-26
+
+- Keep extracted PDF page text beside its corresponding rendered image during evidence-block review, preserving original attachment numbers and every character.
+- Stop evidence-note reduction if it fails to shrink or exceeds four rounds, instead of repeating until the overall operation deadline.
+- Record review rounds and block counts in local diagnostics without recording document contents.
+- Cover multi-page PDF extraction, page-aligned provider payloads, and non-converging notes with synthetic regressions.
+
 ## 0.1.71 - 2026-10-24
 
 - Commit the immutable selected provider configuration so concurrent status reads cannot restore the previous provider during a save.

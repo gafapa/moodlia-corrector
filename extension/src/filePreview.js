@@ -69,7 +69,7 @@
     note.title = MoodliaCorrectorI18n.t('Los formatos no soportados se omiten. Los errores al leer formatos compatibles se avisan por separado.');
     note.textContent = total
       ? MoodliaCorrectorI18n.message`${total - skipped} incluido(s)${skipped ? MoodliaCorrectorI18n.message` · ${skipped} omitido(s)` : ''} · Se leerán al corregir.`
-      : assignment ? 'No hay archivos para incluir.' : MoodliaCorrectorI18n.t('Pendiente de detectar los archivos de Moodle.');
+      : assignment ? MoodliaCorrectorI18n.t('No hay archivos para incluir.') : MoodliaCorrectorI18n.t('Pendiente de detectar los archivos de Moodle.');
     fragment.appendChild(note);
     if (assignment?.submissionText) {
       const onlineText = document.createElement('p');

@@ -1,6 +1,7 @@
 (() => {
   const longRequests = new Set(['mca.correctAssignment', 'mca.testAiConnection']);
-  const send = (message) => {
+  // Long requests may report progress ({ type: 'mca.progress' }) before their response.
+  const send = (message, { onProgress } = {}) => {
     if (!longRequests.has(message?.type)) return chrome.runtime.sendMessage(message);
     return new Promise((resolve, reject) => {
       let port;
@@ -17,7 +18,10 @@
       };
       try {
         port = chrome.runtime.connect({ name: 'mca.longRequest' });
-        port.onMessage.addListener(response => finish(null, response));
+        port.onMessage.addListener((response) => {
+          if (response?.type === 'mca.progress') { try { onProgress?.(response.progress); } catch { /* Progress display is optional. */ } return; }
+          finish(null, response);
+        });
         port.onDisconnect.addListener(() => {
           const error = chrome.runtime.lastError;
           finish(new Error(error?.message || 'The extension connection closed before completion. Reload the extension and Moodle page, then request a new correction. No result was applied.'));
@@ -26,7 +30,8 @@
           try { port.postMessage({ type: 'mca.heartbeat' }); }
           catch (error) { finish(error); }
         }, 20_000);
-        deadline = setTimeout(() => finish(new Error('The operation exceeded 30 minutes and was cancelled. No result was applied.')), 30 * 60_000);
+        // One minute beyond the service worker's 60-minute correction deadline, so its own error arrives first.
+        deadline = setTimeout(() => finish(new Error('The operation exceeded 60 minutes and was cancelled. No result was applied.')), 61 * 60_000);
         port.postMessage(message);
       } catch (error) { finish(error); }
     });

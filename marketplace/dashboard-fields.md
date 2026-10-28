@@ -1,6 +1,6 @@
 # Chrome Web Store dashboard fields
 
-Version: 0.1.71. Prepared 24 October 2026. These statements describe the actual extension; they are not a claim of store approval.
+Version: 0.2.1. Prepared 28 October 2026. These statements describe the actual extension; they are not a claim of store approval.
 
 ## Store listing
 
@@ -34,7 +34,7 @@ Confirm the dashboard certifications against this behavior: no sale, no unrelate
 | `activeTab` | Identify the current teacher-selected page when opening the toolbar and start manual activation there. |
 | `scripting` | Inject the correction UI on a manually selected assignment grader and register persistent scripts for explicitly remembered Moodle installations. |
 | `storage` | Save non-secret provider/model profiles, interface language, remembered activation and scoped teacher criteria locally; keep the API key in session storage. |
-| `offscreen` | Run bundled PDF/DOCX/ODT extraction and image preparation in a local document context. No screen or microphone capture. |
+| `offscreen` | Run bundled PDF and Office document (DOCX, ODT, XLSX, ODS, PPTX, ODP) text extraction and page rendering (each page drawn into an image) in a local document context. No screen or microphone capture. |
 | `webRequest` | Temporarily read redirect response headers for extension-initiated authenticated Moodle downloads and signed HTTPS storage redirects. |
 | `declarativeNetRequestWithHostAccess` | Remove Origin only from extension-initiated loopback API requests and the explicitly configured HTTP server origin. These rules do not change Moodle or unrelated website requests. |
 | Required `https://*/*` | Reach the user-selected HTTPS Moodle installation, authenticated attachment storage redirects and selected HTTPS AI APIs. Automatic content injection is limited separately to remembered assignment paths. This broad required access remains in the current build; do not describe it as a per-site-only permission model. |

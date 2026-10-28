@@ -8,11 +8,16 @@ import { buildContentBundle } from './content-bundle.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const source = path.join(root, 'extension');
 const files = {};
+// Only runtime files ship: documentation, source maps, hidden files and editor
+// leftovers dropped into extension/ stay out of the store package.
+const excluded = name => /(^|\/)\./.test(name) || /\.(md|map|log|bak|tmp)$/i.test(name) || /(^|\/)(?:Thumbs\.db|desktop\.ini)$/i.test(name);
 async function collect(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
+    const name = path.relative(source, file).replaceAll(path.sep, '/');
+    if (excluded(name)) continue;
     if (entry.isDirectory()) await collect(file);
-    else files[path.relative(source, file).replaceAll(path.sep, '/')] = new Uint8Array(await readFile(file));
+    else files[name] = new Uint8Array(await readFile(file));
   }
 }
 await collect(source);

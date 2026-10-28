@@ -34,7 +34,8 @@ const getExpectedMaxScore = (assignmentData = {}) => assignmentData.maxScore ?? 
 const hasNumericGradeControl = (assignmentData = {}) =>
   Boolean(assignmentData.gradingControls?.grade) && getExpectedMaxScore(assignmentData) !== null;
 
-const getScoreTemplate = (assignmentData = {}) => (hasNumericGradeControl(assignmentData) ? 7.5 : null);
+// Always a placeholder: a concrete example such as 7.5 is copied by weak models.
+const getScoreTemplate = () => null;
 
 const buildRubricSelectionTemplate = (assignmentData = {}) => {
   const rubricCriteria = getRubricCriteriaWithLevels(assignmentData);
@@ -60,6 +61,136 @@ const buildRubricLevelReference = (assignmentData = {}) =>
       description: level?.text || '',
     })),
   }));
+
+// Moodle marking guide ("gradingform_guide"): one score input (0..maxScore) and
+// one remark per criterion. Moodle sums the scores into the grade itself.
+const toGuideMaxScore = (value) => {
+  if (!['number', 'string'].includes(typeof value) || String(value).trim() === '') return null;
+  const parsed = Number(String(value).trim().replace(',', '.'));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const getGuideCriteria = (assignmentData = {}) =>
+  (assignmentData.gradingGuide || []).filter(
+    (criterion) => criterion?.id && criterion.controls?.score !== false && toGuideMaxScore(criterion.maxScore) !== null,
+  );
+
+const buildGuideScoreTemplate = (assignmentData = {}) =>
+  getGuideCriteria(assignmentData).map((criterion, criterionIndex) => ({
+    criterionId: criterion.id,
+    score: null,
+    remark: `Remark for guide criterion ${criterionIndex + 1}, in the Moodle page language.`,
+  }));
+
+const buildGuideReference = (assignmentData = {}) =>
+  getGuideCriteria(assignmentData).map((criterion) => ({
+    criterionId: criterion.id,
+    shortName: criterion.shortName || '',
+    description: criterion.description || '',
+    ...(criterion.markerDescription ? { markerDescription: criterion.markerDescription } : {}),
+    maxScore: toGuideMaxScore(criterion.maxScore),
+  }));
+
+// Scale grading: the visible labels of the Moodle select, without "No grade" (-1).
+const getScaleOptions = (assignmentData = {}) => {
+  if (!assignmentData.gradingControls?.gradeScale) return [];
+  const seen = new Set();
+  return (assignmentData.gradeScaleOptions || []).filter((option) => {
+    const label = String(option?.label || '').trim();
+    if (!label || String(option?.value) === '-1' || seen.has(label)) return false;
+    seen.add(label);
+    return true;
+  });
+};
+
+const normalizeScaleGrade = (assignmentData = {}, raw) => {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const options = getScaleOptions(assignmentData);
+  const compact = (text) => String(text).replace(/\s+/g, ' ').trim().toLowerCase();
+  return (options.find((option) => option.label.trim() === raw.trim()) ||
+    options.find((option) => compact(option.label) === compact(raw)))?.label.trim() || null;
+};
+
+// Extra keys of the AI template, added only for a guide or a scale so other prompts stay unchanged.
+const buildGradingTemplateExtras = (assignmentData = {}) => ({
+  ...(getGuideCriteria(assignmentData).length ? { guideScores: buildGuideScoreTemplate(assignmentData) } : {}),
+  ...(getScaleOptions(assignmentData).length ? { scaleGrade: null } : {}),
+});
+
+const buildGradingPromptRules = (assignmentData = {}) => {
+  const guide = buildGuideReference(assignmentData);
+  const scale = getScaleOptions(assignmentData).map((option) => option.label.trim());
+  return [
+    ...(guide.length ? [
+      'Marking guide rules:',
+      `- The Moodle marking guide has ${guide.length} criterion item(s). Return exactly ${guide.length} guideScores item(s), one per criterionId from the template, with exactly the keys criterionId, score, and remark.`,
+      '- score is a number from 0 to that criterion maxScore in the Marking guide reference below, chosen from the evidence. The null in the template is only a placeholder; there is no default score.',
+      '- remark explains briefly, in the feedback language, why that score was given and cites the most relevant evidence. markerDescription is guidance for the marker, not text for the student.',
+      '- Moodle adds the criterion scores into the grade itself; keep score null at the top level.',
+      '',
+      'Marking guide reference:',
+      JSON.stringify(guide, null, 2),
+      '',
+    ] : []),
+    ...(scale.length ? [
+      'Scale grade rules:',
+      '- Moodle grades this assignment with a scale. scaleGrade must be exactly one of these labels, copied verbatim, chosen from the evidence:',
+      JSON.stringify(scale),
+      '- The null in the template is only a placeholder. Keep score null.',
+      '',
+    ] : []),
+  ];
+};
+
+const buildGradingSchemaExtras = (assignmentData = {}) => {
+  const guide = buildGuideReference(assignmentData);
+  const scale = getScaleOptions(assignmentData).map((option) => option.label.trim());
+  return {
+    properties: {
+      ...(guide.length ? { guideScores: { type: 'array', minItems: guide.length, maxItems: guide.length,
+        items: { oneOf: guide.map((criterion) => ({
+          type: 'object', additionalProperties: false,
+          properties: {
+            criterionId: { const: criterion.criterionId },
+            score: { type: 'number', minimum: 0, maximum: criterion.maxScore },
+            remark: { type: 'string', minLength: 1 },
+          }, required: ['criterionId', 'score', 'remark'],
+        })) } } } : {}),
+      ...(scale.length ? { scaleGrade: { type: 'string', enum: scale } } : {}),
+    },
+    required: [...(guide.length ? ['guideScores'] : []), ...(scale.length ? ['scaleGrade'] : [])],
+  };
+};
+
+const getGuideScoresInput = (parsed = {}) =>
+  [parsed.guideScores, parsed.guideCriteria, parsed.markingGuide].find((candidate) => Array.isArray(candidate)) || [];
+
+const getGuideRemark = (entry = {}) =>
+  [entry.remark, entry.criterionFeedback, entry.feedback, entry.comment].find((value) => typeof value === 'string' && value.trim()) || '';
+
+const normalizeGuideScoreValue = (criterion = {}, entry = {}) => {
+  const raw = entry?.score ?? entry?.points;
+  if (!['number', 'string'].includes(typeof raw) || String(raw).trim() === '') return null;
+  const score = Number(String(raw).trim().replace(',', '.'));
+  const maximum = toGuideMaxScore(criterion.maxScore);
+  return Number.isFinite(score) && score >= 0 && maximum !== null && score <= maximum ? score : null;
+};
+
+const normalizeGuideScores = (assignmentData = {}, guideScores = []) =>
+  getGuideCriteria(assignmentData).map((criterion, criterionIndex) => {
+    const entry = findRubricSelectionForCriterion(guideScores, criterion, criterionIndex);
+    const mismatched = entry.criterionId && entry.criterionId !== criterion.id;
+    return { criterionId: criterion.id, score: mismatched ? null : normalizeGuideScoreValue(criterion, entry), remark: mismatched ? '' : getGuideRemark(entry) };
+  });
+
+const isGuideInputComplete = (assignmentData = {}, guideScores = [], options = {}) => {
+  const criteria = getGuideCriteria(assignmentData);
+  return guideScores.length === criteria.length && criteria.every((criterion, index) => {
+    const entry = findRubricSelectionForCriterion(guideScores, criterion, index);
+    return (!options.requireCriterionIds || entry.criterionId === criterion.id) && (!entry.criterionId || entry.criterionId === criterion.id) &&
+      normalizeGuideScoreValue(criterion, entry) !== null && Boolean(getGuideRemark(entry));
+  });
+};
 
 const parseJsonResponse = (text) => {
   const trimmed = String(text || '').trim();
@@ -95,8 +226,14 @@ const buildFallbackCorrection = (text, assignmentData = {}) => {
     score: null,
     maxScore: getExpectedMaxScore(assignmentData),
     rubricSelections: buildFallbackRubricSelections(assignmentData, feedback),
+    ...buildFallbackGradingExtras(assignmentData),
   };
 };
+
+const buildFallbackGradingExtras = (assignmentData = {}) => ({
+  ...(getGuideCriteria(assignmentData).length ? { guideScores: normalizeGuideScores(assignmentData, []) } : {}),
+  ...(getScaleOptions(assignmentData).length ? { scaleGrade: null } : {}),
+});
 
 const buildFallbackRubricFeedback = (assignmentData = {}, criterionIndex = 0, baseFeedback = '') => {
   const pageLanguage = getLanguageInstruction(assignmentData.page?.language);
@@ -198,10 +335,11 @@ const normalizeRubricSelections = (assignmentData = {}, rubricSelections = [], b
   });
 };
 
+// The schema key wins; legacy aliases only fill in when it is absent.
 const getFinalComment = (parsed = {}) =>
+  parsed.studentFeedback ||
   parsed.finalComment ||
   parsed.finalFeedback ||
-  parsed.studentFeedback ||
   parsed.feedback ||
   parsed.overallFeedback ||
   parsed.overall_feedback ||
@@ -254,7 +392,12 @@ const normalizeCorrectionResponse = (parsed, assignmentData = {}, options = {}) 
     Object.prototype.hasOwnProperty.call(parsed, 'studentFeedback') ||
     Object.prototype.hasOwnProperty.call(parsed, 'score') ||
     Object.prototype.hasOwnProperty.call(parsed, 'rubricSelections') ||
-    Object.prototype.hasOwnProperty.call(parsed, 'criteria');
+    Object.prototype.hasOwnProperty.call(parsed, 'criteria') ||
+    Object.prototype.hasOwnProperty.call(parsed, 'guideScores') ||
+    Object.prototype.hasOwnProperty.call(parsed, 'scaleGrade');
+  const guideScores = getGuideScoresInput(parsed);
+  const hasGuide = getGuideCriteria(assignmentData).length > 0;
+  const hasScale = getScaleOptions(assignmentData).length > 0;
 
   if (!hasExpectedShape) {
     const foreignFeedback = getForeignSchemaFeedback(parsed);
@@ -268,15 +411,25 @@ const normalizeCorrectionResponse = (parsed, assignmentData = {}, options = {}) 
       score: null,
       maxScore: getExpectedMaxScore(assignmentData),
       rubricSelections: buildFallbackRubricSelections(assignmentData, foreignFeedback),
+      ...buildFallbackGradingExtras(assignmentData),
     };
   }
 
+  // A returned maxScore on another scale ("8" with maxScore 100) must not be
+  // applied as 8 on this assignment's scale. A missing maxScore is accepted.
+  const expectedMax = getExpectedMaxScore(assignmentData);
+  const mismatchedScale = expectedMax !== null && parsed.maxScore !== undefined && parsed.maxScore !== null &&
+    Number(parsed.maxScore) !== expectedMax;
   return {
-    needsRepair: parsed.needsRepair === true || typeof studentFeedback !== 'string' || !rubricInputComplete || rubricSelections.length !== getRubricCriteriaWithLevels(assignmentData).length,
+    needsRepair: parsed.needsRepair === true || mismatchedScale || typeof studentFeedback !== 'string' || !rubricInputComplete || rubricSelections.length !== getRubricCriteriaWithLevels(assignmentData).length ||
+      hasGuide && !isGuideInputComplete(assignmentData, guideScores, options),
     studentFeedback,
     score: hasNumericGradeControl(assignmentData) && ['number', 'string'].includes(typeof parsed.score) && String(parsed.score).trim() !== '' && Number.isFinite(Number(parsed.score)) ? Number(parsed.score) : null,
     maxScore: getExpectedMaxScore(assignmentData),
     rubricSelections: normalizeRubricSelections(assignmentData, rubricSelections, studentFeedback),
+    ...(hasGuide ? { guideScores: normalizeGuideScores(assignmentData, guideScores) } : {}),
+    // A missing scale choice leaves the select untouched, like a missing score.
+    ...(hasScale ? { scaleGrade: normalizeScaleGrade(assignmentData, parsed.scaleGrade) } : {}),
   };
 };
 
@@ -298,14 +451,21 @@ const getCorrectionCompleteness = (correction, assignmentData = {}) => {
       return matches.length === 1 && Number.isInteger(matches[0].levelIndex) &&
         getValidRubricLevelIndexes(criterion).includes(matches[0].levelIndex) && Boolean(matches[0].criterionFeedback?.trim?.());
     }),
+    expectedGuideCount: getGuideCriteria(assignmentData).length,
+    hasCompleteGuide: getGuideCriteria(assignmentData).every((criterion) => {
+      const matches = (correction?.guideScores || []).filter((entry) => entry?.criterionId === criterion.id);
+      return matches.length === 1 && normalizeGuideScoreValue(criterion, matches[0]) !== null && Boolean(matches[0].remark?.trim?.());
+    }),
+    hasValidScaleGrade: getScaleOptions(assignmentData).length === 0 || normalizeScaleGrade(assignmentData, correction?.scaleGrade) !== null,
   };
 };
 
 const isCorrectionComplete = (correction, assignmentData = {}) => {
   const completeness = getCorrectionCompleteness(correction, assignmentData);
-  return completeness.hasSupportedSchema && completeness.hasStudentFeedback && completeness.hasCompleteRubric && completeness.hasValidScore;
+  return completeness.hasSupportedSchema && completeness.hasStudentFeedback && completeness.hasCompleteRubric && completeness.hasValidScore &&
+    completeness.hasCompleteGuide && completeness.hasValidScaleGrade;
 };
 
 
-globalThis.MoodliaCorrectorSchema = { getLanguageInstruction, getRubricCriteriaWithLevels, getExpectedMaxScore, hasNumericGradeControl, getScoreTemplate, buildRubricSelectionTemplate, buildRubricLevelReference, parseJsonResponse, stripMarkdownForFeedback, buildFallbackCorrection, buildFallbackRubricFeedback, buildFallbackRubricSelections, getValidRubricLevelIndexes, normalizeRubricLevelIndex, getSelectionCriterionNumber, getSelectionCriterionIndex, findRubricSelectionForCriterion, normalizeRubricSelections, getFinalComment, getRubricSelectionsInput, getForeignSchemaFeedback, normalizeCorrectionResponse, parseCorrectionResponse, getCorrectionCompleteness, isCorrectionComplete };
+globalThis.MoodliaCorrectorSchema = { getLanguageInstruction, getRubricCriteriaWithLevels, getExpectedMaxScore, hasNumericGradeControl, getScoreTemplate, buildRubricSelectionTemplate, buildRubricLevelReference, parseJsonResponse, stripMarkdownForFeedback, buildFallbackCorrection, buildFallbackRubricFeedback, buildFallbackRubricSelections, getValidRubricLevelIndexes, normalizeRubricLevelIndex, getSelectionCriterionNumber, getSelectionCriterionIndex, findRubricSelectionForCriterion, normalizeRubricSelections, getFinalComment, getRubricSelectionsInput, getForeignSchemaFeedback, normalizeCorrectionResponse, parseCorrectionResponse, getCorrectionCompleteness, isCorrectionComplete, getGuideCriteria, buildGuideScoreTemplate, buildGuideReference, getScaleOptions, normalizeScaleGrade, buildGradingTemplateExtras, buildGradingPromptRules, buildGradingSchemaExtras, normalizeGuideScores };
 })();

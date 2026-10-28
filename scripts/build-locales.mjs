@@ -10,10 +10,17 @@ const rows = (await readFile('scripts/localization/messages.txt', 'utf8')).split
 });
 const catalogs = Object.fromEntries(locales.map(locale => [locale, {}]));
 const aliases = {};
+const seenEnglish = new Set();
 for (const values of rows) {
-  const key = `m${createHash('sha256').update(values[0]).digest('hex').slice(0, 12)}`;
-  for (const source of values.slice(0, 2)) aliases[source] = key;
-  locales.forEach((locale, index) => { catalogs[locale][key] ||= { message: values[index], description: values[0] }; });
+  // Repeated English sources ("Not detected") carry different Spanish forms
+  // (gender/number); each gets its own key, and the English alias keeps the first.
+  const source = seenEnglish.has(values[0]) ? `${values[0]}\u0000${values[1]}` : values[0];
+  const key = `m${createHash('sha256').update(source).digest('hex').slice(0, 12)}`;
+  if (catalogs.en[key]) throw new Error(`Duplicate translation row: ${values[0]} | ${values[1]}`);
+  if (!seenEnglish.has(values[0])) aliases[values[0]] = key;
+  seenEnglish.add(values[0]);
+  aliases[values[1]] = key;
+  locales.forEach((locale, index) => { catalogs[locale][key] = { message: values[index], description: values[0] }; });
 }
 const descriptions = ['Teacher-reviewed AI feedback for Moodle assignments.', 'Comentarios de IA para tareas Moodle, revisados por el docente.', 'Commentaires IA pour les devoirs Moodle, vérifiés par l’enseignant.', 'KI-Feedback für Moodle-Aufgaben, von der Lehrkraft geprüft.', 'Comentários de IA para tarefas Moodle, revisados pelo professor.', 'Feedback IA per compiti Moodle, verificato dal docente.', 'Comentarios de IA para tarefas Moodle, revisados polo docente.', 'Comentaris d’IA per a tasques Moodle, revisats pel docent.'];
 for (const [index, locale] of locales.entries()) {
