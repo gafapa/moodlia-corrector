@@ -2,6 +2,7 @@
 
 ## 0.2.1 - 2026-10-28
 
+- Store listing: describe supported files in plain words instead of listing format acronyms (PDF, DOCX, ODT, XLSX, ODS, PPTX, ODP) in all eight localized descriptions, after a Yellow Argon keyword-stuffing rejection. Store validation now rejects descriptions naming three or more of those formats.
 - Render DOCX and ODT files as pages, like PDFs. Each page is laid out locally from the document's styles and sent as an image beside that page's text. The layout covers:
   - fonts (including Word theme fonts), colours, highlighting and alignment;
   - tables with merged cells, repeated header rows and Word table-style shading;

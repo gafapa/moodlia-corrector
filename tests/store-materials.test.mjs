@@ -32,6 +32,27 @@ test('store validation rejects the removed provider list in every locale', async
   } finally { await fs.rm(folder, { recursive: true, force: true }); }
 });
 
+test('store validation rejects a file-format enumeration in every locale', async () => {
+  const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'corrector-store-formats-'));
+  try {
+    await fs.cp('marketplace', path.join(folder, 'marketplace'), { recursive: true });
+    await fs.mkdir(path.join(folder, 'extension'), { recursive: true });
+    await fs.copyFile('extension/manifest.json', path.join(folder, 'extension/manifest.json'));
+    await fs.cp('extension/_locales', path.join(folder, 'extension/_locales'), { recursive: true });
+    for (const locale of ['en', 'es', 'fr', 'de', 'pt_BR', 'it', 'gl', 'ca']) {
+      const file = path.join(folder, `marketplace/listings/${locale}.json`);
+      const original = await fs.readFile(file);
+      const listing = JSON.parse(original);
+      listing.detailedDescription += ' Supported: PDF, DOCX, ODT, XLSX, ODS, PPTX, ODP.';
+      await fs.writeFile(file, JSON.stringify(listing));
+      const result = run('validate-store-materials.mjs', folder);
+      assert.notEqual(result.status, 0, locale);
+      assert.match(result.stderr, /Rejected file-format enumeration/);
+      await fs.writeFile(file, original);
+    }
+  } finally { await fs.rm(folder, { recursive: true, force: true }); }
+});
+
 test('copy-page regeneration refreshes stale listings and preserves publisher edits before writing', async () => {
   const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'corrector-store-page-'));
   try {

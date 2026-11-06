@@ -23,8 +23,10 @@ The `release/moodlia-corrector-publishing-page-0.2.1.zip` archive also includes 
 
 ## Listing correction after Yellow Argon rejection
 
-The provider-brand enumeration has been removed from all eight localized
-listings and their generator. Use the current `marketplace/listings/*.json`
+The provider-brand enumeration and, after a second Yellow Argon rejection,
+the file-format acronym list (PDF, DOCX, ODT, XLSX, ODS, PPTX, ODP) have been
+removed from all eight localized listings and their generator; the
+description now names file kinds in plain words. Use the current `marketplace/listings/*.json`
 files when updating store metadata. Older submission archives and extracted
 copy pages may retain the rejected text; do not reuse their descriptions.
 
@@ -33,7 +35,7 @@ Catalan and Italian, and read it back before requesting review. The dashboard
 values must be updated separately from local files and extension ZIP uploads.
 This metadata correction does not change extension code or establish store
 approval. Keep detailed provider compatibility information in project
-documentation rather than repeating provider-brand lists in the store listing.
+documentation rather than repeating provider-brand or file-format lists in the store listing.
 
 The official [violation guide](https://developer.chrome.com/docs/webstore/troubleshooting/#keyword-stuffing) identifies Yellow Argon as keyword stuffing. The [spam FAQ](https://developer.chrome.com/docs/webstore/program-policies/spam-faq/#keyword-spam) limits supported-brand lists to five; this listing uses generic provider wording instead. These checks address the recorded issue, not all possible review decisions.
 

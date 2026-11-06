@@ -10,6 +10,8 @@ const locales = ['ca', 'de', 'en', 'es', 'fr', 'gl', 'it', 'pt_BR'];
 // Project-specific protection against reintroducing the rejected brand enumeration.
 // This is a regression check, not a general detector of keyword spam or store approval.
 const providerBrands = /\b(?:Ollama|LM\s+Studio|llama\.cpp|LocalAI|vLLM|OpenAI)\b/i;
+// Rejected as keyword stuffing ("Yellow Argon"): a list of file-format acronyms in the description.
+const formatAcronyms = /\b(?:PDF|DOCX|ODT|XLSX|ODS|PPTX|ODP)\b/g;
 const listings = {};
 for (const locale of locales) {
   const bytes = await fs.readFile(`marketplace/listings/${locale}.json`);
@@ -19,6 +21,8 @@ for (const locale of locales) {
   assert.ok(listing.summary.trim().length > 0 && listing.summary.length <= 132, locale);
   assert.ok(listing.detailedDescription.trim().length > 0 && listing.detailedDescription.length <= 16000, locale);
   assert.ok(!providerBrands.test(`${listing.name}\n${listing.summary}\n${listing.detailedDescription}`), `Rejected provider-brand enumeration: ${locale}`);
+  const formats = new Set(`${listing.summary}\n${listing.detailedDescription}`.match(formatAcronyms) ?? []);
+  assert.ok(formats.size < 3, `Rejected file-format enumeration: ${locale}`);
   assert.equal(listing.homepage, 'https://moodlia.com/apps/corrector/');
   assert.equal(listing.privacyPolicyUrl, 'https://moodlia.com/privacy/corrector.html');
   const catalog = JSON.parse(await fs.readFile(`extension/_locales/${locale}/messages.json`, 'utf8'));
@@ -36,7 +40,7 @@ const privacyHtml = await fs.readFile('marketplace/privacy-policy.html', 'utf8')
 const coverage = (text) => text.match(/Effective date: [^.]+\. Version covered: [^ ]+\. Last reviewed: [^.<]+\./)?.[0];
 assert.ok(coverage(privacyMarkdown)?.includes(`Version covered: ${version}.`), 'Privacy policy does not cover the current version.');
 assert.equal(coverage(privacyHtml), coverage(privacyMarkdown), 'The Markdown and HTML privacy policies differ.');
-console.log(`PASS: ${locales.length} localized listings and current submission documents; rejected provider enumeration absent.`);
+console.log(`PASS: ${locales.length} localized listings and current submission documents; rejected provider and file-format enumerations absent.`);
 
 if (process.argv.includes('--artifacts')) {
   const folder = path.resolve(`release/publicar-moodlia-corrector-${version}`);

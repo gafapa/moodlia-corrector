@@ -6,7 +6,7 @@ Open the correction sidebar from the extension icon. Review detected grading mod
 
 Connect a local AI server or a compatible hosted service. Configure the server address, port and model in Simple or Advanced settings. Keys are stored for the Chrome session only. HTTP local servers can be used on a trusted network; use HTTPS for sensitive traffic.
 
-Supported evidence includes PDF, DOCX, ODT, spreadsheets (XLSX, ODS), presentations (PPTX, ODP), text files, source code and supported images. Images, PDF pages and document pages with figures, tables or formulas are sent as images, so a vision-capable model is recommended. Text drawn invisibly is left out and reported. Unsupported formats are marked and skipped. The panel distinguishes assignment explanations from student work.
+The extension reads common document, spreadsheet, presentation, text, source code and image files. Images and document pages with figures, tables or formulas are sent as images, so a vision-capable model is recommended. Text drawn invisibly is left out and reported. Unsupported formats are marked and skipped. The panel distinguishes assignment explanations from student work.
 
 Interface: English, Spanish, French, German, Portuguese, Italian, Galician and Catalan. Browser detection and manual language selection are included.
 
@@ -17,7 +17,7 @@ Abre el panel lateral desde el icono. Revisa el modo de evaluación, los documen
 
 Conecta un servidor de IA local o un servicio alojado compatible. Configura dirección, puerto y modelo en modo Simple o Avanzado. Las claves duran solo la sesión de Chrome. Puedes usar servidores locales por HTTP en redes de confianza; utiliza HTTPS para tráfico sensible.
 
-Admite PDF, DOCX, ODT, hojas de cálculo (XLSX, ODS), presentaciones (PPTX, ODP), texto, código fuente e imágenes compatibles. Las imágenes, las páginas PDF y las páginas de documentos con figuras, tablas o fórmulas se envían como imágenes, por lo que se recomienda un modelo con visión. El texto dibujado de forma invisible se omite y se indica. Los formatos no soportados se indican y omiten. El panel distingue los documentos explicativos del trabajo del alumno.
+Lee documentos, hojas de cálculo, presentaciones, texto, código fuente e imágenes habituales. Las imágenes y las páginas de documentos con figuras, tablas o fórmulas se envían como imágenes, por lo que se recomienda un modelo con visión. El texto dibujado de forma invisible se omite y se indica. Los formatos no soportados se indican y omiten. El panel distingue los documentos explicativos del trabajo del alumno.
 
 Interfaz en inglés, español, francés, alemán, portugués, italiano, gallego y catalán, con detección del navegador y selección manual.
 
@@ -28,7 +28,7 @@ Ouvrez le panneau latéral depuis l’icône. Vérifiez la méthode d’évaluat
 
 Connectez un serveur d’IA local ou un service hébergé compatible. Configurez adresse, port et modèle en mode Simple ou Avancé. Les clés sont conservées uniquement pour la session Chrome. HTTP est possible sur un réseau de confiance ; utilisez HTTPS pour les données sensibles.
 
-PDF, DOCX, ODT, tableurs (XLSX, ODS), présentations (PPTX, ODP), texte, code source et images compatibles sont pris en charge. Les images, les pages PDF et les pages de documents avec figures, tableaux ou formules sont envoyées comme images : un modèle avec vision est recommandé. Le texte dessiné de façon invisible est ignoré et signalé. Les formats non pris en charge sont signalés et ignorés. Les références du devoir restent distinctes du travail de l’élève.
+L’extension lit les documents, tableurs, présentations, textes, codes sources et images courants. Les images et les pages de documents avec figures, tableaux ou formules sont envoyées comme images : un modèle avec vision est recommandé. Le texte dessiné de façon invisible est ignoré et signalé. Les formats non pris en charge sont signalés et ignorés. Les références du devoir restent distinctes du travail de l’élève.
 
 Huit langues d’interface : anglais, espagnol, français, allemand, portugais, italien, galicien et catalan.
 
@@ -39,7 +39,7 @@ Le contexte est envoyé directement au fournisseur choisi uniquement lors d’un
 
 Verbinden Sie einen lokalen KI-Server oder einen kompatiblen gehosteten Dienst. Adresse, Port und Modell lassen sich im einfachen oder erweiterten Modus einstellen. Schlüssel werden nur für die Chrome-Sitzung gespeichert. HTTP ist in vertrauenswürdigen lokalen Netzen möglich; für sensible Übertragungen HTTPS verwenden.
 
-PDF, DOCX, ODT, Tabellen (XLSX, ODS), Präsentationen (PPTX, ODP), Textdateien, Quellcode und unterstützte Bilder sind verwendbar. Bilder, PDF-Seiten und Dokumentseiten mit Abbildungen, Tabellen oder Formeln werden als Bilder gesendet; ein Modell mit Bildverarbeitung wird empfohlen. Unsichtbar gezeichneter Text wird ausgelassen und gemeldet. Nicht unterstützte Formate werden markiert und übersprungen. Referenzmaterial und Schülerarbeit bleiben getrennt.
+Gängige Dokumente, Tabellen, Präsentationen, Textdateien, Quellcode und Bilder werden gelesen. Bilder und Dokumentseiten mit Abbildungen, Tabellen oder Formeln werden als Bilder gesendet; ein Modell mit Bildverarbeitung wird empfohlen. Unsichtbar gezeichneter Text wird ausgelassen und gemeldet. Nicht unterstützte Formate werden markiert und übersprungen. Referenzmaterial und Schülerarbeit bleiben getrennt.
 
 Oberfläche in Englisch, Spanisch, Französisch, Deutsch, Portugiesisch, Italienisch, Galicisch und Katalanisch.
 
@@ -50,7 +50,7 @@ Abra o painel lateral pelo ícone. Confira o método de avaliação, as referên
 
 Conecte um servidor de IA local ou um serviço hospedado compatível. Configure endereço, porta e modelo nos modos Simples ou Avançado. As chaves duram apenas a sessão do Chrome. HTTP pode ser usado em redes locais confiáveis; use HTTPS para dados sensíveis.
 
-Suporte a PDF, DOCX, ODT, planilhas (XLSX, ODS), apresentações (PPTX, ODP), texto, código-fonte e imagens compatíveis. Imagens, páginas PDF e páginas de documentos com figuras, tabelas ou fórmulas são enviadas como imagens, por isso recomenda-se um modelo com visão. Texto desenhado de forma invisível é omitido e indicado. Formatos não suportados são indicados e ignorados. Referências e trabalho do aluno permanecem separados.
+Lê documentos, planilhas, apresentações, texto, código-fonte e imagens comuns. Imagens e páginas de documentos com figuras, tabelas ou fórmulas são enviadas como imagens, por isso recomenda-se um modelo com visão. Texto desenhado de forma invisível é omitido e indicado. Formatos não suportados são indicados e ignorados. Referências e trabalho do aluno permanecem separados.
 
 Interface em inglês, espanhol, francês, alemão, português, italiano, galego e catalão.
 
@@ -61,7 +61,7 @@ Apri il pannello laterale dall’icona. Controlla il metodo di valutazione, i ri
 
 Collega un server di IA locale o un servizio ospitato compatibile. Configura indirizzo, porta e modello nelle modalità Semplice o Avanzate. Le chiavi sono conservate solo per la sessione Chrome. HTTP è utilizzabile in reti locali fidate; usa HTTPS per dati sensibili.
 
-Supporta PDF, DOCX, ODT, fogli di calcolo (XLSX, ODS), presentazioni (PPTX, ODP), testo, codice sorgente e immagini compatibili. Le immagini, le pagine PDF e le pagine di documenti con figure, tabelle o formule vengono inviate come immagini: si consiglia un modello con visione. Il testo disegnato in modo invisibile viene escluso e segnalato. I formati non supportati sono segnalati e ignorati. Materiale di riferimento e lavoro dello studente restano distinti.
+Legge documenti, fogli di calcolo, presentazioni, testo, codice sorgente e immagini comuni. Le immagini e le pagine di documenti con figure, tabelle o formule vengono inviate come immagini: si consiglia un modello con visione. Il testo disegnato in modo invisibile viene escluso e segnalato. I formati non supportati sono segnalati e ignorati. Materiale di riferimento e lavoro dello studente restano distinti.
 
 Interfaccia in inglese, spagnolo, francese, tedesco, portoghese, italiano, galiziano e catalano.
 
@@ -72,7 +72,7 @@ Abre o panel lateral desde a icona. Revisa o método de avaliación, os document
 
 Conecta un servidor de IA local ou un servizo aloxado compatible. Configura enderezo, porto e modelo en modo Simple ou Avanzado. As claves duran só a sesión de Chrome. Podes usar HTTP en redes locais de confianza; usa HTTPS para datos sensibles.
 
-Admite PDF, DOCX, ODT, follas de cálculo (XLSX, ODS), presentacións (PPTX, ODP), texto, código fonte e imaxes compatibles. As imaxes, as páxinas PDF e as páxinas de documentos con figuras, táboas ou fórmulas envíanse como imaxes, polo que se recomenda un modelo con visión. O texto debuxado de forma invisible omítese e indícase. Os formatos non compatibles indícanse e omítense. As referencias e o traballo do alumno mantéñense separados.
+Le documentos, follas de cálculo, presentacións, texto, código fonte e imaxes habituais. As imaxes e as páxinas de documentos con figuras, táboas ou fórmulas envíanse como imaxes, polo que se recomenda un modelo con visión. O texto debuxado de forma invisible omítese e indícase. Os formatos non compatibles indícanse e omítense. As referencias e o traballo do alumno mantéñense separados.
 
 Interface en inglés, español, francés, alemán, portugués, italiano, galego e catalán.
 
@@ -83,7 +83,7 @@ Obre el tauler lateral des de la icona. Revisa el mètode d’avaluació, els do
 
 Connecta un servidor d’IA local o un servei allotjat compatible. Configura adreça, port i model en mode Simple o Avançat. Les claus només duren la sessió de Chrome. Pots fer servir HTTP en xarxes locals de confiança; fes servir HTTPS per a dades sensibles.
 
-Admet PDF, DOCX, ODT, fulls de càlcul (XLSX, ODS), presentacions (PPTX, ODP), text, codi font i imatges compatibles. Les imatges, les pàgines PDF i les pàgines de documents amb figures, taules o fórmules s’envien com a imatges, per això es recomana un model amb visió. El text dibuixat de manera invisible s’omet i s’indica. Els formats no compatibles s’indiquen i s’ometen. Les referències i el treball de l’alumne es mantenen separats.
+Llegeix documents, fulls de càlcul, presentacions, text, codi font i imatges habituals. Les imatges i les pàgines de documents amb figures, taules o fórmules s’envien com a imatges, per això es recomana un model amb visió. El text dibuixat de manera invisible s’omet i s’indica. Els formats no compatibles s’indiquen i s’ometen. Les referències i el treball de l’alumne es mantenen separats.
 
 Interfície en anglès, espanyol, francès, alemany, portuguès, italià, gallec i català.
 
