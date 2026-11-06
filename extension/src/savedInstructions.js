@@ -15,8 +15,31 @@
   };
 
   const createController = (fields, onError, legacyButton) => {
-    const states = Object.fromEntries(scopes.map(scope => [scope, { key: null, defaultKey: null, revision: 0, pending: new Map() }]));
+    const states = Object.fromEntries(scopes.map(scope => [scope, { key: null, defaultKey: null, revision: 0, pending: new Map(), queued: null, timer: null }]));
     let writes = Promise.resolve();
+    // Typing is saved once it pauses for SAVE_DELAY_MS rather than on every keystroke:
+    // each write wakes the service worker and every extension page listening for
+    // storage changes. A context change, a read of the values and leaving the page
+    // save at once, so nothing typed is lost.
+    const SAVE_DELAY_MS = 400;
+    const flush = (scope) => {
+      const state = states[scope];
+      clearTimeout(state.timer);
+      state.timer = null;
+      const queued = state.queued;
+      if (!queued) return writes;
+      state.queued = null;
+      const defaults = queued.defaultKey ? { [queued.defaultKey]: queued.value } : {};
+      writes = writes.then(() => chrome.storage.local.set({ [queued.key]: queued.value, ...defaults }))
+        .catch(() => onError(MoodliaCorrectorI18n.t('No se han podido guardar los criterios docentes.')))
+        .finally(() => {
+          const remaining = (state.pending.get(queued.key) || 1) - 1;
+          if (remaining) state.pending.set(queued.key, remaining); else state.pending.delete(queued.key);
+        });
+      return writes;
+    };
+    const flushAll = () => { for (const scope of scopes) flush(scope); return writes; };
+    globalThis.addEventListener?.('pagehide', flushAll);
     let legacyText = '';
     let ready = Promise.resolve();
     for (const scope of scopes) {
@@ -26,16 +49,12 @@
         const state = states[scope];
         if (!state.key) return;
         state.revision++;
-        const key = state.key;
-        const value = field.value;
-        state.pending.set(key, (state.pending.get(key) || 0) + 1);
-        const defaults = state.defaultKey ? { [state.defaultKey]: value } : {};
-        writes = writes.then(() => chrome.storage.local.set({ [key]: value, ...defaults }))
-          .catch(() => onError(MoodliaCorrectorI18n.t('No se han podido guardar los criterios docentes.')))
-          .finally(() => {
-            const remaining = (state.pending.get(key) || 1) - 1;
-            if (remaining) state.pending.set(key, remaining); else state.pending.delete(key);
-          });
+        if (state.queued && state.queued.key !== state.key) flush(scope);
+        // Counted once per queued write; storage echoes of a pending key are ignored.
+        if (!state.queued) state.pending.set(state.key, (state.pending.get(state.key) || 0) + 1);
+        state.queued = { key: state.key, defaultKey: state.defaultKey, value: field.value };
+        clearTimeout(state.timer);
+        state.timer = setTimeout(() => flush(scope), SAVE_DELAY_MS);
       });
     }
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -62,6 +81,7 @@
       });
     }
     const setContext = (context) => {
+      flushAll();
       const keys = getScopeKeys(context);
       const loads = [];
       for (const scope of scopes) {
@@ -87,7 +107,7 @@
           if (defaultKey) {
             // Persist a copy in the new scope, preserving existing values, including deliberate blanks.
             fields[scope].dispatchEvent(new Event('input', { bubbles: true }));
-            return writes;
+            return flush(scope);
           }
         }).catch(() => {
           // Keep the field locked: an unknown stored value must not be overwritten.
@@ -99,6 +119,7 @@
       return ready;
     };
     const getValues = async () => {
+      flushAll();
       await ready;
       return Object.fromEntries(scopes.map(scope => [scope, states[scope].key ? fields[scope].value.trim() : '']));
     };

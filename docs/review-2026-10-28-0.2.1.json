@@ -1,12 +1,12 @@
 {
   "date": "2026-10-28",
   "version": "0.2.1",
-  "unit_tests_passed": 99,
+  "unit_tests_passed": 102,
   "browser_checks_passed": 122,
   "locale_browser_checks_passed": 10,
-  "archive_files": 244,
+  "archive_files": 240,
   "archive_matches_source": true,
-  "archive_sha256": "44fd8a5ec5668b82d1ae494aad6df42304c23a695b9647052b01a4cf1ce3d2b7",
+  "archive_sha256": "1a906fb6b8b6609cff473f888c961648f77bf2640e450e1a86f62da6eeefe72d",
   "validation_scope": "Local source review in four areas, synthetic Chromium fixtures, LibreOffice-generated and hand-written fictional DOCX/ODT files, and fictional nine-page PDF inference; no authenticated production Moodle or arbitrary-document qualification. After the review, improvements were validated with a LibreOffice fidelity corpus (26 renderings, 0 failing), opt-in local DOCX/ODT inference, and the real-Moodle lab check on disposable Moodle 4.5.12 and 5.2.4 sites (see docs/improvements-2026-10-28-0.2.1.md).",
   "npm_audit_vulnerabilities": 0,
   "findings_fixed": 43,
@@ -63,5 +63,12 @@
     ],
     "steps_passed": 16,
     "host": "S1 (disposable containers, removed afterwards)"
+  },
+  "resource_follow_up": {
+    "date": "2026-11-07",
+    "summary": "Package and memory follow-up; see the last section of docs/review-2026-10-28-0.2.1.md.",
+    "archive_uncompressed_bytes": 5994849,
+    "content_script_bytes": 403396,
+    "i18n_runtime_bytes": 203847
   }
 }

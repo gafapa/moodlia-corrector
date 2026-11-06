@@ -2,6 +2,14 @@
 
 ## 0.2.1 - 2026-10-28
 
+- Lighter package and lower memory use:
+  - bundle the minified PDF.js legacy build and leave out the unused QuickJS scripting engine and the no-WebAssembly decoder fallbacks (about 2.7 MB less in the extension package);
+  - the content script carries only the translated strings, not the translators' descriptions (the injected script drops from 580 KB to 403 KB);
+  - the offscreen document drops expired page images on a timer and is closed once nothing is cached or being read for two minutes;
+  - the grading panel observes the page only while it is open, and checks for a changed student or page when it opens;
+  - the assignment description page is downloaded once per assignment instead of once per student;
+  - teacher criteria are saved when typing pauses (400 ms) instead of on every keystroke, and immediately on a student or page change.
+- Store listing: say the interface is available in eight languages instead of listing them.
 - Store listing: describe supported files in plain words instead of listing format acronyms (PDF, DOCX, ODT, XLSX, ODS, PPTX, ODP) in all eight localized descriptions, after a Yellow Argon keyword-stuffing rejection. Store validation now rejects descriptions naming three or more of those formats.
 - Render DOCX and ODT files as pages, like PDFs. Each page is laid out locally from the document's styles and sent as an image beside that page's text. The layout covers:
   - fonts (including Word theme fonts), colours, highlighting and alignment;

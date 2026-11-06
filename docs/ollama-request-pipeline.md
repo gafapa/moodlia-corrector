@@ -110,7 +110,8 @@ By default a DOCX or ODT page that shows only text is sent as text, labelled
 Options can send every page as an image. A page drawn in parts is labelled
 `Page N: visual content attached as K images, top to bottom.` and its parts
 travel in one block. The reader keeps drawn documents in memory for 30 minutes,
-so a second correction of the same file reuses its pages. Known unsupported formats are reported as
+so a second correction of the same file reuses its pages; once nothing is cached or being read for
+two minutes, the offscreen document is closed and its memory released. Known unsupported formats are reported as
 excluded. Supported files that cannot be downloaded or parsed stop correction.
 
 ## 3. Evidence identity and review stages

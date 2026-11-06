@@ -19,7 +19,7 @@
   })();
   const t = (source, values = []) => {
     const key = data.aliases[source];
-    const text = data.catalogs[locale]?.[key]?.message || data.catalogs.en[key]?.message || source;
+    const text = data.catalogs[locale]?.[key] || data.catalogs.en[key] || source;
     return String(text).replace(/\$(\d+)/g, (match, number) => Number(number) <= values.length ? String(values[Number(number) - 1]) : match);
   };
   const message = (parts, ...values) => t(parts.reduce((text, part, index) => text + part + (index < values.length ? `$${index + 1}` : ''), ''), values);

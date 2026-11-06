@@ -19,7 +19,7 @@ test('all eight native Chrome catalogs have complete message and placeholder par
       assert.ok(native.extensionDescription.message.length <= 132);
       for (const match of entry.message.matchAll(/\$(value\d+)\$/g)) assert.ok(entry.placeholders[match[1]]);
       const raw = entry.message.replace(/\$(value\d+)\$/g, (_, placeholder) => entry.placeholders[placeholder].content);
-      assert.equal(raw, data.catalogs[locale][key].message);
+      assert.equal(raw, data.catalogs[locale][key]);
     }
   }
 });
@@ -47,7 +47,7 @@ test('each supported locale translates primary site, grading and provider contro
   for (const locale of data.locales) {
     const { api } = createRuntime('en', locale); await api.init();
     for (const source of ['Add site', 'Manage sites', 'Correct with AI', 'For the course', 'For the assignment', 'For this case', 'Advanced AI settings', 'Test connection', 'Interface language']) {
-      assert.equal(api.t(source), data.catalogs[locale][data.aliases[source]].message);
+      assert.equal(api.t(source), data.catalogs[locale][data.aliases[source]]);
       if (locale !== 'en') assert.notEqual(api.t(source), source);
     }
   }

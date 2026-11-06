@@ -8,7 +8,7 @@ Connect a local AI server or a compatible hosted service. Configure the server a
 
 The extension reads common document, spreadsheet, presentation, text, source code and image files. Images and document pages with figures, tables or formulas are sent as images, so a vision-capable model is recommended. Text drawn invisibly is left out and reported. Unsupported formats are marked and skipped. The panel distinguishes assignment explanations from student work.
 
-Interface: English, Spanish, French, German, Portuguese, Italian, Galician and Catalan. Browser detection and manual language selection are included.
+Available in eight interface languages, with browser detection and manual language selection.
 
 Moodle context is sent directly to the selected AI provider only when you request a correction. MoodlIA receives no student work. Content may contain personal data: use a provider approved by your institution and review every suggestion. Independent open-source project, not affiliated with Moodle HQ.`,
   es: `Asistencia de IA para corregir tareas de Moodle, con el docente al mando.
@@ -19,7 +19,7 @@ Conecta un servidor de IA local o un servicio alojado compatible. Configura dire
 
 Lee documentos, hojas de cálculo, presentaciones, texto, código fuente e imágenes habituales. Las imágenes y las páginas de documentos con figuras, tablas o fórmulas se envían como imágenes, por lo que se recomienda un modelo con visión. El texto dibujado de forma invisible se omite y se indica. Los formatos no soportados se indican y omiten. El panel distingue los documentos explicativos del trabajo del alumno.
 
-Interfaz en inglés, español, francés, alemán, portugués, italiano, gallego y catalán, con detección del navegador y selección manual.
+Interfaz disponible en ocho idiomas, con detección del idioma del navegador y selección manual.
 
 El contexto de Moodle se envía directamente al proveedor elegido solo al solicitar una corrección. MoodlIA no recibe trabajos del alumnado. El contenido puede incluir datos personales: usa un proveedor autorizado por tu centro y revisa cada sugerencia. Proyecto independiente de código abierto, sin afiliación con Moodle HQ.`,
   fr: `Une aide IA à la correction des devoirs Moodle, sous le contrôle de l’enseignant.
@@ -30,7 +30,7 @@ Connectez un serveur d’IA local ou un service hébergé compatible. Configurez
 
 L’extension lit les documents, tableurs, présentations, textes, codes sources et images courants. Les images et les pages de documents avec figures, tableaux ou formules sont envoyées comme images : un modèle avec vision est recommandé. Le texte dessiné de façon invisible est ignoré et signalé. Les formats non pris en charge sont signalés et ignorés. Les références du devoir restent distinctes du travail de l’élève.
 
-Huit langues d’interface : anglais, espagnol, français, allemand, portugais, italien, galicien et catalan.
+Interface disponible en huit langues, avec détection de la langue du navigateur et choix manuel.
 
 Le contexte est envoyé directement au fournisseur choisi uniquement lors d’une demande de correction. MoodlIA ne reçoit aucun travail d’élève. Utilisez un fournisseur autorisé par votre établissement et vérifiez chaque suggestion. Projet libre indépendant, sans affiliation avec Moodle HQ.`,
   de: `KI-Unterstützung für die Bewertung von Moodle-Aufgaben. Die Lehrkraft entscheidet.
@@ -41,7 +41,7 @@ Verbinden Sie einen lokalen KI-Server oder einen kompatiblen gehosteten Dienst. 
 
 Gängige Dokumente, Tabellen, Präsentationen, Textdateien, Quellcode und Bilder werden gelesen. Bilder und Dokumentseiten mit Abbildungen, Tabellen oder Formeln werden als Bilder gesendet; ein Modell mit Bildverarbeitung wird empfohlen. Unsichtbar gezeichneter Text wird ausgelassen und gemeldet. Nicht unterstützte Formate werden markiert und übersprungen. Referenzmaterial und Schülerarbeit bleiben getrennt.
 
-Oberfläche in Englisch, Spanisch, Französisch, Deutsch, Portugiesisch, Italienisch, Galicisch und Katalanisch.
+Oberfläche in acht Sprachen, mit Erkennung der Browsersprache und manueller Auswahl.
 
 Moodle-Inhalte werden nur bei einer Korrekturanforderung direkt an den gewählten Anbieter gesendet. MoodlIA erhält keine Schülerarbeiten. Nutzen Sie einen von Ihrer Einrichtung zugelassenen Anbieter und prüfen Sie jeden Vorschlag. Unabhängiges Open-Source-Projekt ohne Verbindung zu Moodle HQ.`,
   pt_BR: `Assistência de IA para avaliar tarefas do Moodle, com o professor no controle.
@@ -52,7 +52,7 @@ Conecte um servidor de IA local ou um serviço hospedado compatível. Configure 
 
 Lê documentos, planilhas, apresentações, texto, código-fonte e imagens comuns. Imagens e páginas de documentos com figuras, tabelas ou fórmulas são enviadas como imagens, por isso recomenda-se um modelo com visão. Texto desenhado de forma invisível é omitido e indicado. Formatos não suportados são indicados e ignorados. Referências e trabalho do aluno permanecem separados.
 
-Interface em inglês, espanhol, francês, alemão, português, italiano, galego e catalão.
+Interface disponível em oito idiomas, com detecção do idioma do navegador e seleção manual.
 
 O contexto do Moodle é enviado diretamente ao provedor escolhido somente ao solicitar uma correção. O MoodlIA não recebe trabalhos dos alunos. Use um provedor autorizado pela sua instituição e revise cada sugestão. Projeto independente de código aberto, sem vínculo com o Moodle HQ.`,
   it: `Assistenza IA per valutare i compiti Moodle, con il docente al controllo.
@@ -63,7 +63,7 @@ Collega un server di IA locale o un servizio ospitato compatibile. Configura ind
 
 Legge documenti, fogli di calcolo, presentazioni, testo, codice sorgente e immagini comuni. Le immagini e le pagine di documenti con figure, tabelle o formule vengono inviate come immagini: si consiglia un modello con visione. Il testo disegnato in modo invisibile viene escluso e segnalato. I formati non supportati sono segnalati e ignorati. Materiale di riferimento e lavoro dello studente restano distinti.
 
-Interfaccia in inglese, spagnolo, francese, tedesco, portoghese, italiano, galiziano e catalano.
+Interfaccia disponibile in otto lingue, con rilevamento della lingua del browser e scelta manuale.
 
 Il contesto viene inviato direttamente al provider scelto solo quando richiedi una correzione. MoodlIA non riceve lavori degli studenti. Usa un provider autorizzato dall’istituto e verifica ogni suggerimento. Progetto open source indipendente, non affiliato a Moodle HQ.`,
   gl: `Asistencia de IA para corrixir tarefas de Moodle, co docente ao mando.
@@ -74,7 +74,7 @@ Conecta un servidor de IA local ou un servizo aloxado compatible. Configura ende
 
 Le documentos, follas de cálculo, presentacións, texto, código fonte e imaxes habituais. As imaxes e as páxinas de documentos con figuras, táboas ou fórmulas envíanse como imaxes, polo que se recomenda un modelo con visión. O texto debuxado de forma invisible omítese e indícase. Os formatos non compatibles indícanse e omítense. As referencias e o traballo do alumno mantéñense separados.
 
-Interface en inglés, español, francés, alemán, portugués, italiano, galego e catalán.
+Interface dispoñible en oito idiomas, con detección do idioma do navegador e selección manual.
 
 O contexto de Moodle envíase directamente ao provedor elixido só ao pedir unha corrección. MoodlIA non recibe traballos do alumnado. Usa un provedor autorizado polo centro e revisa cada suxestión. Proxecto independente de código aberto, sen afiliación con Moodle HQ.`,
   ca: `Assistència d’IA per avaluar tasques de Moodle, amb el docent al capdavant.
@@ -85,7 +85,7 @@ Connecta un servidor d’IA local o un servei allotjat compatible. Configura adr
 
 Llegeix documents, fulls de càlcul, presentacions, text, codi font i imatges habituals. Les imatges i les pàgines de documents amb figures, taules o fórmules s’envien com a imatges, per això es recomana un model amb visió. El text dibuixat de manera invisible s’omet i s’indica. Els formats no compatibles s’indiquen i s’ometen. Les referències i el treball de l’alumne es mantenen separats.
 
-Interfície en anglès, espanyol, francès, alemany, portuguès, italià, gallec i català.
+Interfície disponible en vuit idiomes, amb detecció de l’idioma del navegador i selecció manual.
 
 El context de Moodle s’envia directament al proveïdor triat només quan demanes una correcció. MoodlIA no rep treballs de l’alumnat. Fes servir un proveïdor autoritzat pel centre i revisa cada suggeriment. Projecte independent de codi obert, sense afiliació amb Moodle HQ.`,
 };

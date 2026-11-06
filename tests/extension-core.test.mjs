@@ -1402,11 +1402,11 @@ test('repeated English sources keep their distinct translations', async () => {
   sandbox.globalThis = sandbox;
   vm.runInNewContext(await fs.readFile(path.join(root, 'extension/src/i18nMessages.js'), 'utf8'), sandbox);
   const { aliases, catalogs } = sandbox.MoodliaCorrectorMessages;
-  assert.equal(catalogs.es[aliases['No detectado']].message, 'No detectado');
-  assert.equal(catalogs.es[aliases['No detectados']].message, 'No detectados');
-  assert.equal(catalogs.fr[aliases['No detectadas']].message, 'Non détectées');
-  assert.equal(catalogs.es[aliases['Archivo enlazado desde el enunciado.']].message, 'Archivo enlazado desde el enunciado.');
-  assert.equal(catalogs.de[aliases['AI request cancelled.']].message, 'KI-Anfrage abgebrochen.');
+  assert.equal(catalogs.es[aliases['No detectado']], 'No detectado');
+  assert.equal(catalogs.es[aliases['No detectados']], 'No detectados');
+  assert.equal(catalogs.fr[aliases['No detectadas']], 'Non détectées');
+  assert.equal(catalogs.es[aliases['Archivo enlazado desde el enunciado.']], 'Archivo enlazado desde el enunciado.');
+  assert.equal(catalogs.de[aliases['AI request cancelled.']], 'KI-Anfrage abgebrochen.');
 });
 
 test('review 0.2.1: page text stays beside its image and blocks respect an image byte budget', async () => {

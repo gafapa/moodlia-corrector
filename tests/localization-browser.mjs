@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 const source = {};
 vm.runInNewContext(await fs.readFile('extension/src/i18nMessages.js', 'utf8'), source);
 const data = source.MoodliaCorrectorMessages;
-const expected = (locale, text) => data.catalogs[locale][data.aliases[text]].message;
+const expected = (locale, text) => data.catalogs[locale][data.aliases[text]];
 const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true,
   viewport: { width: 1280, height: 800 }, args: [`--disable-extensions-except=${path.resolve('extension')}`, `--load-extension=${path.resolve('extension')}`] });
 context.setDefaultTimeout(12000);

@@ -782,6 +782,22 @@ export const readAttachment = async (file, { signal, pageImages = 'all', student
 export const readAttachmentCached = async (file, options = {}) => cachedRead(await cacheKey(file, options.pageImages, options.studentName), () => readAttachment(file, options));
 
 const activeReads = new Map();
+// Expired results are dropped on a timer, not only on the next read. Once nothing
+// is cached or being read for READER_IDLE_MS, the service worker is asked to close
+// this document, which releases PDF.js, its WebAssembly and every drawn page.
+const READER_IDLE_MS = 2 * 60_000;
+let idleTimer = null;
+const scheduleIdleCheck = () => {
+  clearTimeout(idleTimer);
+  const nextExpiry = Math.min(...[...readCache.values()].map(entry => entry.expires));
+  idleTimer = setTimeout(() => {
+    const now = Date.now();
+    for (const [entryKey, entry] of readCache) if (entry.expires <= now) readCache.delete(entryKey);
+    if (activeReads.size) return;
+    if (readCache.size) scheduleIdleCheck();
+    else void chrome.runtime.sendMessage({ type: 'mca.attachmentReaderIdle' }).catch(() => {});
+  }, readCache.size ? Math.max(1000, nextExpiry - Date.now()) : READER_IDLE_MS);
+};
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.target !== 'attachment-reader' || sender.id !== chrome.runtime.id) return false;
   if (message.type === 'mca.cancelAttachmentRead') {
@@ -793,9 +809,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const controller = new AbortController();
   const requestId = message.requestId || crypto.randomUUID();
   activeReads.set(requestId, controller);
+  clearTimeout(idleTimer);
   void readAttachmentCached(message.file, { signal: controller.signal, pageImages: message.pageImages, studentName: message.studentName })
     .then((attachment) => sendResponse({ ok: true, attachment }))
     .catch((error) => sendResponse({ ok: false, error: error.message || 'Local extraction failed.', errorCode: error.code }))
-    .finally(() => activeReads.delete(requestId));
+    .finally(() => {
+      activeReads.delete(requestId);
+      if (!activeReads.size) scheduleIdleCheck();
+    });
   return true;
 });

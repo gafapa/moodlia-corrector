@@ -1377,8 +1377,15 @@ try {
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').dataset.navigationWatch === 'stopped');
   assert.equal(await fixturePage.evaluate(() => document.documentElement.classList.contains('mca-panel-open')), false);
   await fixturePage.evaluate(() => { history.replaceState({}, '', '/school/moodle/mod/assign/view.php?id=42&action=grader&userid=99'); window.dispatchEvent(new PopStateEvent('popstate')); });
+  // Back on the grader the panel is closed, so the page is not observed until it opens.
+  await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').dataset.navigationWatch === 'paused');
+  await fixturePage.locator('#mca-floating-button-host button').click();
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').dataset.navigationWatch === 'active');
-  console.log('PASS: leaving the grader stops navigation timers/observation and returning restarts the watcher.');
+  await panelField('[data-close]').click();
+  await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').dataset.navigationWatch === 'paused');
+  await fixturePage.locator('#mca-floating-button-host button').click();
+  await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').dataset.navigationWatch === 'active');
+  console.log('PASS: leaving the grader stops navigation timers/observation; the page is observed only while the panel is open.');
   await send({ type: 'mca.setAiRuntimeConfig', config: { apiKey: 'fictional-session-key' } });
   await page.reload();
   await page.locator('#remove-api-key').waitFor({ state: 'visible' });

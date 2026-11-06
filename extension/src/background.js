@@ -836,7 +836,17 @@ const formatDirectAttachments = (files = []) => {
 };
 
 let offscreenCreation;
+let offscreenClosing = null;
+let attachmentReadsInFlight = 0;
+// The reader reports when it has held no cached pages and run no read for a while;
+// closing it then frees its memory. A read that started meanwhile keeps it open.
+const closeIdleAttachmentReader = async () => {
+  if (attachmentReadsInFlight || offscreenCreation || offscreenClosing) return;
+  offscreenClosing = chrome.offscreen.closeDocument().catch(() => {});
+  try { await offscreenClosing; } finally { offscreenClosing = null; }
+};
 const ensureAttachmentReader = async () => {
+  if (offscreenClosing) await offscreenClosing;
   if (offscreenCreation) return offscreenCreation;
   offscreenCreation = (async () => {
     const path = 'src/attachments/reader.html';
@@ -861,10 +871,14 @@ const prepareDirectAttachments = async (files, signal, skippedFiles = [], { page
     if (sizeBytes > MAX_ATTACHMENT_BYTES || totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error('Attachments exceed the 20 MB per file or 40 MB total limit.');
     let attachment = file;
     if (file.base64Data) {
-      await ensureAttachmentReader();
       const requestId = crypto.randomUUID();
       const cancelRead = () => { void chrome.runtime.sendMessage({ target: 'attachment-reader', type: 'mca.cancelAttachmentRead', requestId }).catch(() => {}); };
-      const response = await waitForAttachmentReader(chrome.runtime.sendMessage({ target: 'attachment-reader', type: 'mca.readAttachment', requestId, file, pageImages, studentName }), signal, cancelRead);
+      let response;
+      attachmentReadsInFlight++;
+      try {
+        await ensureAttachmentReader();
+        response = await waitForAttachmentReader(chrome.runtime.sendMessage({ target: 'attachment-reader', type: 'mca.readAttachment', requestId, file, pageImages, studentName }), signal, cancelRead);
+      } finally { attachmentReadsInFlight--; }
       if (response?.errorCode === 'UNSUPPORTED_ATTACHMENT') {
         skippedFiles.push({ id: file.id, name: file.name, role: file.role || 'student-submission', reason: 'Contenido de formato no soportado' });
         continue;
@@ -1464,6 +1478,10 @@ const restrictContentScriptConfig = async (config = {}) => {
 
 const handleRuntimeMessage = (message, sender, sendResponse, onProgress = null) => {
   if (message?.target === 'attachment-reader') return false;
+  if (message?.type === 'mca.attachmentReaderIdle') {
+    if (sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('src/attachments/reader.html')) void closeIdleAttachmentReader();
+    return false;
+  }
   const requestKey = `${sender.tab?.id ?? 'extension'}:${message?.requestId || 'default'}`;
   if (message?.type === 'mca.setAutomaticActivation') {
     if (!isExtensionPageSender(sender)) {

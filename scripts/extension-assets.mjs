@@ -1,15 +1,24 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
+// Minified PDF.js legacy build (same browser support as the unminified one).
+// From pdfjs-dist/wasm only the decoders PDF.js loads are bundled: the
+// no-WebAssembly fallbacks are unreachable because the manifest allows
+// 'wasm-unsafe-eval' and requires Chrome 116, and quickjs-eval serves PDF
+// scripting, which the reader does not enable.
+export const BUNDLED_PDF_WASM = ['jbig2.wasm', 'openjpeg.wasm', 'qcms_bg.wasm',
+  'LICENSE_JBIG2', 'LICENSE_OPENJPEG', 'LICENSE_PDFJS_JBIG2', 'LICENSE_PDFJS_OPENJPEG', 'LICENSE_PDFJS_QCMS', 'LICENSE_QCMS'];
+
 export async function expectedLibraryAssets(dependencyRoot) {
   const assets = {};
   for (const [source, target] of [
-    ['pdfjs-dist/legacy/build/pdf.mjs', 'pdf.mjs'],
-    ['pdfjs-dist/legacy/build/pdf.worker.mjs', 'pdf.worker.mjs'],
+    ['pdfjs-dist/legacy/build/pdf.min.mjs', 'pdf.mjs'],
+    ['pdfjs-dist/legacy/build/pdf.worker.min.mjs', 'pdf.worker.mjs'],
     ['pdfjs-dist/LICENSE', 'PDFJS-LICENSE'],
     ['fflate/esm/browser.js', 'fflate.mjs'],
     ['fflate/LICENSE', 'FFLATE-LICENSE'],
   ]) assets[`lib/${target}`] = await readFile(path.join(dependencyRoot, source));
+  for (const name of BUNDLED_PDF_WASM) assets[`lib/wasm/${name}`] = await readFile(path.join(dependencyRoot, 'pdfjs-dist/wasm', name));
   async function collect(directory, relative) {
     const entries = await readdir(directory, { withFileTypes: true });
     if (!entries.length) throw new Error(`Empty dependency directory: ${relative}`);
@@ -20,10 +29,9 @@ export async function expectedLibraryAssets(dependencyRoot) {
       else assets[target] = await readFile(source);
     }
   }
-  for (const directory of ['standard_fonts', 'cmaps', 'wasm']) await collect(path.join(dependencyRoot, 'pdfjs-dist', directory), `lib/${directory}`);
+  for (const directory of ['standard_fonts', 'cmaps']) await collect(path.join(dependencyRoot, 'pdfjs-dist', directory), `lib/${directory}`);
   return assets;
 }
-
 export function verifyExtensionAssets(files, expectedLibraries) {
   const manifest = JSON.parse(Buffer.from(files['manifest.json'] || []).toString());
   const referenced = [manifest.background.service_worker, manifest.action.default_popup, manifest.options_ui.page,

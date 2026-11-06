@@ -384,10 +384,24 @@ const extractDescriptionFromDocument = (doc) => {
   return '';
 };
 
+// The description page is the same for every student of an assignment: it is
+// fetched once and reused while the grader stays on that assignment. Failed
+// fetches are not kept, so the next extraction tries again.
+let assignmentDescriptionCache = null;
 const fetchAssignmentDescription = async (descriptionLink) => {
   if (!descriptionLink?.url || !isSameOriginUrl(descriptionLink.url)) {
     return null;
   }
+  // Callers number and mark the files, so each extraction gets its own copies.
+  const copy = ({ title, text, files }) => ({ ...descriptionLink, title, text, files: files.map(file => ({ ...file })) });
+  if (assignmentDescriptionCache?.url === descriptionLink.url) return copy(assignmentDescriptionCache.result);
+  const result = await fetchAssignmentDescriptionPage(descriptionLink);
+  if (result.error) return result;
+  assignmentDescriptionCache = { url: descriptionLink.url, result };
+  return copy(result);
+};
+
+const fetchAssignmentDescriptionPage = async (descriptionLink) => {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
@@ -2935,7 +2949,10 @@ const setPageShift = (enabled) => {
 
 const openPanel = () => {
   const { panel } = getPanelElements();
+  // Catch up with any navigation that happened while the panel was closed.
+  navigationWatcher?.check();
   panel.dataset.open = 'true';
+  navigationWatcher?.observe();
   setPageShift(true);
   addPanelDiagnostic('panel.open');
   const revision = gradingPageRevision;
@@ -2949,6 +2966,7 @@ const openPanel = () => {
 const closePanel = () => {
   const { panel } = getPanelElements();
   panel.dataset.open = 'false';
+  navigationWatcher?.pause();
   setPageShift(false);
 };
 
@@ -3528,10 +3546,15 @@ const resetAssistantForNavigation = (refresh = true) => {
   }
 };
 
+// Page observation runs only while the panel is open: a closed panel needs no live
+// updates, and opening it first compares the page identity and resets if the
+// student, attempt or page changed meanwhile. History and navigation events are
+// cheap and stay attached, so leaving the grader still hides the button.
+let navigationWatcher = null;
 const watchGradingNavigation = () => {
   lastStudentKey = currentStudentKey();
   let identity = getNavigationIdentity();
-  let active = false;
+  let watching = false;
   let checkTimer = null;
   let propertyTimer = null;
   const host = document.getElementById(PANEL_ID);
@@ -3540,19 +3563,19 @@ const watchGradingNavigation = () => {
     document.querySelector('input[name="attemptnumber"]')?.value || '',
     document.body.className.match(/\bcourse-(\d+)\b/)?.[1] || '']);
   let scalar = scalarIdentity();
-  const stop = () => {
-    active = false;
+  const pause = (state = isSupportedGraderUrl() ? 'paused' : 'stopped') => {
+    watching = false;
     clearTimeout(checkTimer);
     checkTimer = null;
     clearInterval(propertyTimer);
     propertyTimer = null;
     observer.disconnect();
-    host.dataset.navigationWatch = 'stopped';
+    host.dataset.navigationWatch = state;
   };
   const check = () => {
     checkTimer = null;
     if (!isSupportedGraderUrl()) {
-      stop();
+      pause('stopped');
       identity = '';
       resetAssistantForNavigation(false);
       return;
@@ -3562,12 +3585,14 @@ const watchGradingNavigation = () => {
     if (next !== identity) { identity = next; resetAssistantForNavigation(); }
   };
   const schedule = () => {
-    if (active && checkTimer === null) checkTimer = setTimeout(check, 100);
+    if (watching && checkTimer === null) checkTimer = setTimeout(check, 100);
   };
   const observer = new MutationObserver(schedule);
-  const start = () => {
-    if (active || !isSupportedGraderUrl()) return;
-    active = true;
+  const observe = () => {
+    if (!isSupportedGraderUrl()) return pause('stopped');
+    if (getPanelElements().panel.dataset.open !== 'true') return pause('paused');
+    if (watching) return undefined;
+    watching = true;
     host.dataset.navigationWatch = 'active';
     observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['value'] });
     // Only property changes lacking DOM/navigation events need a lightweight fallback.
@@ -3575,14 +3600,16 @@ const watchGradingNavigation = () => {
       const next = scalarIdentity();
       if (next !== scalar) { scalar = next; check(); }
     }, 1000);
+    return undefined;
   };
-  const navigate = () => { if (isSupportedGraderUrl()) start(); check(); };
+  const navigate = () => { check(); observe(); };
   window.addEventListener('popstate', navigate);
   window.addEventListener('hashchange', navigate);
   window.navigation?.addEventListener('currententrychange', navigate);
-  window.addEventListener('pagehide', () => { stop(); identity = ''; resetAssistantForNavigation(false); });
+  window.addEventListener('pagehide', () => { pause('stopped'); identity = ''; resetAssistantForNavigation(false); });
   window.addEventListener('pageshow', event => { if (event.persisted) navigate(); });
-  start();
+  navigationWatcher = { check, observe, pause };
+  observe();
 };
 
 const initializeAssistantUi = () => {

@@ -192,8 +192,10 @@ document:
 - The offscreen reader keeps up to eight drawn documents (at most 120 MB of
   text and images) in its memory for 30 minutes, keyed by the SHA-256 of the
   file, whether it is declared text, and the page-image setting. Correcting the
-  same file again reuses its pages. Nothing is written to disk; the memory is
-  released when Chrome closes the offscreen document or the extension reloads.
+  same file again reuses its pages. Nothing is written to disk. Expired entries
+  are dropped on a timer; once nothing is cached or being read for two minutes,
+  the service worker closes the offscreen document, which releases PDF.js, its
+  WebAssembly decoders and every drawn page.
 - With an Ollama model that reports no image input, DOCX and ODT files are sent
   as text only, without their `Page N: visual content` lines, and the receipt
   reports `page-images-not-sent`. PDF pages and image files still need a
