@@ -891,6 +891,8 @@ try {
       await advanced.locator('#status').filter({ hasText: 'Clave de API guardada eliminada' }).waitFor();
       assert.equal((await send({ type: 'mca.getAiRuntimeStatus' })).status.appConfig.hasApiKey, false);
       await advanced.locator('#provider').selectOption('ollama');
+      // Changing provider loads its saved profile asynchronously; save only once it is in the form.
+      await advancedFrame.waitForFunction(endpoint => document.querySelector('#baseUrl').value === endpoint, baseUrl);
       await advanced.locator('#model').fill('fictional-vision');
       await advanced.locator('button[type="submit"]').click();
       await waitForAdvancedStatus('Configuración guardada');
