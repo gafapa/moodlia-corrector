@@ -44,7 +44,7 @@ try {
     }, grader.url());
     const panel = grader.locator('#mca-side-panel-host');
     await panel.locator('[data-status]').filter({ hasText: expected(locale, 'Detected data ready.') }).waitFor();
-    assert.equal(await panel.locator('h2.title').textContent(), expected(locale, 'Moodle Corrector'));
+    assert.equal(await panel.locator('h2.title').textContent(), 'MoodlIA Corrector');
     assert.equal(await panel.locator('label[for="mca-course-instructions"]').textContent(), expected(locale, 'For the course'));
     assert.match(await panel.locator('[data-grading-mode]').textContent(), new RegExp(expected(locale, 'Simple direct grading')));
     // Summary, detected data and JSON hints must not keep Spanish source strings.
@@ -52,13 +52,16 @@ try {
       const panelText = await panel.locator('.content').evaluateAll(elements => elements.map(element => element.textContent).join(' '));
       assert.doesNotMatch(panelText, /Instrucciones|caracteres|Tarea Moodle|Formato recomendado|Descripción enlazada|Mode: Mode/);
     }
+    await panel.locator('[data-scope-tab="course"]').click();
     await panel.locator('[data-course-instructions]').fill('Curso');
     assert.equal(await panel.locator('[data-course-instructions]').inputValue(), 'Curso');
     assert.match(await grader.locator('.assignsubmission_onlinetext').textContent(), /A pond contains producers/);
     assert.equal(await grader.locator('html').getAttribute('lang'), 'en');
     assert.equal(await grader.locator('#id_grade').inputValue(), '');
     assert.equal(await grader.locator('#id_assignfeedbackcomments_editor').inputValue(), '');
+    await panel.locator('[data-scope-tab="course"]').click();
     await panel.locator('[data-course-instructions]').fill('Explain strengths and give one practical improvement.');
+    await panel.locator('[data-scope-tab="assignment"]').click();
     await panel.locator('[data-assignment-instructions]').fill('Assess ecological relationships and the conservation measure.');
     if (['en', 'es', 'de'].includes(locale)) {
       await panel.locator('.content').evaluate(element => { element.scrollTop = 0; });

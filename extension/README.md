@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.2.2`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.2.3`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 
@@ -15,7 +15,7 @@ Implemented extension source, version `0.2.2`. The build is a prepared candidate
 3. Click **Load unpacked**.
 4. Select the `extension` folder from this project.
 5. Open an HTTPS Moodle assignment grader and click the extension icon to activate it on that page.
-6. In the correction panel, open **Configuración de IA**. Use **Simple** for provider/model selection, or **Avanzado** for the full endpoint, port, model, and session-key settings.
+6. In the correction panel, open the AI chip in the header (**Configuración de IA**). Use **Simple** for provider/model selection, or **Avanzado** for the full endpoint, port, model, and session-key settings.
 7. Optionally choose **Añadir sitio** in the popup and save the HTTPS Moodle base URL to activate automatically on future grader pages. Use **Gestionar sitios** and **Quitar** to remove saved activation.
 
 The API key is retained only in Chrome session storage. Provider, endpoint, and model are saved as non-secret preferences.
@@ -140,7 +140,14 @@ and schema repair; unrelated filenames and file URLs remain omitted. This does n
 download new URLs from criteria or turn reference material into student-authored work.
 Unavailable contents must still be reported, and model compliance requires teacher review.
 
-Version 0.1.54 simplifies the side panel. The main view shows file purposes,
+Version 0.2.3 replaces this layout: AI settings open from the AI chip in the
+panel header, and **Correction JSON** and **Data and diagnostics** from the
+**More options** menu (Escape closes the menu or the view and returns focus to
+the control that opened it). The main view is three numbered cards (evidence,
+teacher criteria in course/assignment/student tabs, result), with a progress
+card while a correction runs.
+
+Version 0.1.54 simplified the side panel. The main view shows file purposes,
 saved instructions, and readable proposed grades/feedback. Three SVG icon
 buttons open **AI configuration**, **Correction JSON**, and **Data and
 diagnostics**. Buttons have accessible labels and native tooltips. Press Escape
@@ -169,8 +176,8 @@ specific to the current page.
 
 1. Open any HTTPS Moodle assignment grading page (`/mod/assign/view.php?action=grader`), including sites installed below a subdirectory.
 2. Open the assistant panel and review the detected Moodle data.
-3. Optional: open the JSON icon, paste an external correction, and click **Apply JSON to Moodle**.
-4. Configure AI through its icon if needed, return to the main view, and click **Correct with AI**.
+3. Optional: open **More options** → **Correction JSON**, paste an external correction, and click **Apply JSON to Moodle**.
+4. Configure AI through the AI chip in the header if needed, return to the main view, and click **Correct with AI**.
 5. Review the filled Moodle fields before saving.
 
 The extension never submits the Moodle grading form. The teacher remains responsible for reviewing and saving the final grade.

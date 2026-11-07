@@ -1769,6 +1769,68 @@
       }
     }
   },
+  "mbc79cdffbaa8": {
+    "message": "Plus d’options",
+    "description": "More options"
+  },
+  "m45833b231c24": {
+    "message": "Configurer l’IA",
+    "description": "Configure AI"
+  },
+  "m06e6c4ca9d7f": {
+    "message": "Tentative $value1$",
+    "description": "Attempt $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m7259896a1745": {
+    "message": "Correction en cours",
+    "description": "Correcting"
+  },
+  "m44284a649ef4": {
+    "message": "Avancement de la correction",
+    "description": "Correction progress"
+  },
+  "m3827b2a21f33": {
+    "message": "Lire les fichiers",
+    "description": "Read the files"
+  },
+  "m682c1dcc0fad": {
+    "message": "Examiner les éléments",
+    "description": "Review the evidence"
+  },
+  "m0a5fd1323f1b": {
+    "message": "Rédiger la note et le commentaire",
+    "description": "Write the grade and feedback"
+  },
+  "meb658929eae1": {
+    "message": "Remplir le formulaire Moodle",
+    "description": "Fill in the Moodle form"
+  },
+  "m012891232e3c": {
+    "message": "Éléments pour l’IA",
+    "description": "Evidence for the AI"
+  },
+  "m647070f11615": {
+    "message": "Ajouter des fichiers d’appui",
+    "description": "Add supporting files"
+  },
+  "mb2cb20928c0a": {
+    "message": "Enregistré automatiquement.",
+    "description": "Saved automatically."
+  },
+  "m214eaf13eaf4": {
+    "message": "Portée du critère",
+    "description": "Criteria scope"
+  },
+  "md6322d3c39d9": {
+    "message": "Cet élève",
+    "description": "This student"
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

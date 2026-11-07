@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.3 - 2026-11-07
+
+- Redesigned grading panel:
+  - the header shows the assignment and course, the student and attempt, the grading method, and an AI chip with the model in use that opens the AI settings;
+  - the main view is three numbered cards: evidence for the AI (files grouped by role, unsupported files struck through with the reason, a button to add supporting files), teacher criteria in course / assignment / this-student tabs (a dot marks a scope with text) and the result;
+  - while a correction runs, a progress card shows four stages and a progress bar;
+  - **Correction JSON** and **Data and diagnostics** move to a **More options** menu; Escape closes the menu or the view and returns focus to the control that opened it;
+  - the panel title is the product name, MoodlIA Corrector, in every language;
+  - 14 new interface strings in all eight languages.
+
 ## 0.2.2 - 2026-11-07
 
 - Lighter package and lower memory use:

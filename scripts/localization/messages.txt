@@ -353,3 +353,17 @@ The submission contains text addressed to the AI; review the grade carefully:|La
 online text|texto en línea|texte en ligne|Online-Text|texto online|testo online|texto en liña|text en línia
 The student's name was replaced in what was sent to the AI ($1 occurrences).|El nombre del alumno/a se ha sustituido en lo enviado a la IA ($1 apariciones).|Le nom de l’élève a été remplacé dans ce qui a été envoyé à l’IA ($1 occurrences).|Der Name der lernenden Person wurde in den Daten für die KI ersetzt ($1 Vorkommen).|O nome do aluno foi substituído no que foi enviado à IA ($1 ocorrências).|Il nome dello studente è stato sostituito in ciò che è stato inviato all’IA ($1 occorrenze).|O nome do alumno/a substituíuse no enviado á IA ($1 aparicións).|El nom de l’alumne/a s’ha substituït en allò enviat a la IA ($1 aparicions).
 $1 values|$1 valores|$1 valeurs|$1 Werte|$1 valores|$1 valori|$1 valores|$1 valors
+More options|Más opciones|Plus d’options|Weitere Optionen|Mais opções|Altre opzioni|Máis opcións|Més opcions
+Configure AI|Configurar IA|Configurer l’IA|KI einrichten|Configurar IA|Configura l’IA|Configurar IA|Configura la IA
+Attempt $1|Intento $1|Tentative $1|Versuch $1|Tentativa $1|Tentativo $1|Intento $1|Intent $1
+Correcting|Corrigiendo|Correction en cours|Korrektur läuft|Corrigindo|Correzione in corso|Corrixindo|S’està corregint
+Correction progress|Progreso de la corrección|Avancement de la correction|Korrekturfortschritt|Progresso da correção|Avanzamento della correzione|Progreso da corrección|Progrés de la correcció
+Read the files|Leer los archivos|Lire les fichiers|Dateien lesen|Ler os arquivos|Leggere i file|Ler os ficheiros|Llegir els fitxers
+Review the evidence|Revisar las evidencias|Examiner les éléments|Nachweise prüfen|Revisar as evidências|Esaminare le evidenze|Revisar as evidencias|Revisar les evidències
+Write the grade and feedback|Redactar la nota y el comentario|Rédiger la note et le commentaire|Note und Feedback verfassen|Redigir a nota e o comentário|Scrivere voto e commento|Redactar a nota e o comentario|Redactar la nota i el comentari
+Fill in the Moodle form|Rellenar el formulario de Moodle|Remplir le formulaire Moodle|Moodle-Formular ausfüllen|Preencher o formulário do Moodle|Compilare il modulo Moodle|Encher o formulario de Moodle|Emplenar el formulari de Moodle
+Evidence for the AI|Evidencias para la IA|Éléments pour l’IA|Nachweise für die KI|Evidências para a IA|Evidenze per l’IA|Evidencias para a IA|Evidències per a la IA
+Add supporting files|Añadir archivos de apoyo|Ajouter des fichiers d’appui|Begleitdateien hinzufügen|Adicionar arquivos de apoio|Aggiungi file di supporto|Engadir ficheiros de apoio|Afegeix fitxers de suport
+Saved automatically.|Se guarda automáticamente.|Enregistré automatiquement.|Wird automatisch gespeichert.|Salvo automaticamente.|Salvato automaticamente.|Gárdase automaticamente.|Es desa automàticament.
+Criteria scope|Ámbito del criterio|Portée du critère|Geltungsbereich der Vorgaben|Âmbito do critério|Ambito del criterio|Ámbito do criterio|Àmbit del criteri
+This student|Este alumno|Cet élève|Diese Person|Este aluno|Questo studente|Este alumno|Aquest alumne

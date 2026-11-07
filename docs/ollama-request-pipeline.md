@@ -1,6 +1,6 @@
 # Moodle evidence and Ollama request pipeline
 
-This describes the local 0.2.2 candidate. It separates data observed in Moodle,
+This describes the local 0.2.3 candidate. It separates data observed in Moodle,
 locally prepared evidence, model observations and the final correction. The
 qualification snapshots below were recorded for 0.1.74; 0.1.77 validation is in
 [`review-2026-10-27-0.1.77.md`](review-2026-10-27-0.1.77.md).

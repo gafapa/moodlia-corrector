@@ -577,7 +577,7 @@ const main = async () => {
     assert.ok(lockedStatus.includes(STATUS_GRADE_NOT_APPLIED), `Unexpected status for the overridden student: "${lockedStatus}".`);
     console.log('PASS: for the overridden student the AI correction fills the feedback and reports that the grade was not applied.');
 
-    if (!(await page.locator(`${panelSelector} [data-external-correction]`).isVisible())) await page.locator(`${panelSelector} [data-tool="json"]`).click();
+    if (!(await page.locator(`${panelSelector} [data-external-correction]`).isVisible())) { await page.locator(`${panelSelector} [data-more]`).click(); await page.locator(`${panelSelector} [data-tool="json"]`).click(); }
     await page.locator(`${panelSelector} [data-external-correction]`).fill(JSON.stringify({ studentFeedback: 'Fictional pasted review MCALABFEEDBACKTHREE.', score: 5 }));
     const pastedStatus = await runPanelAction(page, '[data-apply-correction]', [STATUS_GRADE_NOT_APPLIED], timeoutMs, 'Applying a pasted correction');
     assert.ok(pastedStatus.includes(STATUS_GRADE_NOT_APPLIED), `Unexpected status for the overridden student: "${pastedStatus}".`);

@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-07",
+  "version": "0.2.3",
+  "unit_tests_passed": 102,
+  "browser_checks_passed": 122,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 240,
+  "archive_uncompressed_bytes": 6033518,
+  "archive_matches_source": true,
+  "archive_sha256": "39290187a8f6474fa49925b78acfc285a67f9d16c7e1e53716faf981a42226f1",
+  "validation_scope": "Grading-panel redesign checked with synthetic Chromium fixtures in eight languages, including keyboard access to the More options menu, the criteria tabs and focus restoration. The 0.2.1 live inference, fidelity corpus and real-Moodle lab checks were not repeated for this build.",
+  "npm_audit_vulnerabilities": 0,
+  "sizes": {
+    "content_script_bytes": 423801,
+    "previous_content_script_bytes": 403396
+  },
+  "store_metadata": {
+    "locales": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "pt_BR",
+      "it",
+      "gl",
+      "ca"
+    ],
+    "screenshots_regenerated": true,
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

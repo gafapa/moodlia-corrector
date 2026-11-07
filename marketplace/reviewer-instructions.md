@@ -1,6 +1,6 @@
 # Reviewer instructions
 
-MoodlIA Corrector 0.2.2 assists teacher review of Moodle assignments. It is an independent project and does not require a separate MoodlIA plugin or subscription.
+MoodlIA Corrector 0.2.3 assists teacher review of Moodle assignments. It is an independent project and does not require a separate MoodlIA plugin or subscription.
 
 ## Access information to enter privately in the review dashboard
 
@@ -15,7 +15,7 @@ The publisher must complete these fields with a dedicated non-production environ
 
 1. Install the extension in Chrome 116 or later and open the supplied HTTPS assignment grader while signed in as the dedicated test teacher.
 2. Click the extension icon. The popup contains Add site and Manage sites; the correction sidebar opens on the grader. Automatic activation is off until a site is explicitly remembered.
-3. Open the AI settings icon in the sidebar. Simple mode selects provider/model; Advanced exposes endpoint protocol, IP/host, port, API path, full URL, model and session key. A separate options page is also available from Chrome.
+3. Open the AI chip in the sidebar header (it shows the model in use, or "Configure AI"). Simple mode selects provider/model; Advanced exposes endpoint protocol, IP/host, port, API path, full URL, model and session key. A separate options page is also available from Chrome.
 4. Configure the supplied endpoint or a local compatible server you operate. Refresh models, select the exact model, save and test the connection. The test sends fictional data only. Network HTTP hosts may prompt for optional access; use a trusted network or HTTPS.
 5. Inspect detected grading mode and evidence roles. Assignment documents are references; submitted work is assessed. Supported PDF, DOCX, ODT, XLSX, ODS, PPTX, ODP, text and source-code files are read locally. Include a C header, HTML file and JavaScript module in the fictional submission to verify they are included as literal code, without running it. Supported images, PDF pages and Office document pages (DOCX, ODT, XLSX, ODS, PPTX, ODP) are sent as images, so use a vision model; with an Ollama model that reports no image input, Office documents are sent as text only. Unsupported files are shown as skipped.
 6. Enter teacher criteria for course, assignment and case. Request a correction. Check that the proposed feedback/grade or rubric selection is reviewable and editable in Moodle. Do not save any real student's grade. The extension itself never submits the form.

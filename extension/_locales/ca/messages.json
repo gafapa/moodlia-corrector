@@ -1769,6 +1769,68 @@
       }
     }
   },
+  "mbc79cdffbaa8": {
+    "message": "Més opcions",
+    "description": "More options"
+  },
+  "m45833b231c24": {
+    "message": "Configura la IA",
+    "description": "Configure AI"
+  },
+  "m06e6c4ca9d7f": {
+    "message": "Intent $value1$",
+    "description": "Attempt $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m7259896a1745": {
+    "message": "S’està corregint",
+    "description": "Correcting"
+  },
+  "m44284a649ef4": {
+    "message": "Progrés de la correcció",
+    "description": "Correction progress"
+  },
+  "m3827b2a21f33": {
+    "message": "Llegir els fitxers",
+    "description": "Read the files"
+  },
+  "m682c1dcc0fad": {
+    "message": "Revisar les evidències",
+    "description": "Review the evidence"
+  },
+  "m0a5fd1323f1b": {
+    "message": "Redactar la nota i el comentari",
+    "description": "Write the grade and feedback"
+  },
+  "meb658929eae1": {
+    "message": "Emplenar el formulari de Moodle",
+    "description": "Fill in the Moodle form"
+  },
+  "m012891232e3c": {
+    "message": "Evidències per a la IA",
+    "description": "Evidence for the AI"
+  },
+  "m647070f11615": {
+    "message": "Afegeix fitxers de suport",
+    "description": "Add supporting files"
+  },
+  "mb2cb20928c0a": {
+    "message": "Es desa automàticament.",
+    "description": "Saved automatically."
+  },
+  "m214eaf13eaf4": {
+    "message": "Àmbit del criteri",
+    "description": "Criteria scope"
+  },
+  "md6322d3c39d9": {
+    "message": "Aquest alumne",
+    "description": "This student"
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

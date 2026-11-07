@@ -755,10 +755,21 @@ try {
   await fixturePage.locator('textarea[name="assignfeedbackcomments_editor[text]"]').fill('');
   console.log('PASS: invalid manual scores leave all fields untouched and valid scores still apply.');
   const panelField = (selector) => fixturePage.locator(`#mca-side-panel-host ${selector}`);
+  // JSON and diagnostics sit in the "More options" menu; AI settings open from the header chip.
+  const openPanelTool = async (id) => {
+    if (id !== 'settings' && await panelField('[data-more-menu]').isHidden()) await panelField('[data-more]').click();
+    await panelField(`[data-tool="${id}"]`).click();
+  };
+  // One criteria scope is visible at a time: select its tab before typing.
+  const criteriaScopes = { '[data-course-instructions]': 'course', '[data-assignment-instructions]': 'assignment', '[data-extra-instructions]': 'case' };
+  const criteriaField = async (selector) => {
+    await panelField(`[data-scope-tab="${criteriaScopes[selector]}"]`).click();
+    return panelField(selector);
+  };
   assert.equal(await panelField('[data-external-correction]').isVisible(), false);
   assert.equal(await panelField('[data-provider]').isVisible(), false);
   assert.equal(await panelField('[data-diagnostics]').isVisible(), false);
-  await panelField('[data-tool="json"]').click();
+  await openPanelTool('json');
   for (const invalid of ['{broken', '{"studentFeedback":"Must not write","score":99}', '{"studentFeedback":"Must not write","score":1,"needsRepair":true}']) {
     await panelField('[data-external-correction]').fill(invalid);
     await panelField('[data-apply-correction]').click();
@@ -783,7 +794,7 @@ try {
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-external-correction]').value === '');
   await fixturePage.waitForFunction(() => /Datos detectados listos|Detected data ready/.test(document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent));
   assert.equal((await extractFixture()).ok, true);
-  if (!(await panelField('[data-external-correction]').isVisible())) await panelField('[data-tool="json"]').click();
+  if (!(await panelField('[data-external-correction]').isVisible())) await openPanelTool('json');
   await panelField('[data-external-correction]').fill('{"studentFeedback":"Locked grade feedback","score":5}');
   await panelField('[data-apply-correction]').click();
   await fixturePage.waitForFunction(() => /no la nota|not the grade/.test(document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent));
@@ -809,7 +820,7 @@ try {
     const format = Object.assign(document.createElement('input'), { type: 'hidden', name: 'assignfeedbackcomments_editor[format]', value: '0' });
     document.querySelector('#id_assignfeedbackcomments_editor').after(format);
   });
-  if (!(await panelField('[data-external-correction]').isVisible())) await panelField('[data-tool="json"]').click();
+  if (!(await panelField('[data-external-correction]').isVisible())) await openPanelTool('json');
   await panelField('[data-external-correction]').fill('{"studentFeedback":"Use <stdio.h> and check a<b.","score":5}');
   await panelField('[data-apply-correction]').click();
   await fixturePage.waitForFunction(() => /Corrección aplicada|Applied to Moodle/.test(document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent));
@@ -821,9 +832,9 @@ try {
   await fixturePage.locator('textarea[name="assignfeedbackcomments_editor[text]"]').fill('');
   await fixturePage.keyboard.press('Escape');
   console.log('PASS: plain-text Moodle feedback (FORMAT_MOODLE) is escaped so Moodle does not strip angle brackets.');
-  for (const name of ['Configuración de IA', 'JSON de corrección', 'Datos y diagnóstico']) {
-    const tool = fixturePage.getByRole('button', { name, exact: true });
-    await tool.click();
+  for (const [name, toolId] of [['Configuración de IA', 'settings'], ['JSON de corrección', 'json'], ['Datos y diagnóstico', 'inspect']]) {
+    const tool = panelField(`[data-tool="${toolId}"]`);
+    await openPanelTool(toolId);
     assert.equal(await tool.getAttribute('aria-expanded'), 'true');
     if (name === 'Configuración de IA') {
       assert.equal(await panelField('[data-provider]').isVisible(), true);
@@ -915,23 +926,25 @@ try {
     }
     await fixturePage.keyboard.press('Escape');
     assert.equal(await tool.getAttribute('aria-expanded'), 'false');
-    assert.equal(await tool.evaluate(element => element.getRootNode().activeElement === element), true);
+    // Focus returns to the control that opened the tool: the AI chip, or the "More options" button.
+    const opener = toolId === 'settings' ? tool : panelField('[data-more]');
+    assert.equal(await opener.evaluate(element => element.getRootNode().activeElement === element), true);
   }
   console.log('PASS: technical controls are hidden by default and accessible through labelled icons with Escape and focus restoration.');
   await fixturePage.setViewportSize({ width: 600, height: 800 });
   assert.equal(await panelField('[data-tool="settings"]').isVisible(), true);
   await fixturePage.screenshot({ path: 'node_modules/review-panel-compact.png' });
   await fixturePage.setViewportSize({ width: 1280, height: 800 });
-  await panelField('[data-tool="json"]').click();
+  await openPanelTool('json');
   await panelField('[data-external-correction]').fill('{"score":8,"finalComment":"Previous student"}');
   await panelField('[data-correction]').fill('Previous AI suggestion');
   await fixturePage.getByRole('button', { name: 'Volver a la corrección', exact: true }).click();
-  await panelField('[data-assignment-instructions]').fill('Previous instructions');
-  await panelField('[data-course-instructions]').fill('Course-wide criterion');
-  await panelField('[data-extra-instructions]').fill('Only student one');
+  await (await criteriaField('[data-assignment-instructions]')).fill('Previous instructions');
+  await (await criteriaField('[data-course-instructions]')).fill('Course-wide criterion');
+  await (await criteriaField('[data-extra-instructions]')).fill('Only student one');
   await panelField('.instruction-fields').scrollIntoViewIfNeeded();
   await fixturePage.screenshot({ path: 'node_modules/review-teacher-criteria.png' });
-  await panelField('[data-assignment-instructions]').fill('Persistent instructions');
+  await (await criteriaField('[data-assignment-instructions]')).fill('Persistent instructions');
   await page.waitForFunction(async () => JSON.stringify(await chrome.storage.local.get(null)).includes('Persistent instructions'));
   await panelField('[data-close]').click();
   await fixturePage.locator('#mca-floating-button-host button').click();
@@ -950,7 +963,7 @@ try {
   assert.equal(await panelField('[data-assignment-instructions]').inputValue(), 'Persistent instructions');
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-extra-instructions]').value === '');
   assert.equal(await panelField('[data-course-instructions]').inputValue(), 'Course-wide criterion');
-  await panelField('[data-extra-instructions]').fill('Only student two');
+  await (await criteriaField('[data-extra-instructions]')).fill('Only student two');
   await fixturePage.evaluate(() => history.replaceState({}, '', location.href.replace('userid=2', 'userid=1')));
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-extra-instructions]').value === 'Only student one');
   await fixturePage.evaluate(() => history.replaceState({}, '', location.href.replace('userid=1', 'userid=2')));
@@ -958,7 +971,7 @@ try {
   console.log('PASS: changing students preserves course/task criteria and restores only the matching student case.');
   await fixturePage.evaluate(() => { const url = new URL(location.href); url.searchParams.set('attemptnumber', '1'); history.replaceState({}, '', url); });
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-extra-instructions]').value === '');
-  await panelField('[data-extra-instructions]').fill('Only the second attempt');
+  await (await criteriaField('[data-extra-instructions]')).fill('Only the second attempt');
   await fixturePage.evaluate(() => { const url = new URL(location.href); url.searchParams.delete('attemptnumber'); history.replaceState({}, '', url); });
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-extra-instructions]').value === 'Only student two');
   console.log('PASS: case criteria remain separate for different attempts by the same student.');
@@ -1056,7 +1069,7 @@ try {
   await panelField('[data-auto-correct]').uncheck();
   await page.waitForFunction(async () => (await chrome.storage.local.get('mca.autoCorrectNext'))['mca.autoCorrectNext'] === false);
   console.log('PASS: the next student is corrected automatically when chosen, and a student already corrected is not corrected again.');
-  await panelField('[data-extra-instructions]').fill('Only student three');
+  await (await criteriaField('[data-extra-instructions]')).fill('Only student three');
   await fixturePage.evaluate(() => {
     // Moodle's grade form identifies its user with the Quickform marker; its
     // hidden userid input is "0" inside the grader fragment.
@@ -1072,7 +1085,7 @@ try {
     const root = document.querySelector('#mca-side-panel-host').shadowRoot;
     return root.querySelector('[data-assignment-instructions]').value === 'Persistent instructions' && root.querySelector('[data-course-instructions]').value === 'Course-wide criterion';
   });
-  await panelField('[data-assignment-instructions]').fill('Only task forty-three');
+  await (await criteriaField('[data-assignment-instructions]')).fill('Only task forty-three');
   await fixturePage.evaluate(() => {
     history.replaceState({}, '', location.href.replace('id=43&', 'id=44&'));
     document.body.className = 'course-8';
@@ -1086,7 +1099,7 @@ try {
   });
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-assignment-instructions]').value === 'Persistent instructions');
   console.log('PASS: new courses and tasks copy defaults without copying case criteria or overwriting saved task criteria.');
-  await panelField('[data-tool="json"]').click();
+  await openPanelTool('json');
   await panelField('[data-external-correction]').fill('Previous page JSON');
   await fixturePage.reload();
   await fixturePage.locator('#mca-floating-button-host').waitFor({ state: 'attached' });
@@ -1096,7 +1109,7 @@ try {
   await fixturePage.locator('#mca-floating-button-host button').click();
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-grading-mode]').textContent.includes('sobre 10'));
   console.log('PASS: full page navigation creates a clean assistant that detects the new page when opened.');
-  await panelField('[data-assignment-instructions]').fill('');
+  await (await criteriaField('[data-assignment-instructions]')).fill('');
   await page.waitForFunction(async () => Object.entries(await chrome.storage.local.get(null)).some(([key, value]) => key.endsWith(':assignment:42') && value === ''));
   await fixturePage.reload();
   await fixturePage.locator('#mca-side-panel-host').waitFor({ state: 'attached' });

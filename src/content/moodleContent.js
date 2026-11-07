@@ -11,7 +11,7 @@ const PAGE_STYLE_ID = 'mca-page-layout-style';
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.2.2',
+  version: '0.2.3',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -1864,58 +1864,35 @@ const createPanelStyles = () => {
   style.textContent = `
     :host {
       all: initial;
-      color: #182033;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mca-accent: #1f4fa0;
+      --mca-accent-strong: #163a78;
+      --mca-accent-soft: #eef2f8;
+      --mca-ink: #172033;
+      --mca-muted: #4a5568;
+      --mca-line: #e1e6ed;
+      --mca-field: #cdd5df;
+      --mca-ground: #f4f6f9;
+      --mca-tile: #f7f9fb;
+      --mca-ok: #1f8a4c;
+      --mca-ok-ink: #14532d;
+      --mca-ok-soft: #e8f5ec;
+      --mca-warn: #b45309;
+      --mca-warn-ink: #6b3500;
+      --mca-warn-soft: #fdf3e1;
+      color: var(--mca-ink);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 13px;
       line-height: 1.45;
     }
 
-    button, select, textarea {
-      font: inherit;
-    }
-
+    button, select, textarea, input { font: inherit; }
     [hidden] { display: none !important; }
-    button:focus-visible, textarea:focus-visible, select:focus-visible {
-      outline: 2px solid #2453a6;
-      outline-offset: 3px;
+    button:focus-visible, textarea:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid var(--mca-accent);
+      outline-offset: 2px;
     }
-    .panel-tools { grid-column: 1 / -1; display: flex; gap: 8px; }
-    .panel-overview { grid-column: 1 / -1; border-top: 1px solid #dfe4ee; padding-top: 10px; }
-    .panel-overview [data-grading-mode] { margin: 0; color: #213b65; font-size: 15px; font-weight: 750; }
-    .panel-overview [data-status] { margin: 4px 0 0; color: #365075; font-size: 13px; font-weight: 550; }
-    .tool-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      padding: 8px;
-      color: #365075;
-      background: #eef2f7;
-    }
-    .tool-button:hover, .tool-button[aria-expanded="true"] { background: #dce7f8; color: #183c79; }
-    .tool-button svg { width: 22px; height: 22px; }
-    .technical-pane { display: grid; gap: 16px; background: #fff; padding: 14px; border-radius: 8px; }
-    .technical-pane > h3 { margin: 0; font-size: 15px; }
-    .technical-pane .runtime-card, .technical-pane .field-stack { padding: 0; border: 0; }
-    .instruction-fields { display: grid; gap: 8px; }
-    .instruction-fields textarea {
-      min-height: 110px;
-      font: inherit;
-      white-space: pre-wrap;
-    }
-    [data-result] { white-space: pre-wrap; overflow-wrap: anywhere; }
-    .result-score { font-size: 16px; font-weight: 700; }
-    .result-warning { margin: 0 0 10px; padding: 8px 10px; border: 1px solid #d9822b; border-left-width: 4px; border-radius: 6px; background: #fff6ec; color: #6b3500; }
-    .result-warning-title { margin: 0 0 4px; font-weight: 700; }
-    .result-warning ul { margin: 0; padding-left: 18px; white-space: normal; }
-    .result-note { color: #596b83; font-size: 12px; }
-
-    button {
-      border: 0;
-      border-radius: 7px;
-      cursor: pointer;
-    }
+    button { border: 0; border-radius: 8px; cursor: pointer; color: inherit; background: transparent; }
+    svg { display: block; }
 
     .floating-button {
       position: fixed;
@@ -1925,18 +1902,14 @@ const createPanelStyles = () => {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 46px;
-      height: 46px;
+      width: 48px;
+      height: 48px;
       padding: 0;
-      background: #2453a6;
+      border-radius: 12px;
+      background: var(--mca-accent);
       box-shadow: 0 10px 24px rgba(20, 33, 61, 0.22);
     }
-
-    .floating-button svg {
-      width: 32px;
-      height: 32px;
-      display: block;
-    }
+    .floating-button svg { width: 32px; height: 32px; }
 
     .panel {
       position: fixed;
@@ -1948,484 +1921,366 @@ const createPanelStyles = () => {
       width: min(${PANEL_WIDTH}px, 55vw);
       max-width: 100vw;
       height: 100vh;
-      background: #f4f6f9;
-      border-left: 1px solid #d5dbe7;
-      box-shadow: none;
+      background: var(--mca-ground);
+      border-left: 1px solid #d5dbe3;
       transform: translateX(100%);
       transition: transform 180ms ease;
     }
+    .panel[data-open="true"] { transform: none; }
 
-    .panel[data-open="true"] {
-      transform: none;
-    }
-
+    /* Header: product, tools, the graded student and the AI in use. */
     .header {
       display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: start;
-      padding: 15px 16px 13px;
-      border-bottom: 1px solid #dfe4ee;
-      background: #fff;
-    }
-
-    .title {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 750;
-    }
-
-    .status {
-      margin: 4px 0 0;
-      color: #566273;
-      font-size: 12px;
-    }
-
-    .workflow {
-      display: grid;
       gap: 12px;
+      padding: 12px 12px 14px 16px;
+      background: #fff;
+      border-bottom: 1px solid var(--mca-line);
     }
+    .header-top { position: relative; display: flex; align-items: center; gap: 10px; }
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+    }
+    .brand-mark svg { width: 32px; height: 32px; }
+    .title { flex-grow: 1; margin: 0; font-size: 16px; font-weight: 700; }
+    .panel-tools { display: flex; gap: 2px; }
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      color: var(--mca-muted);
+    }
+    .icon-button:hover, .icon-button[aria-expanded="true"] { background: var(--mca-accent-soft); color: var(--mca-accent-strong); }
+    .icon-button svg { width: 20px; height: 20px; }
+    .more-menu {
+      position: absolute;
+      top: 46px;
+      right: 0;
+      z-index: 5;
+      display: grid;
+      min-width: 220px;
+      padding: 6px;
+      border: 1px solid var(--mca-line);
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 12px 28px rgba(20, 33, 61, 0.16);
+    }
+    .more-menu button { min-height: 44px; padding: 0 12px; text-align: left; font-weight: 500; }
+    .more-menu button:hover { background: var(--mca-accent-soft); }
 
+    .panel-context { display: grid; gap: 2px; }
+    .panel-context p { margin: 0; overflow-wrap: anywhere; }
+    .panel-context p:empty { display: none; }
+    .context-assignment { color: var(--mca-muted); font-size: 12px; }
+    .context-student { font-size: 15px; font-weight: 600; }
+    .context-student .context-attempt { color: var(--mca-muted); font-weight: 400; }
+
+    .panel-overview { display: grid; gap: 8px; }
+    .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .panel-overview [data-grading-mode] {
+      margin: 0;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: var(--mca-accent-soft);
+      color: #1f3a66;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .ai-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--mca-tile);
+      border: 1px solid var(--mca-line);
+      color: var(--mca-ink);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .ai-chip > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ai-chip:hover, .ai-chip[aria-expanded="true"] { border-color: var(--mca-accent); }
+    .ai-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: #8a94a3; }
+    .ai-chip[data-state="ok"] { background: var(--mca-ok-soft); border-color: #cbe7d5; color: var(--mca-ok-ink); }
+    .ai-chip[data-state="ok"] .ai-dot { background: var(--mca-ok); }
+    .ai-chip[data-state="warn"] { background: var(--mca-warn-soft); border-color: #f1d9ae; color: var(--mca-warn-ink); }
+    .ai-chip[data-state="warn"] .ai-dot { background: var(--mca-warn); }
+    .panel-overview [data-status] { margin: 0; color: #365075; font-size: 13px; font-weight: 500; }
+    .status { margin: 0; color: var(--mca-muted); font-size: 12px; }
+
+    /* Content: numbered steps, then the technical panes. */
+    .content { overflow: auto; padding: 16px; }
+    .workflow { display: grid; gap: 14px; }
     .workflow-card {
       display: grid;
-      gap: 10px;
-      padding: 12px;
-      border: 1px solid #dfe4ee;
-      border-radius: 8px;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--mca-line);
+      border-radius: 12px;
       background: #fff;
     }
-
-    .workflow-card.primary {
-      border-color: #b8c8e8;
-      box-shadow: 0 8px 24px rgba(36, 83, 166, 0.08);
-    }
-
-    .card-heading {
-      display: grid;
-      grid-template-columns: 26px 1fr;
-      gap: 9px;
-      align-items: start;
-    }
-
+    .card-heading { display: flex; align-items: center; gap: 8px; }
+    .card-heading h3 { flex-grow: 1; margin: 0; font-size: 14px; font-weight: 600; }
+    .card-meta { color: var(--mca-muted); font-size: 12px; }
     .step-number {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      background: #2453a6;
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--mca-accent);
       color: #fff;
       font-size: 12px;
-      font-weight: 800;
-    }
-
-    .card-heading h3 {
-      margin: 0;
-      color: #1f2b3d;
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .card-heading p {
-      margin: 2px 0 0;
-      color: #657184;
-      font-size: 12px;
-    }
-
-    .close-button {
-      width: 30px;
-      height: 30px;
-      color: #243044;
-      background: #eef2f7;
-      font-size: 18px;
-      line-height: 1;
-    }
-
-    .action-button {
-      min-height: 34px;
-      padding: 0 10px;
-      color: #fff;
-      background: #2453a6;
       font-weight: 700;
     }
+    .hint { margin: 0; color: var(--mca-muted); font-size: 12px; }
 
-    .action-button.secondary {
-      color: #1f2b3d;
-      background: #e9eef6;
-    }
-
-    .action-button.full-width {
-      width: 100%;
-    }
-
-    .action-button:disabled {
-      cursor: not-allowed;
-      color: #f2f4f7;
-      background: #8b96a6;
-    }
-
-    .content {
-      overflow: auto;
-      padding: 14px;
-    }
-
-    .section {
-      display: grid;
+    .file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+    .add-files {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .field-stack {
-      display: grid;
-      gap: 8px;
-      padding: 10px;
-      border: 1px solid #dfe4ee;
-      border-radius: 7px;
-      background: #fff;
-    }
-
-    .field-stack label {
-      color: #394456;
-      font-weight: 700;
-    }
-
-    .field-stack textarea {
-      min-height: 96px;
-      font: inherit;
-      white-space: normal;
-    }
-
-    .field-stack textarea.code-input {
-      min-height: 210px;
-      font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-      white-space: pre;
-    }
-
-    .file-input {
-      width: 100%;
-      padding: 8px;
-      border: 1px dashed #b7c2d4;
-      border-radius: 7px;
-      background: #f9fbfe;
-      color: #1d232f;
-      box-sizing: border-box;
-    }
-
-    .hint {
-      margin: 0;
-      color: #6a7482;
-      font-size: 12px;
-    }
-
-    .json-actions {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-
-    .section-title {
-      margin: 0;
-      font-size: 12px;
-      font-weight: 750;
-      text-transform: uppercase;
-      color: #536070;
-    }
-
-    .supervision {
-      border: 1px solid #d8deea;
+      min-height: 44px;
+      border: 1px dashed #b7c2d0;
       border-radius: 8px;
-      background: #fff;
-      overflow: hidden;
-    }
-
-    .supervision > summary {
-      display: grid;
-      gap: 2px;
-      padding: 11px 12px;
+      color: var(--mca-accent);
+      font-weight: 500;
       cursor: pointer;
-      color: #1f2b3d;
-      font-weight: 800;
-      list-style: none;
     }
+    .add-files:hover { background: var(--mca-accent-soft); }
+    .file-input:focus-visible + .add-files { outline: 2px solid var(--mca-accent); outline-offset: 2px; }
+    .add-files svg { width: 16px; height: 16px; }
 
-    .supervision > summary::-webkit-details-marker,
-    .nested-disclosure > summary::-webkit-details-marker,
-    .rubric-item > summary::-webkit-details-marker {
-      display: none;
+    .instruction-fields { display: grid; gap: 10px; }
+    .scope-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border-radius: 10px;
+      background: #eef1f5;
     }
-
-    .supervision > summary::after,
-    .nested-disclosure > summary::after,
-    .rubric-item > summary::after {
-      content: "+";
-      justify-self: end;
-      margin-top: -20px;
-      color: #637188;
-      font-weight: 900;
-    }
-
-    .supervision[open] > summary::after,
-    .nested-disclosure[open] > summary::after,
-    .rubric-item[open] > summary::after {
-      content: "-";
-    }
-
-    .supervision-note {
-      margin: 0;
-      color: #657184;
-      font-size: 12px;
+    .scope-tabs button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 0 6px;
+      border-radius: 7px;
+      color: var(--mca-muted);
       font-weight: 500;
     }
+    .scope-tabs button[aria-selected="true"] { background: #fff; color: var(--mca-ink); font-weight: 600; box-shadow: 0 1px 2px rgba(23, 32, 51, 0.12); }
+    .scope-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--mca-accent); }
+    .scope-tabs button[data-filled="true"] .scope-dot { display: inline-block; }
+    .scope-panel { display: grid; gap: 6px; }
+    .scope-panel label { font-weight: 600; color: #2d3748; }
+    .instruction-fields textarea {
+      min-height: 120px;
+      padding: 10px 12px;
+      border-color: var(--mca-field);
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
 
-    .supervision-body {
+    /* Progress while a correction runs. */
+    .progress-card { gap: 14px; }
+    .progress-eyebrow { margin: 0; color: var(--mca-accent); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .progress-card h3 { margin: 0; font-size: 18px; font-weight: 700; }
+    .progress-bar { height: 8px; border-radius: 999px; background: #e6ebf2; overflow: hidden; }
+    .progress-bar > span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--mca-accent); transition: width 240ms ease; }
+    .progress-steps { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+    .progress-steps li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; }
+    .step-dot {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      box-sizing: border-box;
+      border: 2px solid #b7c2d0;
+      border-radius: 50%;
+    }
+    .progress-steps li[data-state="active"] .step-dot { border: 3px solid var(--mca-accent); }
+    .progress-steps li[data-state="done"] .step-dot {
+      border: 0;
+      background: var(--mca-ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 13px no-repeat;
+    }
+    .step-text { display: grid; gap: 2px; }
+    .step-title { color: var(--mca-muted); font-weight: 500; font-size: 14px; }
+    .progress-steps li[data-state="active"] .step-title { color: var(--mca-accent); font-weight: 600; }
+    .progress-steps li[data-state="done"] .step-title { color: var(--mca-ink); font-weight: 600; }
+    .step-detail { color: var(--mca-muted); font-size: 12px; overflow-wrap: anywhere; }
+
+    /* Result. */
+    [data-result] { display: grid; gap: 10px; overflow-wrap: anywhere; color: #2d3748; }
+    [data-result] p { margin: 0; white-space: pre-wrap; }
+    .result-score { color: var(--mca-accent); font-size: 22px; font-weight: 700; line-height: 1.2; }
+    .result-feedback { font-size: 13px; line-height: 1.55; }
+    .result-criterion { padding: 10px 12px; border-radius: 8px; background: var(--mca-tile); font-size: 12px; color: var(--mca-muted); }
+    .result-criterion strong { color: var(--mca-ink); font-size: 13px; }
+    .result-warning { padding: 10px 12px; border-radius: 8px; background: var(--mca-warn-soft); color: var(--mca-warn-ink); }
+    .result-warning-title { margin: 0 0 4px; font-weight: 600; }
+    .result-warning ul { margin: 0; padding-left: 18px; white-space: normal; }
+    .result-note { color: var(--mca-muted); font-size: 12px; }
+
+    /* Technical panes: AI settings, correction JSON, data and diagnostics. */
+    .technical-pane { display: grid; gap: 14px; }
+    .pane-header { display: flex; align-items: center; gap: 4px; margin: -6px 0 0 -10px; }
+    .pane-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+    .section { display: grid; gap: 8px; }
+    .section-title { margin: 0; color: var(--mca-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .field-stack, .runtime-card {
       display: grid;
       gap: 10px;
-      padding: 0 12px 12px;
-    }
-
-    .ai-mode-switch { position: sticky; top: 0; z-index: 3; background: #fff; padding: 8px 0; }
-    [data-ai-simple] { display: grid; gap: 10px; }
-    [data-ai-simple][hidden] { display: none; }
-    .runtime-card {
-      display: grid;
-      gap: 8px;
-      padding: 10px;
-      border: 1px solid #dfe4ee;
-      border-radius: 7px;
+      padding: 14px;
+      border: 1px solid var(--mca-line);
+      border-radius: 12px;
       background: #fff;
     }
+    .field-stack label { color: #2d3748; font-weight: 600; }
+    .field-stack textarea.code-input { min-height: 210px; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; white-space: pre; }
+    .json-actions { display: grid; gap: 8px; }
 
-    .runtime-state {
-      margin: 0;
-      color: #5b6676;
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
-
-    .runtime-row {
+    .ai-mode-switch {
       display: grid;
-      grid-template-columns: 78px minmax(0, 1fr);
-      gap: 8px;
-      align-items: center;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border-radius: 10px;
+      background: #eef1f5;
     }
-
-    .runtime-row input[type="search"] {
-      width: 100%; min-width: 0; min-height: 32px; box-sizing: border-box;
-      border: 1px solid #c9d0dc; border-radius: 7px; padding: 0 8px;
-      background: #fff; color: #1d232f; font: inherit;
-    }
-    .runtime-row select { min-width: 0; }
-    .runtime-row label {
-      color: #5b6676;
-      font-weight: 650;
-    }
-
-    select {
+    .ai-mode-switch .action-button { min-height: 36px; border-radius: 7px; background: #fff; color: var(--mca-ink); box-shadow: 0 1px 2px rgba(23, 32, 51, 0.12); }
+    .ai-mode-switch .action-button.secondary { background: transparent; color: var(--mca-muted); box-shadow: none; font-weight: 500; }
+    .ai-mode-switch .action-button, .ai-mode-switch .action-button.secondary { border: 0; }
+    .ai-mode-switch .action-button:hover { background: #fff; color: var(--mca-ink); }
+    .ai-mode-switch .action-button.secondary:hover { background: rgba(255, 255, 255, 0.6); color: var(--mca-ink); }
+    [data-ai-simple] { display: grid; gap: 12px; }
+    .runtime-state { margin: 0; color: var(--mca-muted); font-size: 12px; overflow-wrap: anywhere; }
+    .runtime-row { display: grid; gap: 4px; }
+    .runtime-row label { color: #2d3748; font-size: 12px; font-weight: 600; }
+    .runtime-row input[type="search"], select {
       width: 100%;
-      min-height: 32px;
-      border: 1px solid #c9d0dc;
-      border-radius: 7px;
+      min-width: 0;
+      min-height: 40px;
+      box-sizing: border-box;
+      padding: 0 10px;
+      border: 1px solid var(--mca-field);
+      border-radius: 8px;
       background: #fff;
-      color: #1d232f;
-      padding: 0 8px;
+      color: var(--mca-ink);
     }
+    .runtime-cost { margin: 0; color: var(--mca-muted); font-size: 12px; overflow-wrap: anywhere; }
+    .runtime-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 
-    .runtime-cost {
-      margin: -2px 0 0 86px;
-      color: #5b6676;
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
-
-    .runtime-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    .action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       gap: 8px;
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: 10px;
+      background: var(--mca-accent);
+      color: #fff;
+      font-weight: 600;
     }
+    .action-button:hover { background: var(--mca-accent-strong); }
+    .action-button.secondary { border: 1px solid var(--mca-field); background: #fff; color: var(--mca-ink); }
+    .action-button.secondary:hover { background: var(--mca-tile); }
+    .action-button.full-width { width: 100%; }
+    .action-button:disabled { cursor: not-allowed; border-color: transparent; background: #8b96a6; color: #f2f4f7; }
+    .action-button svg { width: 18px; height: 18px; }
 
     .diagnostics {
       display: grid;
       gap: 5px;
       max-height: 160px;
       overflow: auto;
-      padding: 8px;
-      border: 1px solid #dfe4ee;
-      border-radius: 7px;
+      padding: 10px;
+      border: 1px solid var(--mca-line);
+      border-radius: 8px;
       background: #fff;
       color: #273244;
       font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
+    .diagnostic-entry { padding-bottom: 5px; border-bottom: 1px solid #edf0f5; }
+    .detected-list { display: grid; gap: 0; margin: 0; padding: 4px 14px; border: 1px solid var(--mca-line); border-radius: 12px; background: #fff; }
+    .detected-list div { display: grid; grid-template-columns: 130px 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid #edf0f5; }
+    .detected-list div:last-child { border-bottom: 0; }
+    .detected-list dt { color: var(--mca-muted); font-weight: 500; }
+    .detected-list dd { margin: 0; overflow-wrap: anywhere; }
 
-    .diagnostic-entry {
-      padding-bottom: 5px;
-      border-bottom: 1px solid #edf0f5;
-    }
-
-    .detected-list {
-      display: grid;
-      gap: 6px;
-      margin: 0;
-    }
-
-    .detected-list div {
-      display: grid;
-      grid-template-columns: 120px 1fr;
-      gap: 8px;
-      padding: 7px 0;
-      border-bottom: 1px solid #e3e7ef;
-    }
-
-    .detected-list dt {
-      color: #5b6676;
-      font-weight: 650;
-    }
-
-    .detected-list dd {
-      margin: 0;
-      overflow-wrap: anywhere;
-    }
-
-    .summary-card {
-      display: grid;
-      gap: 7px;
-      padding: 0;
-      border: 1px solid #dfe4ee;
-      border-radius: 7px;
-      background: #fff;
-    }
-
-    .summary-card > summary,
-    .rubric-item > summary {
-      cursor: pointer;
-      padding: 9px 10px;
-      margin: 0;
-      font-size: 13px;
-      font-weight: 750;
-      color: #273244;
-    }
-
-    .summary-card > :not(summary),
-    .rubric-item > :not(summary) {
-      margin: 0 10px 10px;
-    }
-
-    .text-block {
-      max-height: 180px;
-      overflow: auto;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      color: #273244;
-    }
-
-    .compact-list {
-      display: grid;
-      gap: 6px;
-      margin: 0;
-    }
-
-    .compact-list div {
-      display: grid;
-      grid-template-columns: 80px 1fr;
-      gap: 8px;
-    }
-
-    .compact-list dt {
-      color: #5b6676;
-      font-weight: 650;
-    }
-
-    .compact-list dd {
-      margin: 0;
-      overflow-wrap: anywhere;
-    }
-
-    .plain-list {
-      overflow-wrap: anywhere;
-      display: grid;
-      gap: 5px;
-      margin: 0;
-      padding-left: 18px;
-    }
-
-    .plain-list a {
-      color: #2453a6;
-      text-decoration: underline;
-      overflow-wrap: anywhere;
-    }
-
-    .rubric-list {
-      display: grid;
-      gap: 8px;
-    }
-
-    .rubric-item {
-      display: grid;
-      gap: 4px;
-      border: 1px solid #e8ecf3;
-      border-radius: 7px;
-      background: #fbfcfe;
-    }
-
-    .rubric-item p {
-      margin: 0;
-      color: #5b6676;
-    }
-
-    .level-list {
-      display: grid;
-      gap: 5px;
-      margin: 0;
-      padding-left: 18px;
-    }
-
-    .level-list li {
-      color: #273244;
-      overflow-wrap: anywhere;
-    }
+    /* Assignment summary (Data and diagnostics). */
+    .supervision { border: 1px solid var(--mca-line); border-radius: 12px; background: #fff; overflow: hidden; }
+    .supervision > summary { display: grid; gap: 2px; padding: 12px 14px; cursor: pointer; font-weight: 600; list-style: none; }
+    .supervision > summary::-webkit-details-marker,
+    .nested-disclosure > summary::-webkit-details-marker,
+    .rubric-item > summary::-webkit-details-marker { display: none; }
+    .supervision > summary::after,
+    .nested-disclosure > summary::after,
+    .rubric-item > summary::after { content: "+"; justify-self: end; margin-top: -20px; color: var(--mca-muted); font-weight: 700; }
+    .supervision[open] > summary::after,
+    .nested-disclosure[open] > summary::after,
+    .rubric-item[open] > summary::after { content: "-"; }
+    .supervision-note { margin: 0; color: var(--mca-muted); font-size: 12px; font-weight: 400; }
+    .supervision-body { display: grid; gap: 10px; padding: 0 14px 14px; }
+    .summary-card { display: grid; gap: 7px; padding: 0; border: 1px solid var(--mca-line); border-radius: 8px; background: #fff; }
+    .summary-card > summary, .rubric-item > summary { cursor: pointer; margin: 0; padding: 10px 12px; font-size: 13px; font-weight: 600; }
+    .summary-card > :not(summary), .rubric-item > :not(summary) { margin: 0 12px 12px; }
+    .text-block { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #273244; }
+    .compact-list { display: grid; gap: 6px; margin: 0; }
+    .compact-list div { display: grid; grid-template-columns: 80px 1fr; gap: 8px; }
+    .compact-list dt { color: var(--mca-muted); font-weight: 500; }
+    .compact-list dd { margin: 0; overflow-wrap: anywhere; }
+    .plain-list { display: grid; gap: 5px; margin: 0; padding-left: 18px; overflow-wrap: anywhere; }
+    .plain-list a { color: var(--mca-accent); text-decoration: underline; overflow-wrap: anywhere; }
+    .rubric-list { display: grid; gap: 8px; }
+    .rubric-item { display: grid; gap: 4px; border: 1px solid #e8ecf3; border-radius: 8px; background: var(--mca-tile); }
+    .rubric-item p { margin: 0; color: var(--mca-muted); }
+    .level-list { display: grid; gap: 5px; margin: 0; padding-left: 18px; }
+    .level-list li { color: #273244; overflow-wrap: anywhere; }
 
     textarea {
       width: 100%;
       min-height: 220px;
-      padding: 9px;
-      border: 1px solid #c9d0dc;
-      border-radius: 7px;
+      padding: 10px;
+      border: 1px solid var(--mca-field);
+      border-radius: 8px;
       resize: vertical;
       background: #fff;
-      color: #1d232f;
+      color: var(--mca-ink);
       font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
       box-sizing: border-box;
       white-space: pre;
     }
 
+    /* Footer: the one main action. */
     .footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      color: #6a7482;
+      display: grid;
+      gap: 10px;
+      padding: 12px 16px 16px;
       background: #fff;
-      border-top: 1px solid #dfe4ee;
-      font-size: 12px;
+      border-top: 1px solid var(--mca-line);
     }
-
-    .footer-note {
-      margin: 0;
-    }
-
-    .footer-toggle {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .footer .action-button {
-      min-width: 142px;
-      white-space: nowrap;
-    }
+    .footer-toggle { display: flex; align-items: center; gap: 10px; min-height: 32px; color: #2d3748; cursor: pointer; }
+    .footer-toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--mca-accent); }
+    .footer .action-button { min-height: 48px; font-size: 15px; white-space: nowrap; }
+    .footer-note { margin: 0; color: var(--mca-muted); font-size: 12px; text-align: center; }
   `;
   return style;
 };
@@ -2487,23 +2342,6 @@ const createFloatingButton = () => {
   document.documentElement.appendChild(host);
 };
 
-const PANEL_TOOL_ICONS = {
-  settings: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/>',
-  json: '<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/>',
-  inspect: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
-};
-
-const showPanelTool = (panel, selected = '', restoreFocus = false) => {
-  const previous = panel.dataset.activeTool || '';
-  panel.dataset.activeTool = selected;
-  panel.querySelector('[data-main-workflow]').hidden = Boolean(selected);
-  for (const pane of panel.querySelectorAll('[data-tool-pane]')) pane.hidden = pane.dataset.toolPane !== selected;
-  for (const button of panel.querySelectorAll('[data-tool]')) button.setAttribute('aria-expanded', String(button.dataset.tool === selected));
-  panel.querySelector('.content').scrollTop = 0;
-  if (selected) panel.querySelector(`[data-tool-pane="${selected}"] h3`).focus();
-  else if (restoreFocus && previous) panel.querySelector(`[data-tool="${previous}"]`).focus();
-};
-
 const renderCorrectionResult = (correction) => {
   const container = getPanelElements().result;
   const parsed = correction?.parsed;
@@ -2555,21 +2393,27 @@ const renderCorrectionResult = (correction) => {
     container.prepend(warning);
   }
   const feedback = document.createElement('p');
+  feedback.className = 'result-feedback';
   feedback.textContent = getFinalComment(parsed) || MoodliaCorrectorI18n.t('Sin comentario final.');
   container.appendChild(feedback);
-  for (const [index, criterion] of (parsed.rubricSelections || []).entries()) {
+  // Criterion name in bold, then its comment; the text reads "name: comment" as before.
+  const appendCriterion = (name, text) => {
     const paragraph = document.createElement('p');
+    paragraph.className = 'result-criterion';
+    const title = document.createElement('strong');
+    title.textContent = name;
+    paragraph.append(title, `: ${text}`);
+    container.appendChild(paragraph);
+  };
+  for (const [index, criterion] of (parsed.rubricSelections || []).entries()) {
     // Match by identity: selections can arrive in a different order than the rubric.
     const rubricCriterion = currentAssignmentData?.rubric?.find(item => item.id === criterion.criterionId);
-    paragraph.textContent = `${rubricCriterion?.description || MoodliaCorrectorI18n.message`Criterio ${index + 1}`}: ${criterion.criterionFeedback || ''}`;
-    container.appendChild(paragraph);
+    appendCriterion(rubricCriterion?.description || MoodliaCorrectorI18n.message`Criterio ${index + 1}`, criterion.criterionFeedback || '');
   }
   for (const [index, entry] of guideScores.entries()) {
-    const paragraph = document.createElement('p');
     const criterion = guideCriteria[index];
     const name = criterion?.shortName || criterion?.description || MoodliaCorrectorI18n.message`Criterio ${index + 1}`;
-    paragraph.textContent = `${name} (${entry?.score ?? '?'}${criterion?.maxScore !== null && criterion?.maxScore !== undefined ? ` / ${criterion.maxScore}` : ''}): ${entry?.remark || ''}`;
-    container.appendChild(paragraph);
+    appendCriterion(`${name} (${entry?.score ?? '?'}${criterion?.maxScore !== null && criterion?.maxScore !== undefined ? ` / ${criterion.maxScore}` : ''})`, entry?.remark || '');
   }
   if (Number(correction.pseudonymized?.replacements) > 0) {
     const note = document.createElement('p');
@@ -2587,94 +2431,105 @@ const showCorrectionPlan = (text) => {
   getPanelElements().result.replaceChildren(note);
 };
 
-const organizePanelWorkflow = (panel) => {
-  const content = panel.querySelector('.content');
-  const [externalJsonSection, runtimeSection, diagnosticsSection, detectedSection, instructionsSection, assignmentSection, correctionSection] =
-    [...content.querySelectorAll(':scope > .section')];
-  correctionSection.querySelector('textarea').setAttribute('aria-label', MoodliaCorrectorI18n.t('JSON de la sugerencia de IA'));
-  const workflow = document.createElement('div');
-  workflow.className = 'workflow';
-  workflow.dataset.mainWorkflow = 'true';
-  instructionsSection.className = 'workflow-card';
-  instructionsSection.querySelector('.field-stack').classList.remove('field-stack');
-  const instructionFields = instructionsSection.querySelector('h3').nextElementSibling;
-  instructionFields.classList.add('instruction-fields');
-  instructionsSection.querySelector('h3').textContent = MoodliaCorrectorI18n.t('Criterio docente');
+const PANEL_ICONS = {
+  more: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
+  close: '<path d="M18 6 6 18M6 6l12 12"/>',
+  back: '<path d="m15 18-6-6 6-6"/>',
+  add: '<path d="M12 5v14M5 12h14"/>',
+  spark: '<path d="m12 3 1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/>',
+};
+const panelIcon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PANEL_ICONS[name]}</svg>`;
+const CRITERIA_SCOPES = ['course', 'assignment', 'case'];
 
-  const filePreview = document.createElement('section');
-  filePreview.className = 'workflow-card';
-  const fileHeading = document.createElement('h3');
-  fileHeading.className = 'section-title';
-  fileHeading.textContent = MoodliaCorrectorI18n.t('Archivos para la IA');
-  const fileList = document.createElement('div');
-  fileList.dataset.filePreview = 'true';
-  filePreview.append(fileHeading, fileList);
+const setMoreMenuOpen = (panel, open) => {
+  panel.querySelector('[data-more-menu]').hidden = !open;
+  panel.querySelector('[data-more]').setAttribute('aria-expanded', String(open));
+};
 
-  const resultSection = document.createElement('section');
-  resultSection.className = 'workflow-card';
-  const resultHeading = document.createElement('h3');
-  resultHeading.className = 'section-title';
-  resultHeading.textContent = MoodliaCorrectorI18n.t('Resultado');
-  const result = document.createElement('div');
-  result.dataset.result = 'true';
-  result.setAttribute('aria-live', 'polite');
-  result.textContent = MoodliaCorrectorI18n.t('Aquí verás la nota propuesta y el comentario de la corrección.');
-  resultSection.append(resultHeading, result);
-  workflow.append(filePreview, instructionsSection, resultSection);
+const showPanelTool = (panel, selected = '', restoreFocus = false) => {
+  const previous = panel.dataset.activeTool || '';
+  panel.dataset.activeTool = selected;
+  setMoreMenuOpen(panel, false);
+  panel.querySelector('[data-main-workflow]').hidden = Boolean(selected);
+  for (const pane of panel.querySelectorAll('[data-tool-pane]')) pane.hidden = pane.dataset.toolPane !== selected;
+  for (const button of panel.querySelectorAll('[data-tool]')) button.setAttribute('aria-expanded', String(button.dataset.tool === selected));
+  panel.querySelector('.content').scrollTop = 0;
+  if (selected) panel.querySelector(`[data-tool-pane="${selected}"] h3`).focus();
+  // Tools in the closed "More options" menu return focus to the menu button.
+  else if (restoreFocus && previous) (previous === 'settings' ? panel.querySelector('[data-tool="settings"]') : panel.querySelector('[data-more]')).focus();
+};
 
-  const tools = document.createElement('nav');
-  tools.className = 'panel-tools';
-  tools.setAttribute('aria-label', MoodliaCorrectorI18n.t('Herramientas del corrector'));
-  const panes = [];
-  for (const [id, title, sections] of [
-    ['settings', MoodliaCorrectorI18n.t('Configuración de IA'), [runtimeSection]],
-    ['json', MoodliaCorrectorI18n.t('JSON de corrección'), [externalJsonSection, correctionSection]],
-    ['inspect', MoodliaCorrectorI18n.t('Datos y diagnóstico'), [detectedSection, assignmentSection, diagnosticsSection]],
-  ]) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'tool-button';
-    button.dataset.tool = id;
-    button.title = title;
-    button.setAttribute('aria-label', title);
-    button.setAttribute('aria-expanded', 'false');
-    button.setAttribute('aria-controls', `mca-tool-${id}`);
-    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${PANEL_TOOL_ICONS[id]}</svg>`;
-    const pane = document.createElement('section');
-    pane.id = `mca-tool-${id}`;
-    pane.dataset.toolPane = id;
-    pane.className = 'technical-pane';
-    pane.hidden = true;
-    pane.setAttribute('aria-labelledby', `mca-tool-title-${id}`);
-    const heading = document.createElement('h3');
-    heading.id = `mca-tool-title-${id}`;
-    heading.tabIndex = -1;
-    heading.textContent = title;
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'action-button secondary';
-    back.textContent = MoodliaCorrectorI18n.t('Volver a la corrección');
-    back.addEventListener('click', () => showPanelTool(panel, '', true));
-    pane.append(heading, back, ...sections);
-    button.addEventListener('click', () => showPanelTool(panel, panel.dataset.activeTool === id ? '' : id));
-    panes.push(pane);
-    tools.appendChild(button);
+// One criterion field is visible at a time; a dot marks the scopes that hold text.
+const selectCriteriaScope = (panel, scope, focusTab = false) => {
+  for (const tab of panel.querySelectorAll('[data-scope-tab]')) {
+    const selected = tab.dataset.scopeTab === scope;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    if (selected && focusTab) tab.focus();
   }
-  const overview = document.createElement('div');
-  overview.className = 'panel-overview';
-  const status = panel.querySelector('[data-status]');
-  status.setAttribute('role', 'status');
-  status.setAttribute('aria-live', 'polite');
-  overview.append(panel.querySelector('[data-grading-mode]'), status);
-  panel.querySelector('.header').append(tools, overview);
-  panel.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && panel.dataset.activeTool) {
-      event.preventDefault();
-      event.stopPropagation();
-      showPanelTool(panel, '', true);
-    }
-  });
-  content.replaceChildren(workflow, ...panes);
+  for (const pane of panel.querySelectorAll('[data-scope-panel]')) pane.hidden = pane.dataset.scopePanel !== scope;
+};
+const updateCriteriaTabs = () => {
+  const { panel } = getPanelElements();
+  for (const tab of panel.querySelectorAll('[data-scope-tab]')) {
+    const field = panel.querySelector(`[data-scope-panel="${tab.dataset.scopeTab}"] textarea`);
+    tab.dataset.filled = String(Boolean(field?.value.trim()));
+  }
+};
+
+const setPanelContext = (assignmentData) => {
+  const { panel } = getPanelElements();
+  const assignment = panel.querySelector('[data-context-assignment]');
+  const student = panel.querySelector('[data-context-student]');
+  assignment.textContent = assignmentData ? [assignmentData.assignmentTitle, assignmentData.courseName].filter(Boolean).join(' · ') : '';
+  student.replaceChildren();
+  if (assignmentData?.studentName) {
+    const attempt = document.createElement('span');
+    attempt.className = 'context-attempt';
+    attempt.textContent = ` · ${MoodliaCorrectorI18n.message`Intento ${Number(getGradedAttemptNumber()) + 1}`}`;
+    student.append(assignmentData.studentName, attempt);
+  }
+};
+
+// Correction progress: four stages fed by the service worker's progress events.
+const PROGRESS_STEPS = ['read', 'review', 'grade', 'apply'];
+const PROGRESS_STAGE_STEP = { download: 'read', read: 'read', plan: 'review', model: 'review', review: 'review', grade: 'grade', repair: 'grade' };
+const showCorrectionProgress = (visible) => {
+  const { panel } = getPanelElements();
+  const card = panel.querySelector('[data-progress]');
+  card.hidden = !visible;
+  if (!visible) return;
+  for (const step of card.querySelectorAll('[data-progress-step]')) {
+    step.dataset.state = 'pending';
+    step.querySelector('.step-detail').textContent = '';
+  }
+  updateCorrectionProgress({ stage: 'download' }, MoodliaCorrectorI18n.t('Solicitando corrección a la IA...'));
+};
+const updateCorrectionProgress = (progress, status) => {
+  const { panel } = getPanelElements();
+  const card = panel.querySelector('[data-progress]');
+  const stepId = progress.stage === 'apply' ? 'apply' : PROGRESS_STAGE_STEP[progress.stage];
+  if (!stepId) return;
+  const index = PROGRESS_STEPS.indexOf(stepId);
+  for (const [position, step] of [...card.querySelectorAll('[data-progress-step]')].entries()) {
+    step.dataset.state = position < index ? 'done' : position === index ? 'active' : 'pending';
+    if (position === index && status) step.querySelector('.step-detail').textContent = status;
+  }
+  card.querySelector('[data-progress-title]').textContent = card.querySelector(`[data-progress-step="${stepId}"] .step-title`).textContent;
+  const fraction = Number(progress.total) > 0 ? Math.min(1, Number(progress.current) / Number(progress.total)) : 0.3;
+  const percent = Math.round(((index + fraction) / PROGRESS_STEPS.length) * 100);
+  card.querySelector('[data-progress-fill]').style.width = `${percent}%`;
+  card.querySelector('[data-progress-bar]').setAttribute('aria-valuenow', String(percent));
+};
+
+const updateAiChip = () => {
+  const { panel } = getPanelElements();
+  const chip = panel.querySelector('[data-tool="settings"]');
+  const label = chip.querySelector('[data-ai-chip-label]');
+  const config = aiRuntimeStatus?.appConfig;
+  const ready = Boolean(aiRuntimeStatus?.providers?.length && config?.configured && !config?.reason);
+  chip.dataset.state = !aiRuntimeStatus ? 'unknown' : ready ? 'ok' : 'warn';
+  label.textContent = ready && config?.model ? config.model : MoodliaCorrectorI18n.t('Configurar IA');
 };
 
 const createSidePanel = () => {
@@ -2693,103 +2548,196 @@ const createSidePanel = () => {
   panel.dataset.open = 'false';
   panel.innerHTML = `
     <header class="header">
-      <div>
-        <h2 class="title">Corrector de Moodle</h2>
-        <p class="status" data-grading-mode role="status" aria-live="polite">Modo: pendiente de detectar</p>
-        <p class="status" data-status>Listo.</p>
+      <div class="header-top">
+        <span class="brand-mark" aria-hidden="true">${ICON_SVG}</span>
+        <h2 class="title">MoodlIA Corrector</h2>
+        <nav class="panel-tools" aria-label="Herramientas del corrector">
+          <button class="icon-button" type="button" data-more aria-label="Más opciones" title="Más opciones" aria-expanded="false" aria-controls="mca-more-menu">${panelIcon('more')}</button>
+          <button class="icon-button" type="button" data-close aria-label="Cerrar" title="Cerrar">${panelIcon('close')}</button>
+        </nav>
+        <div class="more-menu" id="mca-more-menu" data-more-menu hidden>
+          <button type="button" data-tool="json" aria-controls="mca-tool-json" aria-expanded="false">JSON de corrección</button>
+          <button type="button" data-tool="inspect" aria-controls="mca-tool-inspect" aria-expanded="false">Datos y diagnóstico</button>
+        </div>
       </div>
-      <button class="close-button" type="button" data-close aria-label="Cerrar">x</button>
+      <div class="panel-context">
+        <p class="context-assignment" data-context-assignment></p>
+        <p class="context-student" data-context-student></p>
+      </div>
+      <div class="panel-overview">
+        <div class="chip-row">
+          <p data-grading-mode role="status" aria-live="polite">Modo: pendiente de detectar</p>
+          <button class="ai-chip" type="button" data-tool="settings" data-state="unknown" aria-controls="mca-tool-settings" aria-expanded="false" title="Configuración de IA"><span class="ai-dot" aria-hidden="true"></span><span data-ai-chip-label>Configurar IA</span></button>
+        </div>
+        <p data-status role="status" aria-live="polite">Listo.</p>
+      </div>
     </header>
     <div class="content">
-      <section class="section">
-        <h3 class="section-title">JSON externo</h3>
-        <div class="field-stack">
-          <label for="mca-correction-json">JSON de corrección</label>
-          <textarea id="mca-correction-json" class="code-input" data-external-correction spellcheck="false" placeholder='{"finalComment":"Comentario final...","score":null,"maxScore":null,"rubricSelections":[{"criterionNumber":1,"levelIndex":3,"criterionFeedback":"Comentario del criterio..."}]}'></textarea>
-          <p class="hint">Formato recomendado: finalComment y rubricSelections con criterionNumber, levelIndex y criterionFeedback. No hace falta conocer los ids de Moodle.</p>
-          <div class="json-actions">
-            <button class="action-button full-width" type="button" data-apply-correction>Aplicar JSON a Moodle</button>
+      <div class="workflow" data-main-workflow>
+        <section class="workflow-card progress-card" data-progress aria-live="polite" hidden>
+          <p class="progress-eyebrow">Corrigiendo</p>
+          <h3 data-progress-title></h3>
+          <div class="progress-bar" data-progress-bar role="progressbar" aria-label="Progreso de la corrección" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-progress-fill></span></div>
+          <ol class="progress-steps">
+            <li data-progress-step="read"><span class="step-dot" aria-hidden="true"></span><span class="step-text"><span class="step-title">Leer los archivos</span><span class="step-detail"></span></span></li>
+            <li data-progress-step="review"><span class="step-dot" aria-hidden="true"></span><span class="step-text"><span class="step-title">Revisar las evidencias</span><span class="step-detail"></span></span></li>
+            <li data-progress-step="grade"><span class="step-dot" aria-hidden="true"></span><span class="step-text"><span class="step-title">Redactar la nota y el comentario</span><span class="step-detail"></span></span></li>
+            <li data-progress-step="apply"><span class="step-dot" aria-hidden="true"></span><span class="step-text"><span class="step-title">Rellenar el formulario de Moodle</span><span class="step-detail"></span></span></li>
+          </ol>
+        </section>
+        <section class="workflow-card">
+          <div class="card-heading"><span class="step-number" aria-hidden="true">1</span><h3>Evidencias para la IA</h3></div>
+          <div data-file-preview></div>
+          <input class="file-input" id="mca-extra-files" data-extra-files type="file" multiple />
+          <label class="add-files" for="mca-extra-files">${panelIcon('add')}<span>Añadir archivos de apoyo</span></label>
+          <p class="hint">Hasta 20 MB por archivo y 40 MB en total.</p>
+          <p class="hint" data-extra-files-summary>Sin archivos adicionales.</p>
+        </section>
+        <section class="workflow-card">
+          <div class="card-heading"><span class="step-number" aria-hidden="true">2</span><h3>Criterio docente</h3><span class="card-meta">Se guarda automáticamente.</span></div>
+          <div class="instruction-fields">
+            <div class="scope-tabs" role="tablist" aria-label="Ámbito del criterio">
+              <button type="button" role="tab" id="mca-tab-course" data-scope-tab="course" aria-controls="mca-scope-course" aria-selected="false" tabindex="-1"><span>Curso</span><span class="scope-dot" aria-hidden="true"></span></button>
+              <button type="button" role="tab" id="mca-tab-assignment" data-scope-tab="assignment" aria-controls="mca-scope-assignment" aria-selected="true"><span>Tarea</span><span class="scope-dot" aria-hidden="true"></span></button>
+              <button type="button" role="tab" id="mca-tab-case" data-scope-tab="case" aria-controls="mca-scope-case" aria-selected="false" tabindex="-1"><span>Este alumno</span><span class="scope-dot" aria-hidden="true"></span></button>
+            </div>
+            <div class="scope-panel" role="tabpanel" id="mca-scope-course" data-scope-panel="course" aria-labelledby="mca-tab-course" hidden>
+              <label for="mca-course-instructions">Por curso</label>
+              <p class="hint">Para todas las tareas de este curso.</p>
+              <textarea id="mca-course-instructions" data-course-instructions placeholder="Criterios generales del curso..."></textarea>
+            </div>
+            <div class="scope-panel" role="tabpanel" id="mca-scope-assignment" data-scope-panel="assignment" aria-labelledby="mca-tab-assignment">
+              <label for="mca-assignment-instructions">Por tarea</label>
+              <p class="hint">Para todos los alumnos de esta tarea.</p>
+              <textarea id="mca-assignment-instructions" data-assignment-instructions placeholder="Qué valorar en esta tarea..."></textarea>
+              <button class="action-button secondary" type="button" data-recover-instructions hidden>Copiar instrucciones anteriores a esta tarea</button>
+            </div>
+            <div class="scope-panel" role="tabpanel" id="mca-scope-case" data-scope-panel="case" aria-labelledby="mca-tab-case" hidden>
+              <label for="mca-extra-instructions">Por caso concreto</label>
+              <p class="hint">Solo para este alumno e intento de esta tarea.</p>
+              <textarea id="mca-extra-instructions" data-extra-instructions placeholder="Ej.: valora especialmente la claridad de las actividades, penaliza si no hay evidencias del uso de IA..."></textarea>
+            </div>
           </div>
-        </div>
-      </section>
-      <section class="section">
-        <h3 class="section-title">IA</h3>
+        </section>
+        <section class="workflow-card">
+          <div class="card-heading"><span class="step-number" aria-hidden="true">3</span><h3>Resultado</h3></div>
+          <div data-result aria-live="polite">Aquí verás la nota propuesta y el comentario de la corrección.</div>
+        </section>
+      </div>
+      <section class="technical-pane" id="mca-tool-settings" data-tool-pane="settings" aria-labelledby="mca-tool-title-settings" hidden>
+        <div class="pane-header"><button class="icon-button" type="button" data-tool-back aria-label="Volver a la corrección" title="Volver a la corrección">${panelIcon('back')}</button><h3 id="mca-tool-title-settings" tabindex="-1">Configuración de IA</h3></div>
         <div class="runtime-card">
-          <p class="runtime-state" data-runtime-state role="status" aria-live="polite">Comprobando la IA...</p>
-          <div class="runtime-actions ai-mode-switch" role="group" aria-label="Modo de configuración de IA">
+          <div class="ai-mode-switch" role="group" aria-label="Modo de configuración de IA">
             <button class="action-button" type="button" data-ai-mode="simple" aria-pressed="true">Simple</button>
             <button class="action-button secondary" type="button" data-ai-mode="advanced" aria-pressed="false">Avanzado</button>
           </div>
+          <p class="runtime-state" data-runtime-state role="status" aria-live="polite">Comprobando la IA...</p>
           <div data-ai-simple>
-          <div class="runtime-row">
-            <label for="mca-provider">Proveedor</label>
-            <select id="mca-provider" data-provider></select>
-          </div>
-          <div class="runtime-row">
-            <label for="mca-model-search">Buscar modelos</label>
-            <input id="mca-model-search" data-model-search type="search" placeholder="Nombre, parámetros o cuantización" aria-controls="mca-model" />
-          </div>
-          <div class="runtime-row">
-            <label for="mca-model">Modelo</label>
-            <select id="mca-model" data-model></select>
-          </div>
-          <p class="runtime-cost" data-runtime-cost hidden></p>
-          <div class="runtime-actions">
-            <button class="action-button secondary" type="button" data-runtime-refresh>Actualizar IA</button>
-            <button class="action-button secondary" type="button" data-runtime-options>Probar conexión</button>
-          </div>
+            <div class="runtime-row">
+              <label for="mca-provider">Proveedor</label>
+              <select id="mca-provider" data-provider></select>
+            </div>
+            <div class="runtime-row">
+              <label for="mca-model-search">Buscar modelos</label>
+              <input id="mca-model-search" data-model-search type="search" placeholder="Nombre, parámetros o cuantización" aria-controls="mca-model" />
+            </div>
+            <div class="runtime-row">
+              <label for="mca-model">Modelo</label>
+              <select id="mca-model" data-model></select>
+            </div>
+            <p class="runtime-cost" data-runtime-cost hidden></p>
+            <div class="runtime-actions">
+              <button class="action-button secondary" type="button" data-runtime-refresh>Actualizar IA</button>
+              <button class="action-button secondary" type="button" data-runtime-options>Probar conexión</button>
+            </div>
           </div>
           <div data-ai-advanced hidden></div>
         </div>
       </section>
-      <section class="section">
-        <h3 class="section-title">Diagnóstico</h3>
-        <div class="diagnostics" data-diagnostics></div>
+      <section class="technical-pane" id="mca-tool-json" data-tool-pane="json" aria-labelledby="mca-tool-title-json" hidden>
+        <div class="pane-header"><button class="icon-button" type="button" data-tool-back aria-label="Volver a la corrección" title="Volver a la corrección">${panelIcon('back')}</button><h3 id="mca-tool-title-json" tabindex="-1">JSON de corrección</h3></div>
+        <section class="section">
+          <h4 class="section-title">JSON externo</h4>
+          <div class="field-stack">
+            <label for="mca-correction-json">JSON de corrección</label>
+            <textarea id="mca-correction-json" class="code-input" data-external-correction spellcheck="false" placeholder='{"finalComment":"Comentario final...","score":null,"maxScore":null,"rubricSelections":[{"criterionNumber":1,"levelIndex":3,"criterionFeedback":"Comentario del criterio..."}]}'></textarea>
+            <p class="hint">Formato recomendado: finalComment y rubricSelections con criterionNumber, levelIndex y criterionFeedback. No hace falta conocer los ids de Moodle.</p>
+            <div class="json-actions">
+              <button class="action-button full-width" type="button" data-apply-correction>Aplicar JSON a Moodle</button>
+            </div>
+          </div>
+        </section>
+        <section class="section">
+          <h4 class="section-title">Sugerencia de IA</h4>
+          <textarea data-correction spellcheck="false" aria-label="JSON de la sugerencia de IA"></textarea>
+        </section>
       </section>
-      <section class="section">
-        <h3 class="section-title">Detectado</h3>
-        <dl class="detected-list" data-detected-list></dl>
-      </section>
-      <section class="section">
-        <h3 class="section-title">Indicaciones adicionales</h3>
-        <div class="field-stack">
-          <label for="mca-course-instructions">Por curso</label>
-          <p class="hint">Para todas las tareas de este curso.</p>
-          <textarea id="mca-course-instructions" data-course-instructions placeholder="Criterios generales del curso..."></textarea>
-          <label for="mca-assignment-instructions">Por tarea</label>
-          <p class="hint">Para todos los alumnos de esta tarea.</p>
-          <textarea id="mca-assignment-instructions" data-assignment-instructions placeholder="Qué valorar en esta tarea..."></textarea>
-          <button class="action-button secondary" type="button" data-recover-instructions hidden>Copiar instrucciones anteriores a esta tarea</button>
-          <label for="mca-extra-instructions">Por caso concreto</label>
-          <p class="hint">Solo para este alumno e intento de esta tarea.</p>
-          <textarea id="mca-extra-instructions" data-extra-instructions placeholder="Ej.: valora especialmente la claridad de las actividades, penaliza si no hay evidencias del uso de IA..."></textarea>
-          <label for="mca-extra-files">Archivos adicionales</label>
-          <input class="file-input" id="mca-extra-files" data-extra-files type="file" multiple />
-          <p class="hint">Hasta 20 MB por archivo y 40 MB en total.</p>
-          <p class="hint" data-extra-files-summary>Sin archivos adicionales.</p>
-        </div>
-      </section>
-      <section class="section">
-        <h3 class="section-title">Información usada para corregir</h3>
-        <div data-assignment></div>
-      </section>
-      <section class="section">
-        <h3 class="section-title">Sugerencia de IA</h3>
-        <textarea data-correction spellcheck="false" aria-label="Sugerencia de IA"></textarea>
+      <section class="technical-pane" id="mca-tool-inspect" data-tool-pane="inspect" aria-labelledby="mca-tool-title-inspect" hidden>
+        <div class="pane-header"><button class="icon-button" type="button" data-tool-back aria-label="Volver a la corrección" title="Volver a la corrección">${panelIcon('back')}</button><h3 id="mca-tool-title-inspect" tabindex="-1">Datos y diagnóstico</h3></div>
+        <section class="section">
+          <h4 class="section-title">Detectado</h4>
+          <dl class="detected-list" data-detected-list></dl>
+        </section>
+        <section class="section">
+          <h4 class="section-title">Información usada para corregir</h4>
+          <div data-assignment></div>
+        </section>
+        <section class="section">
+          <h4 class="section-title">Diagnóstico</h4>
+          <div class="diagnostics" data-diagnostics></div>
+        </section>
       </section>
     </div>
     <footer class="footer">
-      <p class="footer-note">Revisa antes de guardar. La extensión no envía el formulario.</p>
-      <label class="footer-toggle"><input type="checkbox" data-auto-correct> Corregir al pasar al siguiente alumno</label>
-      <button class="action-button" type="button" data-correct>Corregir con IA</button>
+      <label class="footer-toggle"><input type="checkbox" data-auto-correct><span>Corregir al pasar al siguiente alumno</span></label>
+      <button class="action-button" type="button" data-correct>${panelIcon('spark')}<span>Corregir con IA</span></button>
       <button class="action-button secondary" type="button" data-cancel-correction hidden style="display:none">Cancelar</button>
+      <p class="footer-note">Revisa antes de guardar. La extensión no envía el formulario.</p>
     </footer>
   `;
 
-  organizePanelWorkflow(panel);
   MoodliaCorrectorI18n.localize(panel);
 
   panel.querySelector('[data-close]').addEventListener('click', closePanel);
+  panel.querySelector('[data-more]').addEventListener('click', () => {
+    const open = panel.querySelector('[data-more-menu]').hidden;
+    setMoreMenuOpen(panel, open);
+    if (open) panel.querySelector('[data-more-menu] button').focus();
+  });
+  for (const button of panel.querySelectorAll('[data-tool]')) {
+    button.addEventListener('click', () => showPanelTool(panel, panel.dataset.activeTool === button.dataset.tool ? '' : button.dataset.tool));
+  }
+  for (const button of panel.querySelectorAll('[data-tool-back]')) button.addEventListener('click', () => showPanelTool(panel, '', true));
+  panel.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (!panel.querySelector('[data-more-menu]').hidden) {
+      event.preventDefault();
+      event.stopPropagation();
+      setMoreMenuOpen(panel, false);
+      panel.querySelector('[data-more]').focus();
+    } else if (panel.dataset.activeTool) {
+      event.preventDefault();
+      event.stopPropagation();
+      showPanelTool(panel, '', true);
+    }
+  });
+  panel.addEventListener('click', (event) => {
+    if (!event.composedPath().some(node => node?.dataset && ('more' in node.dataset || 'moreMenu' in node.dataset))) setMoreMenuOpen(panel, false);
+  });
+
+  const tabs = [...panel.querySelectorAll('[data-scope-tab]')];
+  for (const tab of tabs) {
+    tab.addEventListener('click', () => selectCriteriaScope(panel, tab.dataset.scopeTab));
+    tab.addEventListener('keydown', (event) => {
+      const offset = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!offset) return;
+      event.preventDefault();
+      const next = tabs[(tabs.indexOf(tab) + offset + tabs.length) % tabs.length];
+      selectCriteriaScope(panel, next.dataset.scopeTab, true);
+    });
+  }
+  for (const field of panel.querySelectorAll('.scope-panel textarea')) field.addEventListener('input', updateCriteriaTabs);
+
   panel.querySelector('[data-correct]').addEventListener('click', () => void requestCorrectionFromPanel().catch(error => setPanelStatus(error.message || String(error))));
   panel.querySelector('[data-cancel-correction]').addEventListener('click', () => void cancelCorrectionFromPage().catch((error) => setPanelStatus(error.message)));
   const autoCorrect = panel.querySelector('[data-auto-correct]');
@@ -2973,6 +2921,7 @@ const closePanel = () => {
 const updateDetectedList = (assignmentData) => {
   const { detectedList, gradingMode } = getPanelElements();
   gradingMode.textContent = describeGradingMode(assignmentData);
+  setPanelContext(assignmentData);
   const gradingControls = assignmentData.gradingControls || {};
   const entries = [
     [MoodliaCorrectorI18n.t('Tarea Moodle'), assignmentData.page.detectedAsMoodleAssignment ? MoodliaCorrectorI18n.t('Sí') : MoodliaCorrectorI18n.t('No')],
@@ -3199,6 +3148,7 @@ const renderAiRuntimeControls = () => {
     provider.disabled = true;
     model.disabled = true;
     runtimeState.textContent = MoodliaCorrectorI18n.t('No se ha detectado la IA o no ha devuelto capacidades.');
+    updateAiChip();
     return;
   }
 
@@ -3238,6 +3188,7 @@ const renderAiRuntimeControls = () => {
       : aiRuntimeStatus.appConfig?.reason || MoodliaCorrectorI18n.t('No se ha podido conectar con la IA. Abre Opciones.');
   if (aiRuntimeStatus.appConfig?.reason) runtimeState.textContent = aiRuntimeStatus.appConfig.reason;
   else if (!aiRuntimeStatus.appConfig?.configured) runtimeState.textContent = MoodliaCorrectorI18n.t('Servidor conectado. Selecciona un modelo para corregir.');
+  updateAiChip();
 };
 
 const refreshAiRuntimeStatus = async () => {
@@ -3388,6 +3339,7 @@ const requestCorrectionFromPanel = async () => {
   correctButton.disabled = true;
   cancelButton.hidden = false;
   cancelButton.style.display = '';
+  showCorrectionProgress(true);
 
   try {
     addPanelDiagnostic('correction.pageAi.start');
@@ -3398,6 +3350,7 @@ const requestCorrectionFromPanel = async () => {
         if (!status || revision !== gradingPageRevision) return;
         // The plan stays visible in the result area while the later stages update the status.
         if (progress.stage === 'plan') showCorrectionPlan(status);
+        updateCorrectionProgress(progress, status);
         setPanelStatus(`${status} (${Math.round((Date.now() - startedAt) / 1000)} s)`);
       },
     });
@@ -3407,6 +3360,7 @@ const requestCorrectionFromPanel = async () => {
     updateExtraFilesSummary();
     renderCorrectionResult(currentCorrection);
     correction.value = JSON.stringify(currentCorrection.parsed || currentCorrection.text, null, 2);
+    updateCorrectionProgress({ stage: 'apply' }, '');
     const applyResult = await applyCorrectionWhenReady(currentCorrection);
     if (revision !== gradingPageRevision) return;
     setPanelStatus(appliedStatus(applyResult));
@@ -3426,6 +3380,7 @@ const requestCorrectionFromPanel = async () => {
       correctButton.disabled = false;
       cancelButton.hidden = true;
       cancelButton.style.display = 'none';
+      showCorrectionProgress(false);
     }
   }
 };
@@ -3505,6 +3460,9 @@ const resetAssistantForNavigation = (refresh = true) => {
   if (settingsFrame) { settingsFrame.contentWindow.postMessage({ type: 'mca.cancelSettingsTest', token: new URL(settingsFrame.src).searchParams.get('token') }, new URL(settingsFrame.src).origin); settingsFrame.remove(); settingsFrame = null; }
   void setAiSettingsMode('simple');
   savedInstructionsReady = instructionsController.setContext(isSupportedGraderUrl() ? getInstructionContext() : {});
+  void savedInstructionsReady.then(updateCriteriaTabs, () => {});
+  setPanelContext(null);
+  showCorrectionProgress(false);
   const requestId = activeCorrectionRequestId;
   activeCorrectionRequestId = null;
   if (requestId) void sendBackgroundMessage({ type: 'mca.cancelCorrection', requestId }).catch(() => {});
@@ -3621,6 +3579,7 @@ const initializeAssistantUi = () => {
     course: elements.courseInstructions, assignment: elements.assignmentInstructions, case: elements.extraInstructions,
   }, setPanelStatus, elements.recoverInstructions);
   savedInstructionsReady = instructionsController.setContext(getInstructionContext());
+  void savedInstructionsReady.then(updateCriteriaTabs, () => {});
   watchGradingNavigation();
 };
 

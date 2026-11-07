@@ -1769,6 +1769,68 @@
       }
     }
   },
+  "mbc79cdffbaa8": {
+    "message": "Mais opções",
+    "description": "More options"
+  },
+  "m45833b231c24": {
+    "message": "Configurar IA",
+    "description": "Configure AI"
+  },
+  "m06e6c4ca9d7f": {
+    "message": "Tentativa $value1$",
+    "description": "Attempt $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m7259896a1745": {
+    "message": "Corrigindo",
+    "description": "Correcting"
+  },
+  "m44284a649ef4": {
+    "message": "Progresso da correção",
+    "description": "Correction progress"
+  },
+  "m3827b2a21f33": {
+    "message": "Ler os arquivos",
+    "description": "Read the files"
+  },
+  "m682c1dcc0fad": {
+    "message": "Revisar as evidências",
+    "description": "Review the evidence"
+  },
+  "m0a5fd1323f1b": {
+    "message": "Redigir a nota e o comentário",
+    "description": "Write the grade and feedback"
+  },
+  "meb658929eae1": {
+    "message": "Preencher o formulário do Moodle",
+    "description": "Fill in the Moodle form"
+  },
+  "m012891232e3c": {
+    "message": "Evidências para a IA",
+    "description": "Evidence for the AI"
+  },
+  "m647070f11615": {
+    "message": "Adicionar arquivos de apoio",
+    "description": "Add supporting files"
+  },
+  "mb2cb20928c0a": {
+    "message": "Salvo automaticamente.",
+    "description": "Saved automatically."
+  },
+  "m214eaf13eaf4": {
+    "message": "Âmbito do critério",
+    "description": "Criteria scope"
+  },
+  "md6322d3c39d9": {
+    "message": "Este aluno",
+    "description": "This student"
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

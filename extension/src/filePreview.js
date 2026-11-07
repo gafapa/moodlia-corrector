@@ -8,14 +8,17 @@
     const style = document.createElement('style');
     style.textContent = `
       .mca-file-preview { max-height: 240px; overflow: auto; overflow-wrap: anywhere; overscroll-behavior: contain; }
-      .mca-file-preview:focus-visible { outline: 2px solid #2453a6; outline-offset: 2px; }
-      .mca-file-preview .file-group { margin: 0 0 10px; display: block; }
-      .mca-file-preview .file-group h4 { margin: 0; font-size: 12px; }
-      .mca-file-preview .file-purpose { margin: 1px 0 3px; font-size: 12px; color: #536070; }
-      .mca-file-preview .file-names { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
-      .mca-file-preview .file-note { margin: 4px 0 0; color: #536070; font-size: 12px; }
-      .mca-file-preview .file-skipped { color: #b42318; }
-      .mca-file-preview .file-skip-reason { display: block; font-size: 12px; }
+      .mca-file-preview:focus-visible { outline: 2px solid #1f4fa0; outline-offset: 2px; }
+      .mca-file-preview .file-group { margin: 0 0 12px; display: grid; gap: 4px; }
+      .mca-file-preview .file-group h4 { margin: 0; color: #4a5568; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+      .mca-file-preview .file-purpose { margin: 0 0 2px; font-size: 12px; color: #4a5568; }
+      .mca-file-preview .file-names { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+      .mca-file-preview .file-names li { padding: 8px 10px; border-radius: 8px; background: #f7f9fb; font-size: 13px; }
+      .mca-file-preview .file-names strong { font-weight: 500; }
+      .mca-file-preview .file-note { margin: 4px 0 0; color: #4a5568; font-size: 12px; }
+      .mca-file-preview .file-names li.file-skipped { color: #b42318; background: #fdf0ee; }
+      .mca-file-preview .file-skipped strong { text-decoration: line-through; }
+      .mca-file-preview .file-skip-reason { display: block; font-size: 12px; font-weight: 500; }
     `;
     fragment.appendChild(style);
     const groups = [
