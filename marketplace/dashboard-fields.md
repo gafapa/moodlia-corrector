@@ -1,6 +1,6 @@
 # Chrome Web Store dashboard fields
 
-Version: 0.2.1. Prepared 28 October 2026. These statements describe the actual extension; they are not a claim of store approval.
+Version: 0.2.2. Prepared 7 November 2026. These statements describe the actual extension; they are not a claim of store approval.
 
 ## Store listing
 

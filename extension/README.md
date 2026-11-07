@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.2.1`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.2.2`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 

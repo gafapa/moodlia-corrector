@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-07",
+  "version": "0.2.2",
+  "unit_tests_passed": 102,
+  "browser_checks_passed": 122,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 240,
+  "archive_uncompressed_bytes": 5994849,
+  "archive_matches_source": true,
+  "archive_sha256": "ef0c1d4ce488975fe90f43550047aa1e9ae64fdcee7f9f376215b98cfda6620a",
+  "validation_scope": "Read-only review of the content script, service worker and attachment reader for over-engineering and resource use, followed by fixes; synthetic Chromium fixtures with fictional data. The 0.2.1 live inference, fidelity corpus and real-Moodle lab checks were not repeated for this build.",
+  "npm_audit_vulnerabilities": 0,
+  "findings_fixed": 6,
+  "sizes": {
+    "content_script_bytes": 403396,
+    "i18n_runtime_bytes": 203847,
+    "previous_archive_uncompressed_bytes": 9061820
+  },
+  "store_metadata": {
+    "locales": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "pt_BR",
+      "it",
+      "gl",
+      "ca"
+    ],
+    "rejection_addressed": "Yellow Argon (keyword stuffing): file-format and language enumerations removed",
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

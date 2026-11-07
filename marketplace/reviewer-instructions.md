@@ -1,6 +1,6 @@
 # Reviewer instructions
 
-MoodlIA Corrector 0.2.1 assists teacher review of Moodle assignments. It is an independent project and does not require a separate MoodlIA plugin or subscription.
+MoodlIA Corrector 0.2.2 assists teacher review of Moodle assignments. It is an independent project and does not require a separate MoodlIA plugin or subscription.
 
 ## Access information to enter privately in the review dashboard
 
