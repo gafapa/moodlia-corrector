@@ -5,6 +5,7 @@
 - **Correct when moving to the next student** did not start on Moodle's grader: the grader loads the next student in steps (the user, then the submission and files), each step reset the panel, and only the first reset saw a new student, so the later resets dropped the pending correction. The pending start now survives resets for the same student.
 - **Correct when moving to the next student** no longer starts for a student who already has a grade in Moodle's form (a direct grade, a scale value, a selected rubric level or a marking guide score); the status line says so. Students corrected earlier on the page are still not corrected again.
 - 1 new interface string in all eight languages.
+- Store promotional tiles redesigned: the product name and one short promise beside a drawing of the compact grading panel, with little text and no format or provider lists.
 
 ## 0.2.5 - 2026-11-09
 
