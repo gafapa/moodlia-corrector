@@ -680,10 +680,12 @@ const sniffFormat = (bytes) => {
     if (names.includes('xl/workbook.xml')) return 'xlsx';
     if (names.includes('ppt/presentation.xml')) return 'pptx';
     // ODS/ODP also contain content.xml; their mimetype entry tells them apart.
+    // Writer/Web (text-web), master documents and templates keep the same office:text, spreadsheet or presentation body.
     const mimetype = entries.mimetype ? strFromU8(entries.mimetype).trim() : '';
-    if (names.includes('content.xml') && (!mimetype || mimetype === 'application/vnd.oasis.opendocument.text')) return 'odt';
-    if (names.includes('content.xml') && mimetype === 'application/vnd.oasis.opendocument.spreadsheet') return 'ods';
-    if (names.includes('content.xml') && mimetype === 'application/vnd.oasis.opendocument.presentation') return 'odp';
+    if (!names.includes('content.xml')) return 'zip';
+    if (!mimetype || /^application\/vnd\.oasis\.opendocument\.text(-template|-web|-master|-master-template)?$/.test(mimetype)) return 'odt';
+    if (/^application\/vnd\.oasis\.opendocument\.spreadsheet(-template)?$/.test(mimetype)) return 'ods';
+    if (/^application\/vnd\.oasis\.opendocument\.presentation(-template)?$/.test(mimetype)) return 'odp';
     return 'zip';
   }
   return '';

@@ -18,6 +18,16 @@ export async function checkAttachmentReader(page, extensionId) {
   assert.deepEqual(preserved.attachment.images.map(image => image.pageNumber), [1]);
   console.log('PASS: ODT extraction preserves CDATA, nested text, tabs, breaks and repeated spaces.');
 
+  // LibreOffice Writer/Web, master documents and templates store other mimetype entries over the same office:text body.
+  for (const variant of ['text', 'text-web', 'text-template', 'text-master']) {
+    const mimetype = `application/vnd.oasis.opendocument.${variant}`;
+    const variantFile = { name: 'fictional.odt', base64Data: Buffer.from(zipSync({ mimetype: [strToU8(mimetype), { level: 0 }], 'content.xml': strToU8(odtDocument('<text:p>Variant answer</text:p>')) })).toString('base64') };
+    const variantRead = await read(variantFile);
+    assert.equal(variantRead.error, undefined, mimetype);
+    assert.match(variantRead.attachment.textContent, /Variant answer/, mimetype);
+  }
+  console.log('PASS: ODT text, Writer/Web, template and master mimetypes are read as OpenDocument text.');
+
   const maxText = await page.evaluate(() => MoodliaCorrectorAttachmentSupport.MAX_TEXT);
   const exact = await read(odtFile(`<text:p>A<text:s text:c="${maxText - 3}"/></text:p><text:p>B</text:p>`));
   assert.equal(exact.attachment.extractedTextCharacters, maxText);

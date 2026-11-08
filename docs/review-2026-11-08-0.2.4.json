@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-08",
+  "version": "0.2.4",
+  "unit_tests_passed": 102,
+  "browser_checks_passed": 123,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 240,
+  "archive_uncompressed_bytes": 6033683,
+  "archive_matches_source": true,
+  "archive_sha256": "2c8057acf8e7477bbf67942aefa17f0cefea03306c2d62db36fc925de98b3572",
+  "validation_scope": "OpenDocument mimetype variants checked with synthetic Chromium fixtures, and one real Writer/Web ODT read through the extension reader. The 0.2.1 live inference, fidelity corpus and real-Moodle lab checks were not repeated for this build.",
+  "npm_audit_vulnerabilities": 0,
+  "sizes": {
+    "content_script_bytes": 423801,
+    "previous_content_script_bytes": 423801
+  },
+  "store_metadata": {
+    "locales": ["en", "es", "fr", "de", "pt_BR", "it", "gl", "ca"],
+    "screenshots_regenerated": true,
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

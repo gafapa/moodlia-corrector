@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4 - 2026-11-08
+
+- OpenDocument files saved from LibreOffice Writer/Web, and master documents and templates (`text-web`, `text-master`, `text-template`, `spreadsheet-template`, `presentation-template` in the archive's `mimetype` entry), were skipped as "unsupported format content". They are now read like ODT, ODS and ODP, because their body is the same.
+
 ## 0.2.3 - 2026-11-07
 
 - Redesigned grading panel:

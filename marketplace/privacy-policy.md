@@ -1,6 +1,6 @@
 # MoodlIA Corrector privacy policy
 
-Effective date: 20 October 2026. Version covered: 0.2.3. Last reviewed: 7 November 2026.
+Effective date: 20 October 2026. Version covered: 0.2.4. Last reviewed: 8 November 2026.
 
 ## Scope and contact
 

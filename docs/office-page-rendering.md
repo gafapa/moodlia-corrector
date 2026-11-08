@@ -17,6 +17,11 @@ engine from 0.2.1; see [Spreadsheets](#spreadsheets-xlsx-and-ods) and
 | `extension/src/attachments/docxLayout.js` | Word document to HTML pieces, including OMML equations. |
 | `extension/src/attachments/reader.js` | Text extraction, page text, fallback, and the reader result. |
 
+The reader recognises an OpenDocument archive by its `content.xml` and its
+`mimetype` entry. ODT covers `text`, `text-web` (LibreOffice Writer/Web),
+`text-master` and `text-template`, and archives without a `mimetype` entry.
+ODS and ODP also accept their `-template` variants.
+
 Everything runs locally in the extension's offscreen document. Nothing is sent
 anywhere until the page images and text join the normal evidence request.
 
