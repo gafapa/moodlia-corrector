@@ -17,7 +17,8 @@
   "store_metadata": {
     "locales": ["en", "es", "fr", "de", "pt_BR", "it", "gl", "ca"],
     "screenshots_regenerated": true,
-    "store_dashboard_updated": false,
+    "store_dashboard_updated": true,
+    "store_submitted_for_review": "2026-11-09",
     "store_acceptance_verified": false
   },
   "computer_configuration_changed": false,
