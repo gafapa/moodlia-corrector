@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.2.4`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.2.5`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 
@@ -146,6 +146,13 @@ panel header, and **Correction JSON** and **Data and diagnostics** from the
 the control that opened it). The main view is three numbered cards (evidence,
 teacher criteria in course/assignment/student tabs, result), with a progress
 card while a correction runs.
+
+Version 0.2.5 makes those cards collapsible so the panel fits a 720 px high
+window without scrolling. The criteria card opens when a student loads, the
+evidence card too when a file is skipped or none is found, and the result card
+while and after correcting; a closed card shows a summary. Evidence files sit
+in two collapsible groups, teaching material and the student submission. The
+grading mode moves to the result card and the status line to the footer.
 
 Version 0.1.54 simplified the side panel. The main view shows file purposes,
 saved instructions, and readable proposed grades/feedback. Three SVG icon

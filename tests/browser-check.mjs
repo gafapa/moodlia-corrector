@@ -542,14 +542,21 @@ try {
   assert.equal(await omittedReference.evaluate(element => getComputedStyle(element).color), 'rgb(180, 35, 24)');
   const previewBox = await filesToInclude.boundingBox();
   assert.ok(previewBox.height <= 240);
-  const overview = await fixturePage.evaluate(() => {
+  const layout = await fixturePage.evaluate(() => {
     const root = document.querySelector('#mca-side-panel-host').shadowRoot;
-    const mode = root.querySelector('[data-grading-mode]');
-    return { modeTop: mode.getBoundingClientRect().top, toolsBottom: root.querySelector('.panel-tools').getBoundingClientRect().bottom, fontSize: parseFloat(getComputedStyle(mode).fontSize) };
+    const open = (selector) => root.querySelector(selector).open;
+    return {
+      evidence: open('[data-card="evidence"]'), criteria: open('[data-card="criteria"]'), result: open('[data-card="result"]'),
+      teacher: open('[data-file-group="teacher"]'), submission: open('[data-file-group="submission"]'),
+      summary: root.querySelector('[data-evidence-summary]').textContent,
+      modeInResult: Boolean(root.querySelector('[data-card="result"] > summary [data-grading-mode]')),
+      addFilesInTeacherGroup: Boolean(root.querySelector('[data-file-group="teacher"] [data-add-files] [data-extra-files]')),
+    };
   });
-  assert.ok(overview.modeTop > overview.toolsBottom);
-  assert.ok(overview.fontSize >= 14);
-  console.log('PASS: file previews remain compact and accessible, and prominent grading status appears below the tool icons.');
+  // A skipped reference file opens the evidence card and its group; the criteria stay open, the result closed.
+  assert.deepEqual({ ...layout, summary: undefined }, { evidence: true, criteria: true, result: false, teacher: true, submission: false, summary: undefined, modeInResult: true, addFilesInTeacherGroup: true });
+  assert.match(layout.summary, /2 incluido\(s\) · 1 omitido\(s\)/);
+  console.log('PASS: file previews group teacher material and the submission; a skipped file opens the evidence card and its group, and the grading mode sits on the result card.');
   console.log('PASS: supervision detects the task title and describes reference files separately from submissions without downloading them.');
   const referenceResult = await send({ type: 'mca.correctAssignment', requestId: 'reference-separation', assignmentData: detected });
   assert.equal(referenceResult.ok, true, referenceResult.error);
@@ -762,7 +769,9 @@ try {
   };
   // One criteria scope is visible at a time: select its tab before typing.
   const criteriaScopes = { '[data-course-instructions]': 'course', '[data-assignment-instructions]': 'assignment', '[data-extra-instructions]': 'case' };
+  // The criteria card closes while a result is shown: open it before choosing a scope.
   const criteriaField = async (selector) => {
+    if (!await panelField('[data-card="criteria"]').evaluate(card => card.open)) await panelField('[data-card="criteria"] > summary').click();
     await panelField(`[data-scope-tab="${criteriaScopes[selector]}"]`).click();
     return panelField(selector);
   };

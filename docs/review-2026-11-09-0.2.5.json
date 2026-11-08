@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-09",
+  "version": "0.2.5",
+  "unit_tests_passed": 102,
+  "browser_checks_passed": 123,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 240,
+  "archive_uncompressed_bytes": 6053007,
+  "archive_matches_source": true,
+  "archive_sha256": "6a50fdb911fc7e18311fc9cee38ba9c22021f0d846c35a152e3f69332f6a2316",
+  "validation_scope": "Compact collapsible grading panel checked with synthetic Chromium fixtures in eight languages, including the automatic opening of the evidence card for a skipped file. The 0.2.1 live inference, fidelity corpus and real-Moodle lab checks were not repeated for this build.",
+  "npm_audit_vulnerabilities": 0,
+  "sizes": {
+    "content_script_bytes": 432999,
+    "previous_content_script_bytes": 423801
+  },
+  "store_metadata": {
+    "locales": ["en", "es", "fr", "de", "pt_BR", "it", "gl", "ca"],
+    "screenshots_regenerated": true,
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

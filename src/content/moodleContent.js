@@ -11,7 +11,7 @@ const PAGE_STYLE_ID = 'mca-page-layout-style';
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.2.4',
+  version: '0.2.5',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -1931,36 +1931,36 @@ const createPanelStyles = () => {
     /* Header: product, tools, the graded student and the AI in use. */
     .header {
       display: grid;
-      gap: 12px;
-      padding: 12px 12px 14px 16px;
+      gap: 8px;
+      padding: 10px 10px 10px 14px;
       background: #fff;
       border-bottom: 1px solid var(--mca-line);
     }
-    .header-top { position: relative; display: flex; align-items: center; gap: 10px; }
+    .header-top { position: relative; display: flex; align-items: center; gap: 8px; }
     .brand-mark {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      width: 32px;
-      height: 32px;
+      width: 26px;
+      height: 26px;
     }
-    .brand-mark svg { width: 32px; height: 32px; }
-    .title { flex-grow: 1; margin: 0; font-size: 16px; font-weight: 700; }
+    .brand-mark svg { width: 26px; height: 26px; }
+    .title { flex-grow: 1; margin: 0; font-size: 14px; font-weight: 700; }
     .panel-tools { display: flex; gap: 2px; }
     .icon-button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
       color: var(--mca-muted);
     }
     .icon-button:hover, .icon-button[aria-expanded="true"] { background: var(--mca-accent-soft); color: var(--mca-accent-strong); }
-    .icon-button svg { width: 20px; height: 20px; }
+    .icon-button svg { width: 18px; height: 18px; }
     .more-menu {
       position: absolute;
-      top: 46px;
+      top: 40px;
       right: 0;
       z-index: 5;
       display: grid;
@@ -1974,37 +1974,29 @@ const createPanelStyles = () => {
     .more-menu button { min-height: 44px; padding: 0 12px; text-align: left; font-weight: 500; }
     .more-menu button:hover { background: var(--mca-accent-soft); }
 
-    .panel-context { display: grid; gap: 2px; }
-    .panel-context p { margin: 0; overflow-wrap: anywhere; }
+    /* The graded student on the left, the AI in use on the right. */
+    .header-context { display: flex; align-items: center; gap: 10px; }
+    .panel-context { flex: 1; min-width: 0; display: grid; }
+    .panel-context p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .panel-context p:empty { display: none; }
     .context-assignment { color: var(--mca-muted); font-size: 12px; }
-    .context-student { font-size: 15px; font-weight: 600; }
+    .context-student { font-size: 13px; font-weight: 600; }
     .context-student .context-attempt { color: var(--mca-muted); font-weight: 400; }
-
-    .panel-overview { display: grid; gap: 8px; }
-    .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-    .panel-overview [data-grading-mode] {
-      margin: 0;
-      padding: 5px 11px;
-      border-radius: 999px;
-      background: var(--mca-accent-soft);
-      color: #1f3a66;
-      font-size: 14px;
-      font-weight: 600;
-    }
     .ai-chip {
       display: inline-flex;
+      flex: none;
       align-items: center;
-      gap: 7px;
-      max-width: 100%;
-      min-height: 32px;
-      padding: 0 12px;
+      gap: 6px;
+      max-width: 45%;
+      min-height: 30px;
+      margin-left: auto;
+      padding: 0 10px;
       border-radius: 999px;
       background: var(--mca-tile);
       border: 1px solid var(--mca-line);
       color: var(--mca-ink);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
     }
     .ai-chip > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ai-chip:hover, .ai-chip[aria-expanded="true"] { border-color: var(--mca-accent); }
@@ -2013,62 +2005,85 @@ const createPanelStyles = () => {
     .ai-chip[data-state="ok"] .ai-dot { background: var(--mca-ok); }
     .ai-chip[data-state="warn"] { background: var(--mca-warn-soft); border-color: #f1d9ae; color: var(--mca-warn-ink); }
     .ai-chip[data-state="warn"] .ai-dot { background: var(--mca-warn); }
-    .panel-overview [data-status] { margin: 0; color: #365075; font-size: 13px; font-weight: 500; }
-    .status { margin: 0; color: var(--mca-muted); font-size: 12px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-    /* Content: numbered steps, then the technical panes. */
-    .content { overflow: auto; padding: 16px; }
-    .workflow { display: grid; gap: 14px; }
+    /* Content: three collapsible steps, then the technical panes. An open criteria or
+       result card takes the free height, so the panel fits without scrolling. */
+    .content { display: flex; flex-direction: column; overflow: auto; padding: 10px; }
+    .workflow { flex: 1 0 auto; display: flex; flex-direction: column; gap: 8px; }
     .workflow-card {
       display: grid;
       gap: 12px;
-      padding: 14px;
+      padding: 12px;
       border: 1px solid var(--mca-line);
-      border-radius: 12px;
+      border-radius: 10px;
       background: #fff;
     }
-    .card-heading { display: flex; align-items: center; gap: 8px; }
-    .card-heading h3 { flex-grow: 1; margin: 0; font-size: 14px; font-weight: 600; }
-    .card-meta { color: var(--mca-muted); font-size: 12px; }
+    .card { display: block; padding: 0; }
+    .card > summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 12px;
+      border-radius: 10px;
+      list-style: none;
+      cursor: pointer;
+    }
+    .card > summary::-webkit-details-marker { display: none; }
+    .card > summary:hover { background: var(--mca-tile); }
+    .card > summary h3 { flex: none; margin: 0; font-size: 13px; font-weight: 600; }
+    .card-meta { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--mca-muted); font-size: 12px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+    .card-meta[data-attention="true"] { color: #b42318; font-weight: 600; }
+    .card-chevron { flex: none; display: inline-flex; color: var(--mca-muted); transition: transform 140ms ease; }
+    .card-chevron svg { width: 16px; height: 16px; }
+    .card[open] > summary .card-chevron { transform: rotate(180deg); }
+    .card-body { display: grid; gap: 8px; padding: 0 12px 12px; }
+    .card.grow[open] { flex: 1 0 auto; display: flex; flex-direction: column; }
+    .card.grow[open]::details-content { flex: 1 0 auto; display: flex; flex-direction: column; }
+    .card.grow[open] > .card-body { flex: 1 0 auto; }
     .step-number {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
-      background: var(--mca-accent);
-      color: #fff;
-      font-size: 12px;
+      background: var(--mca-accent-soft);
+      color: var(--mca-accent-strong);
+      font-size: 11px;
       font-weight: 700;
     }
     .hint { margin: 0; color: var(--mca-muted); font-size: 12px; }
+    [data-extra-files-summary][data-empty="true"] { display: none; }
 
     .file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
     .add-files {
-      display: flex;
+      position: relative;
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
-      min-height: 44px;
+      gap: 6px;
+      min-height: 32px;
+      padding: 0 10px;
       border: 1px dashed #b7c2d0;
-      border-radius: 8px;
+      border-radius: 7px;
       color: var(--mca-accent);
-      font-weight: 500;
+      font-size: 12px;
+      font-weight: 600;
       cursor: pointer;
     }
     .add-files:hover { background: var(--mca-accent-soft); }
-    .file-input:focus-visible + .add-files { outline: 2px solid var(--mca-accent); outline-offset: 2px; }
-    .add-files svg { width: 16px; height: 16px; }
+    .add-files:focus-within { outline: 2px solid var(--mca-accent); outline-offset: 2px; }
+    .add-files svg { width: 14px; height: 14px; }
 
-    .instruction-fields { display: grid; gap: 10px; }
+    .instruction-fields { display: flex; flex-direction: column; gap: 8px; }
     .scope-tabs {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 4px;
-      padding: 4px;
-      border-radius: 10px;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 8px;
       background: #eef1f5;
     }
     .scope-tabs button {
@@ -2076,25 +2091,27 @@ const createPanelStyles = () => {
       align-items: center;
       justify-content: center;
       gap: 6px;
-      min-height: 36px;
+      min-height: 30px;
       padding: 0 6px;
-      border-radius: 7px;
+      border-radius: 6px;
       color: var(--mca-muted);
       font-weight: 500;
     }
-    .scope-tabs button[aria-selected="true"] { background: #fff; color: var(--mca-ink); font-weight: 600; box-shadow: 0 1px 2px rgba(23, 32, 51, 0.12); }
+    .scope-tabs button[aria-selected="true"] { background: #fff; color: var(--mca-accent-strong); font-weight: 600; box-shadow: 0 1px 2px rgba(23, 32, 51, 0.12); }
     .scope-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--mca-accent); }
     .scope-tabs button[data-filled="true"] .scope-dot { display: inline-block; }
-    .scope-panel { display: grid; gap: 6px; }
-    .scope-panel label { font-weight: 600; color: #2d3748; }
+    .scope-panel { flex: 1 0 auto; display: flex; flex-direction: column; gap: 6px; }
     .instruction-fields textarea {
-      min-height: 120px;
-      padding: 10px 12px;
+      flex: 1 0 auto;
+      min-height: 72px;
+      box-sizing: border-box;
+      padding: 8px 10px;
       border-color: var(--mca-field);
       border-radius: 8px;
       font: inherit;
       font-size: 13px;
       white-space: pre-wrap;
+      resize: none;
     }
 
     /* Progress while a correction runs. */
@@ -2272,15 +2289,17 @@ const createPanelStyles = () => {
     /* Footer: the one main action. */
     .footer {
       display: grid;
-      gap: 10px;
-      padding: 12px 16px 16px;
+      gap: 6px;
+      padding: 10px 12px 12px;
       background: #fff;
       border-top: 1px solid var(--mca-line);
     }
-    .footer-toggle { display: flex; align-items: center; gap: 10px; min-height: 32px; color: #2d3748; cursor: pointer; }
-    .footer-toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--mca-accent); }
-    .footer .action-button { min-height: 48px; font-size: 15px; white-space: nowrap; }
-    .footer-note { margin: 0; color: var(--mca-muted); font-size: 12px; text-align: center; }
+    .footer-status { margin: 0; color: #365075; font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+    .footer-actions { display: flex; align-items: center; gap: 10px; }
+    .footer-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 32px; color: #2d3748; font-size: 12px; cursor: pointer; }
+    .footer-toggle input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--mca-accent); }
+    .footer .action-button { flex: none; min-height: 40px; padding: 0 16px; font-size: 13.5px; white-space: nowrap; }
+    .footer-note { margin: 0; color: var(--mca-muted); font-size: 11.5px; }
   `;
   return style;
 };
@@ -2350,6 +2369,7 @@ const renderCorrectionResult = (correction) => {
     container.textContent = MoodliaCorrectorI18n.t('Aquí verás la nota propuesta y el comentario de la corrección.');
     return;
   }
+  setCardLayout('result');
   if (typeof parsed.score === 'number') {
     const score = document.createElement('p');
     score.className = 'result-score';
@@ -2437,6 +2457,7 @@ const PANEL_ICONS = {
   back: '<path d="m15 18-6-6 6-6"/>',
   add: '<path d="M12 5v14M5 12h14"/>',
   spark: '<path d="m12 3 1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
 };
 const panelIcon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PANEL_ICONS[name]}</svg>`;
 const CRITERIA_SCOPES = ['course', 'assignment', 'case'];
@@ -2491,6 +2512,18 @@ const setPanelContext = (assignmentData) => {
   }
 };
 
+// The step cards open by moment: the criteria before correcting (with the evidence when a
+// file needs attention), the result while and after correcting. The teacher can open or close
+// any card at any time; the next moment applies its own layout again.
+const setCardLayout = (layout) => {
+  const { panel } = getPanelElements();
+  const card = (name) => panel.querySelector(`[data-card="${name}"]`);
+  const attention = panel.querySelector('[data-evidence-summary]').dataset.attention === 'true';
+  card('evidence').open = layout === 'start' && attention;
+  card('criteria').open = layout === 'start';
+  card('result').open = layout !== 'start';
+};
+
 // Correction progress: four stages fed by the service worker's progress events.
 const PROGRESS_STEPS = ['read', 'review', 'grade', 'apply'];
 const PROGRESS_STAGE_STEP = { download: 'read', read: 'read', plan: 'review', model: 'review', review: 'review', grade: 'grade', repair: 'grade' };
@@ -2498,7 +2531,10 @@ const showCorrectionProgress = (visible) => {
   const { panel } = getPanelElements();
   const card = panel.querySelector('[data-progress]');
   card.hidden = !visible;
+  if (visible) panel.dataset.correcting = 'true';
+  else delete panel.dataset.correcting;
   if (!visible) return;
+  setCardLayout('running');
   for (const step of card.querySelectorAll('[data-progress-step]')) {
     step.dataset.state = 'pending';
     step.querySelector('.step-detail').textContent = '';
@@ -2560,16 +2596,12 @@ const createSidePanel = () => {
           <button type="button" data-tool="inspect" aria-controls="mca-tool-inspect" aria-expanded="false">Datos y diagnóstico</button>
         </div>
       </div>
-      <div class="panel-context">
-        <p class="context-assignment" data-context-assignment></p>
-        <p class="context-student" data-context-student></p>
-      </div>
-      <div class="panel-overview">
-        <div class="chip-row">
-          <p data-grading-mode role="status" aria-live="polite">Modo: pendiente de detectar</p>
-          <button class="ai-chip" type="button" data-tool="settings" data-state="unknown" aria-controls="mca-tool-settings" aria-expanded="false" title="Configuración de IA"><span class="ai-dot" aria-hidden="true"></span><span data-ai-chip-label>Configurar IA</span></button>
+      <div class="header-context">
+        <div class="panel-context">
+          <p class="context-assignment" data-context-assignment></p>
+          <p class="context-student" data-context-student></p>
         </div>
-        <p data-status role="status" aria-live="polite">Listo.</p>
+        <button class="ai-chip" type="button" data-tool="settings" data-state="unknown" aria-controls="mca-tool-settings" aria-expanded="false" title="Configuración de IA"><span class="ai-dot" aria-hidden="true"></span><span data-ai-chip-label>Configurar IA</span></button>
       </div>
     </header>
     <div class="content">
@@ -2585,44 +2617,41 @@ const createSidePanel = () => {
             <li data-progress-step="apply"><span class="step-dot" aria-hidden="true"></span><span class="step-text"><span class="step-title">Rellenar el formulario de Moodle</span><span class="step-detail"></span></span></li>
           </ol>
         </section>
-        <section class="workflow-card">
-          <div class="card-heading"><span class="step-number" aria-hidden="true">1</span><h3>Evidencias para la IA</h3></div>
-          <div data-file-preview></div>
-          <input class="file-input" id="mca-extra-files" data-extra-files type="file" multiple />
-          <label class="add-files" for="mca-extra-files">${panelIcon('add')}<span>Añadir archivos de apoyo</span></label>
-          <p class="hint">Hasta 20 MB por archivo y 40 MB en total.</p>
-          <p class="hint" data-extra-files-summary>Sin archivos adicionales.</p>
-        </section>
-        <section class="workflow-card">
-          <div class="card-heading"><span class="step-number" aria-hidden="true">2</span><h3>Criterio docente</h3><span class="card-meta">Se guarda automáticamente.</span></div>
-          <div class="instruction-fields">
+        <details class="workflow-card card" data-card="evidence">
+          <summary><span class="step-number" aria-hidden="true">1</span><h3>Evidencias para la IA</h3><span class="card-meta" data-evidence-summary></span><span class="card-chevron">${panelIcon('chevron')}</span></summary>
+          <div class="card-body">
+            <div data-file-preview></div>
+            <label class="add-files" data-add-files title="Hasta 20 MB por archivo y 40 MB en total.">${panelIcon('add')}<span>Añadir archivos de apoyo</span><input class="file-input" id="mca-extra-files" data-extra-files type="file" multiple /></label>
+            <p class="hint" data-extra-files-summary>Sin archivos adicionales.</p>
+          </div>
+        </details>
+        <details class="workflow-card card grow" data-card="criteria" open>
+          <summary><span class="step-number" aria-hidden="true">2</span><h3>Criterio docente</h3><span class="card-meta">Se guarda automáticamente.</span><span class="card-chevron">${panelIcon('chevron')}</span></summary>
+          <div class="card-body instruction-fields">
             <div class="scope-tabs" role="tablist" aria-label="Ámbito del criterio">
-              <button type="button" role="tab" id="mca-tab-course" data-scope-tab="course" aria-controls="mca-scope-course" aria-selected="false" tabindex="-1"><span>Curso</span><span class="scope-dot" aria-hidden="true"></span></button>
-              <button type="button" role="tab" id="mca-tab-assignment" data-scope-tab="assignment" aria-controls="mca-scope-assignment" aria-selected="true"><span>Tarea</span><span class="scope-dot" aria-hidden="true"></span></button>
-              <button type="button" role="tab" id="mca-tab-case" data-scope-tab="case" aria-controls="mca-scope-case" aria-selected="false" tabindex="-1"><span>Este alumno</span><span class="scope-dot" aria-hidden="true"></span></button>
+              <button type="button" role="tab" id="mca-tab-course" data-scope-tab="course" aria-controls="mca-scope-course" aria-selected="false" tabindex="-1" title="Para todas las tareas de este curso."><span>Curso</span><span class="scope-dot" aria-hidden="true"></span></button>
+              <button type="button" role="tab" id="mca-tab-assignment" data-scope-tab="assignment" aria-controls="mca-scope-assignment" aria-selected="true" title="Para todos los alumnos de esta tarea."><span>Tarea</span><span class="scope-dot" aria-hidden="true"></span></button>
+              <button type="button" role="tab" id="mca-tab-case" data-scope-tab="case" aria-controls="mca-scope-case" aria-selected="false" tabindex="-1" title="Solo para este alumno e intento de esta tarea."><span>Este alumno</span><span class="scope-dot" aria-hidden="true"></span></button>
             </div>
             <div class="scope-panel" role="tabpanel" id="mca-scope-course" data-scope-panel="course" aria-labelledby="mca-tab-course" hidden>
-              <label for="mca-course-instructions">Por curso</label>
-              <p class="hint">Para todas las tareas de este curso.</p>
+              <label class="sr-only" for="mca-course-instructions">Por curso</label>
               <textarea id="mca-course-instructions" data-course-instructions placeholder="Criterios generales del curso..."></textarea>
             </div>
             <div class="scope-panel" role="tabpanel" id="mca-scope-assignment" data-scope-panel="assignment" aria-labelledby="mca-tab-assignment">
-              <label for="mca-assignment-instructions">Por tarea</label>
-              <p class="hint">Para todos los alumnos de esta tarea.</p>
+              <label class="sr-only" for="mca-assignment-instructions">Por tarea</label>
               <textarea id="mca-assignment-instructions" data-assignment-instructions placeholder="Qué valorar en esta tarea..."></textarea>
               <button class="action-button secondary" type="button" data-recover-instructions hidden>Copiar instrucciones anteriores a esta tarea</button>
             </div>
             <div class="scope-panel" role="tabpanel" id="mca-scope-case" data-scope-panel="case" aria-labelledby="mca-tab-case" hidden>
-              <label for="mca-extra-instructions">Por caso concreto</label>
-              <p class="hint">Solo para este alumno e intento de esta tarea.</p>
+              <label class="sr-only" for="mca-extra-instructions">Por caso concreto</label>
               <textarea id="mca-extra-instructions" data-extra-instructions placeholder="Ej.: valora especialmente la claridad de las actividades, penaliza si no hay evidencias del uso de IA..."></textarea>
             </div>
           </div>
-        </section>
-        <section class="workflow-card">
-          <div class="card-heading"><span class="step-number" aria-hidden="true">3</span><h3>Resultado</h3></div>
-          <div data-result aria-live="polite">Aquí verás la nota propuesta y el comentario de la corrección.</div>
-        </section>
+        </details>
+        <details class="workflow-card card grow" data-card="result">
+          <summary><span class="step-number" aria-hidden="true">3</span><h3>Resultado</h3><span class="card-meta" data-grading-mode>Modo: pendiente de detectar</span><span class="card-chevron">${panelIcon('chevron')}</span></summary>
+          <div class="card-body"><div data-result aria-live="polite">Aquí verás la nota propuesta y el comentario de la corrección.</div></div>
+        </details>
       </div>
       <section class="technical-pane" id="mca-tool-settings" data-tool-pane="settings" aria-labelledby="mca-tool-title-settings" hidden>
         <div class="pane-header"><button class="icon-button" type="button" data-tool-back aria-label="Volver a la corrección" title="Volver a la corrección">${panelIcon('back')}</button><h3 id="mca-tool-title-settings" tabindex="-1">Configuración de IA</h3></div>
@@ -2689,9 +2718,12 @@ const createSidePanel = () => {
       </section>
     </div>
     <footer class="footer">
-      <label class="footer-toggle"><input type="checkbox" data-auto-correct><span>Corregir al pasar al siguiente alumno</span></label>
-      <button class="action-button" type="button" data-correct>${panelIcon('spark')}<span>Corregir con IA</span></button>
-      <button class="action-button secondary" type="button" data-cancel-correction hidden style="display:none">Cancelar</button>
+      <p class="footer-status" data-status role="status" aria-live="polite">Listo.</p>
+      <div class="footer-actions">
+        <label class="footer-toggle"><input type="checkbox" data-auto-correct><span>Corregir al pasar al siguiente alumno</span></label>
+        <button class="action-button" type="button" data-correct>${panelIcon('spark')}<span>Corregir con IA</span></button>
+        <button class="action-button secondary" type="button" data-cancel-correction hidden style="display:none">Cancelar</button>
+      </div>
       <p class="footer-note">Revisa antes de guardar. La extensión no envía el formulario.</p>
     </footer>
   `;
@@ -2784,6 +2816,8 @@ const getPanelElements = () => {
     extraFiles: root.querySelector('[data-extra-files]'),
     extraFilesSummary: root.querySelector('[data-extra-files-summary]'),
     filePreview: root.querySelector('[data-file-preview]'),
+    addFiles: root.querySelector('[data-add-files]'),
+    evidenceSummary: root.querySelector('[data-evidence-summary]'),
     provider: root.querySelector('[data-provider]'),
     model: root.querySelector('[data-model]'),
     runtimeState: root.querySelector('[data-runtime-state]'),
@@ -2809,9 +2843,16 @@ const addPanelDiagnostic = (stage, detail = {}) => {
 };
 
 const updateExtraFilesSummary = () => {
-  const { extraFiles, extraFilesSummary, filePreview } = getPanelElements();
+  const { panel, extraFiles, extraFilesSummary, filePreview, addFiles, evidenceSummary } = getPanelElements();
   const files = [...(extraFiles?.files || [])];
-  MoodliaCorrectorFilePreview.render(filePreview, currentAssignmentData, files, currentCorrection?.skippedFiles || []);
+  const preview = MoodliaCorrectorFilePreview.render(filePreview, currentAssignmentData, files, currentCorrection?.skippedFiles || [], { addControl: addFiles });
+  evidenceSummary.textContent = currentAssignmentData || files.length
+    ? [MoodliaCorrectorI18n.message`${preview.included} incluido(s)`, ...(preview.skipped ? [MoodliaCorrectorI18n.message` · ${preview.skipped} omitido(s)`] : [])].join('')
+    : '';
+  evidenceSummary.dataset.attention = String(preview.attention);
+  // Skipped files or no evidence at all: show the evidence card unless a result is on screen.
+  if (preview.attention && !currentCorrection?.parsed && !panel.dataset.correcting) panel.querySelector('[data-card="evidence"]').open = true;
+  extraFilesSummary.dataset.empty = String(files.length === 0);
 
   if (files.length === 0) {
     extraFilesSummary.textContent = MoodliaCorrectorI18n.t('Sin archivos adicionales.');
@@ -3381,6 +3422,7 @@ const requestCorrectionFromPanel = async () => {
       cancelButton.hidden = true;
       cancelButton.style.display = 'none';
       showCorrectionProgress(false);
+      if (!currentCorrection?.parsed) setCardLayout('start');
     }
   }
 };
@@ -3481,6 +3523,10 @@ const resetAssistantForNavigation = (refresh = true) => {
   elements.applyCorrectionButton.disabled = false;
   elements.cancelButton.hidden = true;
   elements.cancelButton.style.display = 'none';
+  // A new student starts with closed file groups and the criteria open.
+  elements.panel.querySelector('[data-evidence-summary]').dataset.attention = 'false';
+  elements.filePreview.replaceChildren(elements.addFiles);
+  setCardLayout('start');
   updateExtraFilesSummary();
   setPanelStatus(MoodliaCorrectorI18n.t('Página cambiada. Corrector reiniciado.'));
   if (!isSupportedGraderUrl()) {

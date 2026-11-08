@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.5 - 2026-11-09
+
+- Compact grading panel that fits a 720 px high window without scrolling:
+  - the three steps (evidence, teacher criteria, result) collapse and show a summary when closed: files included and skipped, the save note, the grading mode;
+  - each moment opens the step that matters: the criteria when a student loads, also the evidence when a file is skipped or none is found, and the result while and after correcting; the teacher can still open or close any step;
+  - an open criteria or result step takes the free height, so the criteria field grows with the window;
+  - evidence files sit in two collapsible groups, Teaching material (reference and supporting files, with Add supporting files) and Student submission; a group with a skipped file opens on its own, and the size limits move to the add button's tooltip;
+  - the header puts the AI chip on the student line, the grading mode moves to the result step, and the status line moves to the footer above Correct with AI;
+  - the per-scope hints move to the criteria tab tooltips;
+  - 5 new interface strings in all eight languages.
+
 ## 0.2.4 - 2026-11-08
 
 - OpenDocument files saved from LibreOffice Writer/Web, and master documents and templates (`text-web`, `text-master`, `text-template`, `spreadsheet-template`, `presentation-template` in the archive's `mimetype` entry), were skipped as "unsupported format content". They are now read like ODT, ODS and ODP, because their body is the same.

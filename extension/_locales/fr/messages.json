@@ -1831,6 +1831,32 @@
     "message": "Cet élève",
     "description": "This student"
   },
+  "mbdb5daf270c2": {
+    "message": "Matériel de l’enseignant",
+    "description": "Teaching material"
+  },
+  "me616e2d5d384": {
+    "message": "Remise de l’élève",
+    "description": "Student submission"
+  },
+  "m1a499c865a57": {
+    "message": "Appui",
+    "description": "Supporting"
+  },
+  "m5cf61aa32d3e": {
+    "message": "$value1$ inclus",
+    "description": "$1 included",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "me2dd6edb1a0d": {
+    "message": "Aucun fichier.",
+    "description": "No files."
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

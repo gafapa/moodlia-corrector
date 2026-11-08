@@ -367,3 +367,8 @@ Add supporting files|Añadir archivos de apoyo|Ajouter des fichiers d’appui|Be
 Saved automatically.|Se guarda automáticamente.|Enregistré automatiquement.|Wird automatisch gespeichert.|Salvo automaticamente.|Salvato automaticamente.|Gárdase automaticamente.|Es desa automàticament.
 Criteria scope|Ámbito del criterio|Portée du critère|Geltungsbereich der Vorgaben|Âmbito do critério|Ambito del criterio|Ámbito do criterio|Àmbit del criteri
 This student|Este alumno|Cet élève|Diese Person|Este aluno|Questo studente|Este alumno|Aquest alumne
+Teaching material|Material docente|Matériel de l’enseignant|Unterrichtsmaterial|Material do professor|Materiale docente|Material docente|Material docent
+Student submission|Entrega del alumno|Remise de l’élève|Abgabe der Lernenden|Entrega do aluno|Consegna dello studente|Entrega do alumno|Lliurament de l’alumne
+Supporting|Apoyo|Appui|Begleitmaterial|Apoio|Supporto|Apoio|Suport
+$1 included|$1 incluido(s)|$1 inclus|$1 einbezogen|$1 incluído(s)|$1 inclusi|$1 incluído(s)|$1 inclòs(os)
+No files.|Sin archivos.|Aucun fichier.|Keine Dateien.|Nenhum arquivo.|Nessun file.|Sen ficheiros.|Cap fitxer.
