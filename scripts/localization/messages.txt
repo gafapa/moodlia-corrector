@@ -372,3 +372,4 @@ Student submission|Entrega del alumno|Remise de l’élève|Abgabe der Lernenden
 Supporting|Apoyo|Appui|Begleitmaterial|Apoio|Supporto|Apoio|Suport
 $1 included|$1 incluido(s)|$1 inclus|$1 einbezogen|$1 incluído(s)|$1 inclusi|$1 incluído(s)|$1 inclòs(os)
 No files.|Sin archivos.|Aucun fichier.|Keine Dateien.|Nenhum arquivo.|Nessun file.|Sen ficheiros.|Cap fitxer.
+This student already has a grade: not corrected automatically.|Este alumno ya tiene nota: no se corrige automáticamente.|Cet élève a déjà une note : pas de correction automatique.|Für diese Person liegt bereits eine Bewertung vor: keine automatische Korrektur.|Este aluno já tem nota: não é corrigido automaticamente.|Questo studente ha già un voto: nessuna correzione automatica.|Este alumno xa ten nota: non se corrixe automaticamente.|Aquest alumne ja té nota: no es corregeix automàticament.

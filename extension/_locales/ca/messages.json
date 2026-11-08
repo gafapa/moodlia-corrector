@@ -1857,6 +1857,10 @@
     "message": "Cap fitxer.",
     "description": "No files."
   },
+  "md2f249b9db05": {
+    "message": "Aquest alumne ja té nota: no es corregeix automàticament.",
+    "description": "This student already has a grade: not corrected automatically."
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

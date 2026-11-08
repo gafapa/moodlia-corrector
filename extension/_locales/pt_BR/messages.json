@@ -1857,6 +1857,10 @@
     "message": "Nenhum arquivo.",
     "description": "No files."
   },
+  "md2f249b9db05": {
+    "message": "Este aluno já tem nota: não é corrigido automaticamente.",
+    "description": "This student already has a grade: not corrected automatically."
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

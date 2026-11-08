@@ -4,7 +4,7 @@ Chrome extension that extracts Moodle grading context, sends it directly to the 
 
 ## Status
 
-Implemented extension source, version `0.2.5`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
+Implemented extension source, version `0.2.6`. The build is a prepared candidate; store submission and approval are separate. The extension fills editable Moodle fields and never saves the grading form.
 
 ## Getting started
 
@@ -22,7 +22,7 @@ The API key is retained only in Chrome session storage. Provider, endpoint, and 
 
 Remote providers must use HTTPS, and AI requests reject redirects. Initial Moodle file URLs must use the HTTPS origin of the active grading page. Downloads may follow up to five HTTPS redirects to signed external storage; cookies are omitted outside the original Moodle origin. Redirect loops, credentials in URLs, and HTTP downgrades are rejected. AI prompts omit the student's name, course name, Moodle URLs, and original filenames (except a filename the teacher's criteria mention); assignment evidence, rubric content, and readable submitted content are still sent to the provider selected by the teacher.
 
-Use **Test connection** to verify generation with fictional data. The panel checks the server and installed models; a saved configuration alone is not reported as ready. **Cancel** aborts a running correction. While correcting, the status line shows the current step and the elapsed seconds. **Correct when moving to the next student** starts the next student's correction automatically once their data is read (never twice for the same student on the page); nothing is saved without the teacher. Local Ollama access is handled inside the extension without changing the computer's environment or CORS configuration.
+Use **Test connection** to verify generation with fictional data. The panel checks the server and installed models; a saved configuration alone is not reported as ready. **Cancel** aborts a running correction. While correcting, the status line shows the current step and the elapsed seconds. **Correct when moving to the next student** starts the next student's correction automatically once their data is read (not for a student who already has a grade in Moodle's form, and never twice for the same student on the page); nothing is saved without the teacher. Local Ollama access is handled inside the extension without changing the computer's environment or CORS configuration.
 
 **Supervision** includes the detected task title and a separate list of files from the task description, with filename, format, and link description. These reference links are detected without downloading them. From version 0.1.51, requesting AI correction reads their content and labels it as assignment reference material, separately from student work.
 

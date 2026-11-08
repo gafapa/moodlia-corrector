@@ -6,7 +6,7 @@ MoodlIA Corrector is a Chrome extension that helps teachers review Moodle assign
 
 ## Status
 
-Implemented Chrome extension. Current source version: `0.2.5`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
+Implemented Chrome extension. Current source version: `0.2.6`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
 
 The Moodle entry point is now self-contained, including localization. It also works with old automatic-activation registrations that do not list the translation scripts. Assignment overview pages are ignored before initialization. After updating the extension, reload it in `chrome://extensions` and refresh Moodle to replace scripts already running in open tabs.
 
@@ -33,6 +33,9 @@ Model discovery now shows a sorted, searchable, keyboard-operable list. Friendly
 HTTP servers outside loopback require an optional Chrome permission for that specific hostname. The browser permission applies to the host, across ports; request headers are adjusted only for this extension's requests to the configured server origin. No host service, firewall, environment, or CORS configuration is changed.
 
 ### Assignment supervision
+
+Version 0.2.6 fixes **Correct when moving to the next student** on Moodle's
+grader and skips students who already have a grade.
 
 Version 0.2.5 makes the grading panel compact enough to fit without scrolling.
 The three steps collapse, and each moment opens the one that matters: the
@@ -115,7 +118,7 @@ The suite validates manifest assets, Moodle grader-page and attachment-origin re
 
 ### AI connection and local evidence
 
-Version 0.1.44 checks the configured server's model list instead of treating saved settings as a working connection. **Test connection** verifies generation with fictional data. Provider requests have a 15-minute deadline; corrections can be cancelled from the panel and have a 60-minute overall deadline. Moodle downloads have two minutes per file and local document reading three minutes per file. While correcting, the panel shows the step in progress (downloads, reading each file, each evidence block, writing the correction) and the elapsed seconds. **Correct when moving to the next student** starts the next student's correction once their data is read; a student already corrected on the page is not corrected again, and the teacher still reviews and saves each grade. Incomplete AI output is retried once and rejected if it still cannot be reviewed safely.
+Version 0.1.44 checks the configured server's model list instead of treating saved settings as a working connection. **Test connection** verifies generation with fictional data. Provider requests have a 15-minute deadline; corrections can be cancelled from the panel and have a 60-minute overall deadline. Moodle downloads have two minutes per file and local document reading three minutes per file. While correcting, the panel shows the step in progress (downloads, reading each file, each evidence block, writing the correction) and the elapsed seconds. **Correct when moving to the next student** starts the next student's correction once their data is read, also when Moodle's grader loads the student in several steps; a student who already has a grade in Moodle's form (a grade, a scale value, a rubric level or a guide score) or was already corrected on the page is not corrected, and the teacher still reviews and saves each grade. Incomplete AI output is retried once and rejected if it still cannot be reviewed safely.
 
 Endpoint and model preferences survive service-worker restarts. Remote API keys are bound to their destination, held in session storage, and cleared when the provider or endpoint changes. Keys saved by older releases must be entered again because they have no destination binding.
 
@@ -135,7 +138,7 @@ npm run test:locales
 
 The browser checks use a temporary profile, fictional submissions, and a loopback test provider. `npm run test:fidelity` compares our DOCX and ODT pages with LibreOffice PDFs over a fictional corpus ([`docs/rendering-fidelity.md`](docs/rendering-fidelity.md)). `node tests/live-pdf-check.mjs` and `node tests/live-office-check.mjs` are opt-in checks against an installed local Ollama model (`gemma4:e4b` by default) with fictional documents. `tests/moodle-lab-check.mjs` runs the extension against a real disposable Moodle site; the **Moodle lab** GitHub Actions workflow (`.github/workflows/moodle-lab.yml`, manual or weekly) runs it on Moodle 4.5 to 5.3 with the public lab images. To also verify the existing local Ollama installation with `gemma3:4b`, run `node tests/browser-check.mjs --live`. This sends a fictional connection probe and an arithmetic correction with one rubric criterion, not student work. It does not modify the machine's Ollama configuration.
 
-Run `npm run package` to create `release/moodlia-corrector-0.2.5.zip` with the manifest at the archive root and all local parsing dependencies included.
+Run `npm run package` to create `release/moodlia-corrector-0.2.6.zip` with the manifest at the archive root and all local parsing dependencies included.
 
 Version 0.1.46 binds a correction to the Moodle assignment, student, attempt,
 and extracted submission before requesting AI and before changing form fields.
@@ -199,7 +202,7 @@ See [the 2026-10-19 review](docs/review-2026-10-19.md) for reproduction and vali
 
 ### Rebuild publication materials
 
-After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-0.2.5/index.html`. Generated archives and folders are not committed. Run `node scripts/validate-store-materials.mjs --artifacts` to verify the current kit and copy page, including all eight corrected descriptions.
+After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-0.2.6/index.html`. Generated archives and folders are not committed. Run `node scripts/validate-store-materials.mjs --artifacts` to verify the current kit and copy page, including all eight corrected descriptions.
 
 The store-ready extension policy is hosted at `https://moodlia.com/privacy/corrector.html`; Rubrics uses `https://moodlia.com/privacy/rubrics.html`. Both public policies were checked against the website project's source on 24 October 2026. The published policy retains its original effective date; its "Version covered" line names the current build. The website project owns these stable routes across redesigns. Source publication on GitHub is separate from a tagged extension release or Chrome Web Store approval; a prepared build is not a claim of store publication.
 
@@ -225,6 +228,7 @@ AI-assisted review of assignment submissions; [Rubrics](https://github.com/gafap
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/review-2026-10-24-0.1.71.md](docs/review-2026-10-24-0.1.71.md)
 - [docs/office-page-rendering.md](docs/office-page-rendering.md)
+- [docs/review-2026-11-09-0.2.6.md](docs/review-2026-11-09-0.2.6.md)
 - [docs/review-2026-11-09-0.2.5.md](docs/review-2026-11-09-0.2.5.md)
 - [docs/review-2026-11-08-0.2.4.md](docs/review-2026-11-08-0.2.4.md)
 - [docs/review-2026-11-07-0.2.3.md](docs/review-2026-11-07-0.2.3.md)

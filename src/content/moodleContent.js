@@ -11,7 +11,7 @@ const PAGE_STYLE_ID = 'mca-page-layout-style';
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.2.5',
+  version: '0.2.6',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -3484,11 +3484,24 @@ const getNavigationIdentity = () => JSON.stringify({
 });
 
 // With "correct when moving to the next student" on, a correction starts once the
-// next student's data is read. It never starts again for a student already
-// corrected on this page (saving reloads the same student), and nothing is saved:
-// the teacher still reviews and saves each grade.
+// next student's data is read. It does not start for a student who already has a
+// grade in Moodle's form, nor again for a student corrected on this page (saving
+// reloads the same student), and nothing is saved: the teacher still reviews and
+// saves each grade.
 const AUTO_CORRECT_STORAGE_KEY = 'mca.autoCorrectNext';
 const correctedStudents = new Set();
+// Moodle's grader loads the next student in steps (user, then submission and files), and
+// each step resets the panel. The pending start survives those resets for the same student.
+let pendingAutoCorrectKey = null;
+
+// A grade already in Moodle's form: a direct grade, a scale value, a rubric level or a guide score.
+const hasExistingGrade = () => {
+  const gradeArea = document.querySelector('[data-region="grade"]') || document;
+  if (findGradeInput()?.value.trim()) return true;
+  if (Number(findGradeScaleSelect()?.value) > 0) return true;
+  if (gradeArea.querySelector('input[type="radio"][name^="advancedgrading["][name$="[levelid]"]:checked')) return true;
+  return [...gradeArea.querySelectorAll('input[name^="advancedgrading["][name$="[score]"]')].some(input => input.value.trim() !== '');
+};
 const currentStudentKey = () => JSON.stringify([location.pathname, new URLSearchParams(location.search).get('id'),
   document.querySelector('input[name="userid"]')?.value || new URLSearchParams(location.search).get('userid') || '',
   document.querySelector('input[name="attemptnumber"]')?.value || '']);
@@ -3530,6 +3543,7 @@ const resetAssistantForNavigation = (refresh = true) => {
   updateExtraFilesSummary();
   setPanelStatus(MoodliaCorrectorI18n.t('Página cambiada. Corrector reiniciado.'));
   if (!isSupportedGraderUrl()) {
+    pendingAutoCorrectKey = null;
     closePanel();
     document.getElementById(FLOATING_BUTTON_ID).hidden = true;
     return;
@@ -3538,11 +3552,18 @@ const resetAssistantForNavigation = (refresh = true) => {
   if (refresh && elements.panel.dataset.open === 'true') {
     const revision = gradingPageRevision;
     const studentKey = lastStudentKey;
-    const autoStart = previousStudentKey !== null && studentKey !== previousStudentKey && !correctedStudents.has(studentKey) && elements.panel.querySelector('[data-auto-correct]')?.checked;
+    if (previousStudentKey !== null && studentKey !== previousStudentKey) {
+      pendingAutoCorrectKey = elements.panel.querySelector('[data-auto-correct]')?.checked && !correctedStudents.has(studentKey) ? studentKey : null;
+    }
     panelRefreshTimer = setTimeout(() => {
       void refreshPanelData().then(() => {
-        if (autoStart && revision === gradingPageRevision && currentStudentKey() === studentKey) return requestCorrectionFromPanel();
-        return undefined;
+        if (revision !== gradingPageRevision || pendingAutoCorrectKey !== studentKey || currentStudentKey() !== studentKey) return undefined;
+        pendingAutoCorrectKey = null;
+        if (hasExistingGrade()) {
+          setPanelStatus(MoodliaCorrectorI18n.t('Este alumno ya tiene nota: no se corrige automáticamente.'));
+          return undefined;
+        }
+        return requestCorrectionFromPanel();
       }).catch((error) => {
         if (revision === gradingPageRevision) setPanelStatus(error.message);
       });

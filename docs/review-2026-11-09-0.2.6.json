@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-09",
+  "version": "0.2.6",
+  "unit_tests_passed": 102,
+  "browser_checks_passed": 123,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 240,
+  "archive_uncompressed_bytes": 6057345,
+  "archive_matches_source": true,
+  "archive_sha256": "db8ccacbf61c06498f1b4da0e1bdc9418a94b3f29ba6dffd9f9df57f24670862",
+  "validation_scope": "Automatic next-student correction checked with synthetic Chromium fixtures, including staged student loading and a student who already has a grade. The 0.2.1 live inference, fidelity corpus and real-Moodle lab checks were not repeated for this build.",
+  "npm_audit_vulnerabilities": 0,
+  "sizes": {
+    "content_script_bytes": 434995,
+    "previous_content_script_bytes": 432999
+  },
+  "store_metadata": {
+    "locales": ["en", "es", "fr", "de", "pt_BR", "it", "gl", "ca"],
+    "screenshots_regenerated": true,
+    "store_dashboard_updated": false,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

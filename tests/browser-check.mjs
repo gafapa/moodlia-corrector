@@ -1065,21 +1065,34 @@ try {
   // a student already corrected on this page is not corrected again.
   await panelField('[data-auto-correct]').check();
   await page.waitForFunction(async () => (await chrome.storage.local.get('mca.autoCorrectNext'))['mca.autoCorrectNext'] === true);
+  // The next student has no grade yet. Moodle loads them in steps: the user first, then the
+  // submission, so the panel resets more than once for the same student.
+  await fixturePage.locator('input[name="grade"]').fill('');
   const autoChat = new Promise(resolve => { onChat = resolve; });
-  await fixturePage.evaluate(() => history.pushState({}, '', location.href.replace('userid=3', 'userid=4')));
+  await fixturePage.evaluate(() => {
+    history.pushState({}, '', location.href.replace('userid=3', 'userid=4'));
+    const marker = document.createElement('span');
+    marker.textContent = ' (loading)';
+    setTimeout(() => document.querySelector('.assignsubmission_onlinetext').appendChild(marker), 150);
+    setTimeout(() => marker.remove(), 400);
+  });
   await autoChat;
   onChat = null;
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent.includes('Corrección aplicada'));
   let repeatedChats = 0;
   onChat = () => { repeatedChats++; };
-  await fixturePage.evaluate(() => history.pushState({}, '', location.href.replace('userid=4', 'userid=3')));
+  // A student who already has a grade in Moodle's form is not corrected automatically.
+  assert.notEqual(await fixturePage.locator('input[name="grade"]').inputValue(), '');
+  await fixturePage.evaluate(() => history.pushState({}, '', location.href.replace('userid=4', 'userid=5')));
+  await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent === 'Este alumno ya tiene nota: no se corrige automáticamente.');
+  await fixturePage.evaluate(() => history.pushState({}, '', location.href.replace('userid=5', 'userid=3')));
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent === 'Datos detectados listos.');
   await fixturePage.waitForTimeout(1000);
   onChat = null;
   assert.equal(repeatedChats, 0);
   await panelField('[data-auto-correct]').uncheck();
   await page.waitForFunction(async () => (await chrome.storage.local.get('mca.autoCorrectNext'))['mca.autoCorrectNext'] === false);
-  console.log('PASS: the next student is corrected automatically when chosen, and a student already corrected is not corrected again.');
+  console.log('PASS: the next student is corrected automatically when chosen, also when Moodle loads them in steps; a student with a grade or already corrected is not corrected again.');
   await (await criteriaField('[data-extra-instructions]')).fill('Only student three');
   await fixturePage.evaluate(() => {
     // Moodle's grade form identifies its user with the Quickform marker; its
