@@ -800,8 +800,70 @@ const scheduleIdleCheck = () => {
     else void chrome.runtime.sendMessage({ type: 'mca.attachmentReaderIdle' }).catch(() => {});
   }, readCache.size ? Math.max(1000, nextExpiry - Date.now()) : READER_IDLE_MS);
 };
+// ZIP archives: list the files inside, then extract only the ones the teacher selected.
+// Folders, macOS metadata and thumbnails are not listed. Sizes are the archive's declared
+// sizes; extraction checks the real sizes again, so a forged header cannot exceed the limits.
+const MAX_ARCHIVE_ENTRIES = 500;
+const isArchiveNoise = (path) => path.endsWith('/') || /(^|\/)__MACOSX\//.test(path) || /(^|\/)(\._[^/]*|\.DS_Store|Thumbs\.db|desktop\.ini)$/i.test(path);
+const archiveBytes = (base64Data) => {
+  if (typeof base64Data !== 'string' || base64Data.length > Math.ceil(MAX_READER_ATTACHMENT_BYTES / 3) * 4) throw new Error('Invalid or oversized archive.');
+  const bytes = base64ToBytes(base64Data);
+  if (sniffFormat(bytes) !== 'zip') throw unsupportedAttachment('The file is not a ZIP archive that can be opened.');
+  return bytes;
+};
+export const listArchive = (base64Data) => {
+  const bytes = archiveBytes(base64Data);
+  const entries = [];
+  try {
+    unzipSync(bytes, { filter: (entry) => {
+      if (!isArchiveNoise(entry.name)) entries.push({ path: entry.name, sizeBytes: entry.originalSize });
+      if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error(`The ZIP contains more than ${MAX_ARCHIVE_ENTRIES} files.`);
+      return false;
+    } });
+  } catch (error) {
+    throw /more than/.test(error.message) ? error : unsupportedAttachment('The ZIP archive is damaged or uses an unsupported format.');
+  }
+  return entries;
+};
+export const extractArchive = (base64Data, paths = []) => {
+  const bytes = archiveBytes(base64Data);
+  const wanted = new Set(Array.isArray(paths) ? paths.filter(path => typeof path === 'string' && !isArchiveNoise(path)) : []);
+  let declared = 0;
+  let entries;
+  try {
+    entries = unzipSync(bytes, { filter: (entry) => {
+      if (!wanted.has(entry.name)) return false;
+      if (entry.originalSize > MAX_READER_ATTACHMENT_BYTES) throw new Error(`${entry.name} in the ZIP exceeds the 20 MB limit.`);
+      declared += entry.originalSize;
+      if (declared > MAX_EXPANDED_BYTES) throw new Error('The selected ZIP files exceed the decompressed size limit.');
+      return true;
+    } });
+  } catch (error) {
+    throw /limit/.test(error.message) ? error : unsupportedAttachment('The ZIP archive is damaged, encrypted or uses an unsupported format.');
+  }
+  let total = 0;
+  return [...wanted].filter(path => entries[path]).map((path) => {
+    const content = entries[path];
+    total += content.length;
+    if (content.length > MAX_READER_ATTACHMENT_BYTES || total > MAX_EXPANDED_BYTES) throw new Error('The selected ZIP files exceed the decompressed size limit.');
+    return { path, sizeBytes: content.length, base64Data: bytesToBase64(content) };
+  });
+};
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.target !== 'attachment-reader' || sender.id !== chrome.runtime.id) return false;
+  if (message.type === 'mca.listArchive' || message.type === 'mca.extractArchive') {
+    clearTimeout(idleTimer);
+    try {
+      sendResponse(message.type === 'mca.listArchive'
+        ? { ok: true, entries: listArchive(message.base64Data) }
+        : { ok: true, files: extractArchive(message.base64Data, message.paths) });
+    } catch (error) {
+      sendResponse({ ok: false, error: error.message || 'The ZIP archive could not be opened.', errorCode: error.code });
+    }
+    if (!activeReads.size) scheduleIdleCheck();
+    return false;
+  }
   if (message.type === 'mca.cancelAttachmentRead') {
     activeReads.get(message.requestId)?.abort(new Error('Local attachment extraction cancelled.'));
     sendResponse({ ok: true });

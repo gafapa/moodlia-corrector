@@ -1,6 +1,6 @@
 # Moodle evidence and Ollama request pipeline
 
-This describes the local 0.2.6 candidate. It separates data observed in Moodle,
+This describes the local 0.2.7 candidate. It separates data observed in Moodle,
 locally prepared evidence, model observations and the final correction. The
 qualification snapshots below were recorded for 0.1.74; 0.1.77 validation is in
 [`review-2026-10-27-0.1.77.md`](review-2026-10-27-0.1.77.md).
@@ -112,7 +112,9 @@ Options can send every page as an image. A page drawn in parts is labelled
 travel in one block. The reader keeps drawn documents in memory for 30 minutes,
 so a second correction of the same file reuses its pages; once nothing is cached or being read for
 two minutes, the offscreen document is closed and its memory released. Known unsupported formats are reported as
-excluded. Supported files that cannot be downloaded or parsed stop correction.
+excluded (`unsupported-format`); files the teacher unchecked in the panel are not sent and are reported as
+`teacher-excluded`. A ZIP archive is listed in the offscreen reader when the panel shows it, and at correction
+time only its checked files are extracted there and sent as separate attachments with the archive's role. Supported files that cannot be downloaded or parsed stop correction.
 
 ## 3. Evidence identity and review stages
 

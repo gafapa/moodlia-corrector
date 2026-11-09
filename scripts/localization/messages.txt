@@ -373,3 +373,7 @@ Supporting|Apoyo|Appui|Begleitmaterial|Apoio|Supporto|Apoio|Suport
 $1 included|$1 incluido(s)|$1 inclus|$1 einbezogen|$1 incluído(s)|$1 inclusi|$1 incluído(s)|$1 inclòs(os)
 No files.|Sin archivos.|Aucun fichier.|Keine Dateien.|Nenhum arquivo.|Nessun file.|Sen ficheiros.|Cap fitxer.
 This student already has a grade: not corrected automatically.|Este alumno ya tiene nota: no se corrige automáticamente.|Cet élève a déjà une note : pas de correction automatique.|Für diese Person liegt bereits eine Bewertung vor: keine automatische Korrektur.|Este aluno já tem nota: não é corrigido automaticamente.|Questo studente ha già un voto: nessuna correzione automatica.|Este alumno xa ten nota: non se corrixe automaticamente.|Aquest alumne ja té nota: no es corregeix automàticament.
+Include $1|Incluir $1|Inclure $1|$1 einbeziehen|Incluir $1|Includi $1|Incluír $1|Inclou $1
+Opening the ZIP...|Abriendo el ZIP...|Ouverture du ZIP...|ZIP wird geöffnet...|Abrindo o ZIP...|Apertura dello ZIP...|Abrindo o ZIP...|S’està obrint el ZIP...
+The ZIP contains no files.|El ZIP no contiene archivos.|Le ZIP ne contient aucun fichier.|Das ZIP enthält keine Dateien.|O ZIP não contém arquivos.|Lo ZIP non contiene file.|O ZIP non contén ficheiros.|El ZIP no conté cap fitxer.
+The ZIP could not be opened.|No se pudo abrir el ZIP.|Impossible d’ouvrir le ZIP.|Das ZIP konnte nicht geöffnet werden.|Não foi possível abrir o ZIP.|Impossibile aprire lo ZIP.|Non se puido abrir o ZIP.|No s’ha pogut obrir el ZIP.

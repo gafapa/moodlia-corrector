@@ -1,6 +1,6 @@
 # MoodlIA Corrector privacy policy
 
-Effective date: 20 October 2026. Version covered: 0.2.6. Last reviewed: 9 November 2026.
+Effective date: 20 October 2026. Version covered: 0.2.7. Last reviewed: 9 November 2026.
 
 ## Scope and contact
 
@@ -18,7 +18,7 @@ When you request a correction, relevant assignment and submission evidence and t
 
 MoodlIA does not run an intermediary AI service and does not receive student work, teacher criteria or API keys. Requests omit selected structured identity fields and original attachment filenames. A filename is included only when your own teacher criteria mention it, so the AI can locate that file. Text and documents can themselves contain personal information. The extension does not guarantee anonymization. Select a provider approved by your institution and only process work you are authorized to use. Provider logging, retention, training and other processing are governed by that provider's terms and your institutional agreement, not by MoodlIA.
 
-Initial Moodle downloads use the authenticated HTTPS Moodle session already available in the browser. Signed HTTPS file-storage redirects may be followed. Moodle cookies are omitted when a download leaves the original Moodle origin. Moodle passwords are not read or stored by the extension.
+Initial Moodle downloads use the authenticated HTTPS Moodle session already available in the browser. ZIP archives are downloaded when the correction panel shows them, so their file list can be displayed; the list and the files stay in the browser until you request a correction, and only the files you leave checked are sent. Signed HTTPS file-storage redirects may be followed. Moodle cookies are omitted when a download leaves the original Moodle origin. Moodle passwords are not read or stored by the extension.
 
 ## Local storage and security
 

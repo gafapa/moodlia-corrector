@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.7 - 2026-11-09
+
+- Each evidence file has a check box in the panel. Supported files start checked; unchecked files are not sent, and the AI is told that the teacher left them out (`teacher-excluded` in `excludedAttachments`), so it does not penalise their absence. Unsupported files cannot be checked. The choice resets for each student.
+- ZIP archives are opened instead of skipped: the panel lists the files inside (without folders or macOS metadata), each with its own check box, and the checked supported files are extracted locally and sent one by one with the archive's role. An archive from Moodle is downloaded once when the panel shows it; an archive that cannot be opened is marked as omitted. Archives with more than 500 files, a file over 20 MB or more than 48 MB of selected content are refused. Archive and file names stay out of the request, like other original filenames.
+- A long file group, such as a large archive, scrolls inside the evidence card.
+- The launcher button in the bottom-left corner is hidden while the side panel is open, and comes back, with keyboard focus, when the panel closes.
+- 4 new interface strings in all eight languages.
+
 ## 0.2.6 - 2026-11-09
 
 - **Correct when moving to the next student** did not start on Moodle's grader: the grader loads the next student in steps (the user, then the submission and files), each step reset the panel, and only the first reset saw a new student, so the later resets dropped the pending correction. The pending start now survives resets for the same student.

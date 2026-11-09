@@ -28,6 +28,24 @@ export async function checkAttachmentReader(page, extensionId) {
   }
   console.log('PASS: ODT text, Writer/Web, template and master mimetypes are read as OpenDocument text.');
 
+  // ZIP archives: list without metadata, extract only the requested files, refuse oversized or crowded archives.
+  const archive = (call, base64Data, paths) => page.evaluate(async ({ extensionId, call, base64Data, paths }) => {
+    const reader = await import(`chrome-extension://${extensionId}/src/attachments/reader.js`);
+    try { return { value: call === 'list' ? reader.listArchive(base64Data) : reader.extractArchive(base64Data, paths) }; }
+    catch (error) { return { error: error.message, code: error.code }; }
+  }, { extensionId, call, base64Data, paths });
+  const zip64 = (entries) => Buffer.from(zipSync(entries)).toString('base64');
+  const sample = zip64({ 'answers/a.txt': strToU8('First answer'), 'b.txt': strToU8('Second answer'), 'answers/': new Uint8Array(0), '__MACOSX/._b.txt': strToU8('x'), '.DS_Store': strToU8('x') });
+  assert.deepEqual((await archive('list', sample)).value.map(entry => entry.path).sort(), ['answers/a.txt', 'b.txt']);
+  const extracted = (await archive('extract', sample, ['b.txt', 'missing.txt', '__MACOSX/._b.txt'])).value;
+  assert.deepEqual(extracted.map(entry => [entry.path, Buffer.from(entry.base64Data, 'base64').toString()]), [['b.txt', 'Second answer']]);
+  const crowded = zip64(Object.fromEntries(Array.from({ length: 501 }, (_, index) => [`file-${index}.txt`, strToU8('x')])));
+  assert.match((await archive('list', crowded)).error, /more than 500 files/);
+  const archiveBomb = zip64({ 'huge.txt': new Uint8Array(21 * 1024 * 1024) });
+  assert.match((await archive('extract', archiveBomb, ['huge.txt'])).error, /exceeds the 20 MB limit/);
+  assert.equal((await archive('list', Buffer.from('not an archive').toString('base64'))).code, 'UNSUPPORTED_ATTACHMENT');
+  console.log('PASS: ZIP archives list their files without metadata, extract only the requested files and refuse oversized or crowded archives.');
+
   const maxText = await page.evaluate(() => MoodliaCorrectorAttachmentSupport.MAX_TEXT);
   const exact = await read(odtFile(`<text:p>A<text:s text:c="${maxText - 3}"/></text:p><text:p>B</text:p>`));
   assert.equal(exact.attachment.extractedTextCharacters, maxText);

@@ -1,4 +1,4 @@
-# Chrome Web Store submission kit — MoodlIA Corrector 0.2.6
+# Chrome Web Store submission kit — MoodlIA Corrector 0.2.7
 
 Prepared 28 October 2026. This is a local submission candidate, not a store-approved release. GitHub publication is separate from store submission.
 
@@ -6,20 +6,20 @@ Prepared 28 October 2026. This is a local submission candidate, not a store-appr
 
 | Dashboard field | File |
 | --- | --- |
-| Extension package | `release/moodlia-corrector-0.2.6.zip` — upload this archive, not the entire submission-kit archive |
+| Extension package | `release/moodlia-corrector-0.2.7.zip` — upload this archive, not the entire submission-kit archive |
 | Default name, summary, description | `marketplace/listings/en.json` |
 | Localized listing text | `marketplace/listings/{es,fr,de,pt_BR,it,gl,ca}.json` |
 | Store icon | `extension/icons/icon-128.png` (128 × 128 PNG) |
-| Required promotional image | `marketplace/assets/promo-small-0.2.6.png` (440 × 280 RGB PNG) |
-| Optional marquee | `marketplace/assets/promo-marquee-0.2.6.png` (1400 × 560 RGB PNG) |
+| Required promotional image | `marketplace/assets/promo-small-0.2.7.png` (440 × 280 RGB PNG) |
+| Optional marquee | `marketplace/assets/promo-marquee-0.2.7.png` (1400 × 560 RGB PNG) |
 | Default screenshots | `marketplace/screenshots/en-01-correction.png` and `en-02-settings.png` (1280 × 800 RGB PNG) |
 | Spanish/German screenshots | Corresponding `es-*.png` / `de-*.png` files; other listing locales may use the English images |
 | Privacy practices and permissions | `marketplace/dashboard-fields.md` |
 | Public privacy-policy content | `marketplace/privacy-policy.md` or `privacy-policy.html` |
 | Private review access and steps | `marketplace/reviewer-instructions.md` |
-| Release notes | `CHANGELOG.md`, entry 0.2.6 |
+| Release notes | `CHANGELOG.md`, entry 0.2.7 |
 
-The `release/moodlia-corrector-publishing-page-0.2.6.zip` archive also includes the English `index.html` copy page: extract it before opening the page. The downloadable submission-kit ZIP groups these files under `upload`, `listings`, `images` and `documents`. Its `SHA256SUMS.txt` records every included file. Do not upload the kit itself as an extension.
+The `release/moodlia-corrector-publishing-page-0.2.7.zip` archive also includes the English `index.html` copy page: extract it before opening the page. The downloadable submission-kit ZIP groups these files under `upload`, `listings`, `images` and `documents`. Its `SHA256SUMS.txt` records every included file. Do not upload the kit itself as an extension.
 
 ## Listing correction after Yellow Argon rejection
 

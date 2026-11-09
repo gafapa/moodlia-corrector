@@ -11,7 +11,7 @@ const PAGE_STYLE_ID = 'mca-page-layout-style';
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.2.6',
+  version: '0.2.7',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -1894,6 +1894,8 @@ const createPanelStyles = () => {
     button { border: 0; border-radius: 8px; cursor: pointer; color: inherit; background: transparent; }
     svg { display: block; }
 
+    /* The launcher is hidden while the side panel is open. */
+    :host([data-panel-open="true"]) .floating-button { display: none; }
     .floating-button {
       position: fixed;
       left: 18px;
@@ -2842,10 +2844,76 @@ const addPanelDiagnostic = (stage, detail = {}) => {
   }
 };
 
+// Which evidence files are sent. Each file has a check box; supported files start checked.
+// A ZIP archive is listed once per student (downloaded by the service worker, or read from
+// the teacher's added file) and each of its files is chosen separately.
+const fileSelection = new Map();
+const archiveListings = new Map();
+const evidenceSelection = {
+  key: (role, file, index) => role === 'teacher-additional'
+    ? `${role}|${index}|${file.name || ''}|${file.size ?? file.sizeBytes ?? ''}`
+    : `${role}|${file.id || file.url || file.name || index}`,
+  checked: (key, fallback) => fileSelection.has(key) ? fileSelection.get(key) : fallback,
+  set: (key, value) => { fileSelection.set(key, Boolean(value)); },
+  archive: key => archiveListings.get(key),
+  load: (key, file, role) => { if (!archiveListings.has(key)) void loadArchiveListing(key, file, role); },
+  changed: () => updateExtraFilesSummary(),
+};
+const loadArchiveListing = (key, file, role) => {
+  const studentKey = currentStudentKey();
+  const promise = (async () => {
+    let request;
+    if (role === 'teacher-additional') {
+      if (file.size > MoodliaCorrectorAttachmentSupport.MAX_ATTACHMENT_BYTES) throw new Error('The ZIP exceeds the 20 MB limit.');
+      request = { name: file.name, base64Data: MoodliaCorrectorAttachmentSupport.bytesToBase64(await file.arrayBuffer()) };
+    } else {
+      request = { id: file.id, name: file.name, originalName: file.originalName, url: file.url };
+    }
+    const response = await sendBackgroundMessage({ type: 'mca.listArchive', pageUrl: location.href, file: request });
+    if (!response?.ok) throw new Error(response?.error || 'The ZIP archive could not be opened.');
+    return response.entries;
+  })().then(
+    entries => ({ state: 'ready', entries }),
+    error => ({ state: 'error', error: error.message || String(error) }),
+  ).then((listing) => {
+    // A listing that arrives after the teacher moved to another student is dropped.
+    if (archiveListings.get(key)?.promise !== promise || currentStudentKey() !== studentKey) return listing;
+    archiveListings.set(key, listing);
+    if (listing.state === 'error') addPanelDiagnostic('archive.list.error', { message: listing.error });
+    updateExtraFilesSummary();
+    return listing;
+  });
+  archiveListings.set(key, { state: 'loading', promise });
+  return promise;
+};
+// The files to send for one role, and the ones the teacher left out.
+const applyEvidenceSelection = (list = [], role, excluded) => {
+  const kept = [];
+  for (const [index, file] of list.entries()) {
+    const key = evidenceSelection.key(role, file, index);
+    if (MoodliaCorrectorFilePreview.isArchive(file)) {
+      const listing = archiveListings.get(key);
+      // An archive that could not be listed is sent as is and reported as unsupported.
+      if (listing?.state !== 'ready') { kept.push(file); continue; }
+      const supported = listing.entries.filter(entry => entry.supported);
+      const paths = supported.filter(entry => evidenceSelection.checked(`${key}::${entry.path}`, true)).map(entry => entry.path);
+      for (const entry of supported) if (!paths.includes(entry.path)) excluded.push({ role, name: `${file.originalName || file.name}/${entry.path}` });
+      if (paths.length) kept.push({ ...file, archiveEntries: paths });
+      continue;
+    }
+    if (MoodliaCorrectorAttachmentSupport.assess(file).supported !== false && !evidenceSelection.checked(key, true)) {
+      excluded.push({ role, name: file.originalName || file.name });
+      continue;
+    }
+    kept.push(file);
+  }
+  return kept;
+};
+
 const updateExtraFilesSummary = () => {
   const { panel, extraFiles, extraFilesSummary, filePreview, addFiles, evidenceSummary } = getPanelElements();
   const files = [...(extraFiles?.files || [])];
-  const preview = MoodliaCorrectorFilePreview.render(filePreview, currentAssignmentData, files, currentCorrection?.skippedFiles || [], { addControl: addFiles });
+  const preview = MoodliaCorrectorFilePreview.render(filePreview, currentAssignmentData, files, currentCorrection?.skippedFiles || [], { addControl: addFiles, selection: evidenceSelection });
   evidenceSummary.textContent = currentAssignmentData || files.length
     ? [MoodliaCorrectorI18n.message`${preview.included} incluido(s)`, ...(preview.skipped ? [MoodliaCorrectorI18n.message` · ${preview.skipped} omitido(s)`] : [])].join('')
     : '';
@@ -2868,23 +2936,54 @@ const updateExtraFilesSummary = () => {
   ].join(' ');
 };
 
-const readExtraFilesFromPanel = async () => {
+// Only checked files are read. Ids keep the file's position in the list, which the preview
+// uses to match files the service worker reports as skipped.
+const readExtraFilesFromPanel = async (excluded = []) => {
   const { extraFiles } = getPanelElements();
-  const attachments = await MoodliaCorrectorAttachmentSupport.readSelectedFiles(extraFiles?.files || []);
+  const attachments = [];
+  const chosen = [];
+  for (const [index, file] of [...(extraFiles?.files || [])].entries()) {
+    const key = evidenceSelection.key('teacher-additional', file, index);
+    if (MoodliaCorrectorFilePreview.isArchive(file)) {
+      const listing = archiveListings.get(key);
+      if (listing?.state !== 'ready') { chosen.push({ file, index }); continue; }
+      const supported = listing.entries.filter(entry => entry.supported);
+      const paths = supported.filter(entry => evidenceSelection.checked(`${key}::${entry.path}`, true)).map(entry => entry.path);
+      for (const entry of supported) if (!paths.includes(entry.path)) excluded.push({ role: 'teacher-additional', name: `${file.name}/${entry.path}` });
+      if (!paths.length) continue;
+      if (file.size > MoodliaCorrectorAttachmentSupport.MAX_ATTACHMENT_BYTES) throw new Error('Los archivos adicionales superan el límite de 20 MB por archivo o 40 MB en total.');
+      attachments.push({ index, attachment: { id: `extra-file-${index + 1}`, name: file.name, mimeType: file.type || 'application/zip', sizeBytes: file.size,
+        source: 'manual-upload', archiveEntries: paths, base64Data: MoodliaCorrectorAttachmentSupport.bytesToBase64(await file.arrayBuffer()) } });
+      continue;
+    }
+    if (MoodliaCorrectorAttachmentSupport.assess(file).supported !== false && !evidenceSelection.checked(key, true)) {
+      excluded.push({ role: 'teacher-additional', name: file.name });
+      continue;
+    }
+    chosen.push({ file, index });
+  }
+  const read = await MoodliaCorrectorAttachmentSupport.readSelectedFiles(chosen.map(entry => entry.file));
+  read.forEach((attachment, position) => attachments.push({ index: chosen[position].index, attachment: { ...attachment, id: `extra-file-${chosen[position].index + 1}` } }));
   updateExtraFilesSummary();
-  return attachments;
+  return attachments.sort((a, b) => a.index - b.index).map(entry => entry.attachment);
 };
 
 const buildPanelAssignmentData = async () => {
   await savedInstructionsReady;
   const teacherCriteria = await instructionsController.getValues();
-  const extraFiles = await readExtraFilesFromPanel();
+  // A ZIP still being listed is waited for, so its selection applies.
+  await Promise.all([...archiveListings.values()].map(listing => listing.promise).filter(Boolean));
+  const teacherExcludedFiles = [];
+  const extraFiles = await readExtraFilesFromPanel(teacherExcludedFiles);
 
   return {
     ...currentAssignmentData,
+    assignmentFiles: applyEvidenceSelection(currentAssignmentData.assignmentFiles, 'assignment-reference', teacherExcludedFiles),
+    submissionFiles: applyEvidenceSelection(currentAssignmentData.submissionFiles, 'student-submission', teacherExcludedFiles),
     teacherCriteria,
     extraInstructions: Object.values(teacherCriteria).filter(Boolean).join('\n\n'),
     extraFiles,
+    teacherExcludedFiles,
   };
 };
 
@@ -2941,6 +3040,7 @@ const openPanel = () => {
   // Catch up with any navigation that happened while the panel was closed.
   navigationWatcher?.check();
   panel.dataset.open = 'true';
+  document.getElementById(FLOATING_BUTTON_ID)?.setAttribute('data-panel-open', 'true');
   navigationWatcher?.observe();
   setPageShift(true);
   addPanelDiagnostic('panel.open');
@@ -2954,9 +3054,14 @@ const openPanel = () => {
 
 const closePanel = () => {
   const { panel } = getPanelElements();
+  const focusWasInPanel = panel.contains(panel.getRootNode().activeElement);
   panel.dataset.open = 'false';
+  const launcher = document.getElementById(FLOATING_BUTTON_ID);
+  launcher?.setAttribute('data-panel-open', 'false');
   navigationWatcher?.pause();
   setPageShift(false);
+  // Keyboard focus returns to the launcher, which reappears when the panel closes.
+  if (focusWasInPanel && launcher && !launcher.hidden) launcher.shadowRoot?.querySelector('button')?.focus();
 };
 
 const updateDetectedList = (assignmentData) => {
@@ -3536,6 +3641,10 @@ const resetAssistantForNavigation = (refresh = true) => {
   elements.applyCorrectionButton.disabled = false;
   elements.cancelButton.hidden = true;
   elements.cancelButton.style.display = 'none';
+  if (previousStudentKey !== lastStudentKey) {
+    fileSelection.clear();
+    archiveListings.clear();
+  }
   // A new student starts with closed file groups and the criteria open.
   elements.panel.querySelector('[data-evidence-summary]').dataset.attention = 'false';
   elements.filePreview.replaceChildren(elements.addFiles);

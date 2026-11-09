@@ -394,10 +394,20 @@ try {
     'content.xml': strToU8('<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body><office:text><text:p>Fictional teacher reference requirements.</text:p></office:text></office:body></office:document-content>'),
     'Pictures/example.png': Buffer.from(attachments[2].base64Data, 'base64'),
   });
+  // A real archive: one readable file, one unsupported file and macOS metadata that is not listed.
+  const referenceZip = zipSync({
+    'rubric.txt': strToU8('Fictional rubric note from the archive.'),
+    'old.doc': strToU8('Legacy binary placeholder'),
+    '__MACOSX/._rubric.txt': strToU8('metadata'),
+  });
+  let archiveDownloads = 0;
   await context.route(`${fixtureOrigin}/**`, async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.includes('/pluginfile.php/')) {
-      if (url.pathname.includes('/mod_assign/intro/')) {
+      if (url.pathname.endsWith('/reference.zip')) {
+        archiveDownloads++;
+        await route.fulfill({ contentType: 'application/zip', body: Buffer.from(referenceZip) });
+      } else if (url.pathname.includes('/mod_assign/intro/')) {
         templateDownloads++;
         await route.fulfill({ contentType: 'application/vnd.oasis.opendocument.text', body: Buffer.from(referenceOdt) });
       } else await route.fulfill({ contentType: 'text/plain', body: 'Fictional student authored answer.' });
@@ -537,11 +547,18 @@ try {
   assert.match(await filesToInclude.locator('[data-file-role="student-submission"]').textContent(), /fictional\.txt/);
   assert.match(await filesToInclude.locator('[data-file-role="assignment-reference"]').first().getAttribute('aria-label'), /no se evalúa como entrega/);
   assert.equal(await filesToInclude.locator('[data-file-role] p').count(), 0);
+  // The archive is listed: its readable file is checked, the unsupported one cannot be sent.
+  await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-archive-entry="rubric.txt"]'));
+  const archiveRow = filesToInclude.locator('[data-file-role="assignment-reference"]').filter({ hasText: 'reference.zip' });
+  assert.deepEqual(await archiveRow.locator('[data-archive-entry]').evaluateAll(items => items.map(item => [item.dataset.archiveEntry, item.querySelector('input').checked, item.querySelector('input').disabled])),
+    [['rubric.txt', true, false], ['old.doc', false, true]]);
+  assert.equal(archiveDownloads, 1);
   const omittedReference = filesToInclude.locator('[data-file-status="skipped"]');
-  assert.match(await omittedReference.textContent(), /reference\.zip.*Omitido.*Formato no soportado/s);
+  assert.match(await omittedReference.textContent(), /old\.doc.*Omitido.*Formato no soportado/s);
   assert.equal(await omittedReference.evaluate(element => getComputedStyle(element).color), 'rgb(180, 35, 24)');
-  const previewBox = await filesToInclude.boundingBox();
-  assert.ok(previewBox.height <= 240);
+  // A long list, such as a large archive, scrolls inside its group.
+  const teacherListBox = await filesToInclude.locator('[data-file-group="teacher"] > .file-names').boundingBox();
+  assert.ok(teacherListBox.height <= 240);
   const layout = await fixturePage.evaluate(() => {
     const root = document.querySelector('#mca-side-panel-host').shadowRoot;
     const open = (selector) => root.querySelector(selector).open;
@@ -555,7 +572,7 @@ try {
   });
   // A skipped reference file opens the evidence card and its group; the criteria stay open, the result closed.
   assert.deepEqual({ ...layout, summary: undefined }, { evidence: true, criteria: true, result: false, teacher: true, submission: false, summary: undefined, modeInResult: true, addFilesInTeacherGroup: true });
-  assert.match(layout.summary, /2 incluido\(s\) · 1 omitido\(s\)/);
+  assert.match(layout.summary, /3 incluido\(s\) · 1 omitido\(s\)/);
   console.log('PASS: file previews group teacher material and the submission; a skipped file opens the evidence card and its group, and the grading mode sits on the result card.');
   console.log('PASS: supervision detects the task title and describes reference files separately from submissions without downloading them.');
   const referenceResult = await send({ type: 'mca.correctAssignment', requestId: 'reference-separation', assignmentData: detected });
@@ -722,7 +739,11 @@ try {
   const restored = await fixturePage.locator('[data-region="grade-actions-panel"]').boundingBox();
   assert.equal(restored.width, 1280);
   assert.equal(await fixturePage.evaluate(() => document.body.style.transform), '');
+  // The launcher only shows while the panel is closed, and closing returns focus to it.
+  assert.equal(await fixturePage.locator('#mca-floating-button-host button').isVisible(), true);
+  assert.equal(await fixturePage.evaluate(() => document.getElementById('mca-floating-button-host').shadowRoot.activeElement?.className), 'floating-button');
   await fixturePage.locator('#mca-floating-button-host button').click();
+  assert.equal(await fixturePage.locator('#mca-floating-button-host button').isVisible(), false);
   console.log('PASS: normal, absolute, and fixed Moodle regions fit beside the AI panel at three widths and restore on close.');
   const gradingResponse = { gradingContext: detected.gradingContext, parsed: { studentFeedback: 'Fictional feedback for the first student.', score: 8, rubricSelections: [] } };
   const applyOnFixture = (correction) => page.evaluate(async ({ url, correction }) => {
@@ -1191,11 +1212,34 @@ try {
     { name: 'ignored.zip', mimeType: 'application/zip', buffer: Buffer.from('OMITTED_ZIP_SECRET') },
   ]);
   const additionalSkipped = filesToInclude.locator('[data-file-role="teacher-additional"][data-file-status="skipped"]');
+  // A ZIP is opened to list its files; one that is not a valid archive is omitted.
+  await additionalSkipped.first().waitFor();
   assert.equal(await additionalSkipped.count(), 1);
-  assert.match(await additionalSkipped.textContent(), /ignored\.zip.*Omitido/s);
-  console.log('PASS: unsupported manual files are marked red and omitted before reading their bytes.');
+  assert.match(await additionalSkipped.textContent(), /ignored\.zip.*Omitido.*No se pudo abrir el ZIP/s);
+  console.log('PASS: unsupported manual files and an archive that cannot be opened are marked red and omitted.');
+  // The teacher leaves the statement template out; the archive's readable file is sent on its own.
+  const openTeacherFiles = () => fixturePage.evaluate(() => {
+    const root = document.querySelector('#mca-side-panel-host').shadowRoot;
+    root.querySelector('[data-card="evidence"]').open = true;
+    root.querySelector('[data-file-group="teacher"]').open = true;
+  });
+  await openTeacherFiles();
+  const templateBox = filesToInclude.locator('[data-file-role="assignment-reference"]').filter({ hasText: 'template worksheet.odt' }).locator('input.file-check');
+  await templateBox.uncheck();
+  assert.equal(await templateBox.evaluate(input => input === input.getRootNode().activeElement), true, 'The check box keeps the focus after the list is drawn again.');
   await panelField('[data-correct]').click();
   await fixturePage.waitForFunction(() => document.querySelector('#mca-side-panel-host').shadowRoot.querySelector('[data-status]').textContent.includes('Corrección aplicada'));
+  const sentEvidence = lastChat.messages.map(message => typeof message.content === 'string' ? message.content : JSON.stringify(message.content)).join('\n');
+  assert.match(sentEvidence, /Fictional rubric note from the archive\./);
+  assert.doesNotMatch(sentEvidence, /Legacy binary placeholder|Fictional teacher reference requirements|metadata/);
+  // Names of files inside the archive stay out of the request, like other original filenames.
+  // (The archive's own name appears only because the fixture statement shows it as link text.)
+  assert.doesNotMatch(sentEvidence, /rubric\.txt|old\.doc/);
+  assert.match(sentEvidence, /"reason": ?"teacher-excluded"/);
+  // After a correction the evidence card is closed again.
+  await openTeacherFiles();
+  await templateBox.check();
+  console.log('PASS: unchecked files are not sent and are reported as left out by the teacher; checked files inside a ZIP are sent one by one.');
   // An unsupported embedded image no longer discards the readable document.
   assert.equal(await additionalSkipped.count(), 1);
   assert.match(lastChat.messages[1].content, /INCLUDED_TEXT_EVIDENCE/);

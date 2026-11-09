@@ -1861,6 +1861,28 @@
     "message": "Este alumno ya tiene nota: no se corrige automáticamente.",
     "description": "This student already has a grade: not corrected automatically."
   },
+  "m6c4005ed9898": {
+    "message": "Incluir $value1$",
+    "description": "Include $1",
+    "placeholders": {
+      "value1": {
+        "content": "$1",
+        "example": "Example 1"
+      }
+    }
+  },
+  "m6114ff37fd2f": {
+    "message": "Abriendo el ZIP...",
+    "description": "Opening the ZIP..."
+  },
+  "m2339d39ef494": {
+    "message": "El ZIP no contiene archivos.",
+    "description": "The ZIP contains no files."
+  },
+  "m7cec54d35fb3": {
+    "message": "No se pudo abrir el ZIP.",
+    "description": "The ZIP could not be opened."
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

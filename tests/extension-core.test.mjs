@@ -23,13 +23,13 @@ test('compatible non-streaming completions reject provider truncation even with 
 test('attachment budgets measure content instead of trusting absent or negative declared sizes', async () => {
   const api = await loadBackgroundApi();
   for (const sizeBytes of [-1, NaN, Infinity, 1.5]) {
-    assert.throws(() => api.normalizeExtraFileAttachments([{ name: 'answer.txt', textContent: 'Answer', sizeBytes }]), /Invalid attachment size/);
+    await assert.rejects(api.normalizeExtraFileAttachments([{ name: 'answer.txt', textContent: 'Answer', sizeBytes }]), /Invalid attachment size/);
   }
   const base64Data = Buffer.alloc(20 * 1024 * 1024).toString('base64');
   const file = { name: 'answer.pdf', base64Data, sizeBytes: 1 };
-  assert.equal(api.normalizeExtraFileAttachments([file])[0].sizeBytes, 20 * 1024 * 1024);
-  assert.throws(() => api.normalizeExtraFileAttachments([file, file, file]), /40 MB/);
-  assert.equal(api.normalizeExtraFileAttachments([{ name: 'answer.txt', textContent: 'Olá' }])[0].sizeBytes, 4);
+  assert.equal((await api.normalizeExtraFileAttachments([file]))[0].sizeBytes, 20 * 1024 * 1024);
+  await assert.rejects(api.normalizeExtraFileAttachments([file, file, file]), /40 MB/);
+  assert.equal((await api.normalizeExtraFileAttachments([{ name: 'answer.txt', textContent: 'Olá' }]))[0].sizeBytes, 4);
 });
 
 test('condensing notes preserves the entire input instead of silently cutting its tail', async () => {
@@ -312,7 +312,7 @@ test('attachment support uses shared formats and never accepts archives as text'
 test('unsupported uploads are skipped before reading content or charging their size', async () => {
   const api = await loadBackgroundApi();
   const omitted = [];
-  const files = api.normalizeExtraFileAttachments([
+  const files = await api.normalizeExtraFileAttachments([
     { name: 'large.zip', sizeBytes: 50 * 1024 * 1024 },
     { name: 'answer.txt', sizeBytes: 6, textContent: 'Answer' },
   ], omitted);
@@ -642,7 +642,7 @@ test('images use native provider schemas and text evidence is not silently trunc
   assert.equal(compatible[1].content[1].image_url.url, 'data:image/png;base64,image-data');
   assert.equal((await api.prepareDirectAttachments([{ textContent: 'x'.repeat(60001) }]))[0].textContent.length, 60001);
   await assert.rejects(api.prepareDirectAttachments([{ textContent: 'x'.repeat(600001) }]), /safe extraction limit/);
-  assert.throws(() => api.normalizeExtraFileAttachments([{ sizeBytes: 21 * 1024 * 1024 }]), /exceed/);
+  await assert.rejects(api.normalizeExtraFileAttachments([{ sizeBytes: 21 * 1024 * 1024 }]), /exceed/);
 });
 
 test('reference and submission roles remain distinct for text, image-only evidence, and repair requests', async () => {
