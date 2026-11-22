@@ -6,7 +6,7 @@ MoodlIA Corrector is a Chrome extension that helps teachers review Moodle assign
 
 ## Status
 
-Implemented Chrome extension. Current source version: `0.2.8`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
+Implemented Chrome extension. Current source version: `0.2.8`. 0.2.8 is published as GitHub release `v0.2.8` (22 November 2026) and its privacy policy is live at https://moodlia.com/privacy/corrector.html. The Chrome Web Store lists 0.2.6 until 0.2.8 is submitted and approved. Teachers review and save Moodle grades themselves.
 
 The Moodle entry point is now self-contained, including localization. It also works with old automatic-activation registrations that do not list the translation scripts. Assignment overview pages are ignored before initialization. After updating the extension, reload it in `chrome://extensions` and refresh Moodle to replace scripts already running in open tabs.
 
