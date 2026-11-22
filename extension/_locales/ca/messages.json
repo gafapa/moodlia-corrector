@@ -1883,6 +1883,26 @@
     "message": "No s’ha pogut obrir el ZIP.",
     "description": "The ZIP could not be opened."
   },
+  "m4d72a361fe42": {
+    "message": "No és un fitxer de Moodle de la tasca",
+    "description": "Not a Moodle file of this assignment"
+  },
+  "m99c9d746bf5c": {
+    "message": "Fitxer xifrat",
+    "description": "Encrypted file"
+  },
+  "mca42aa7373dd": {
+    "message": "Fitxer buit",
+    "description": "Empty file"
+  },
+  "mf17822fa742f": {
+    "message": "Fitxer malmès",
+    "description": "Damaged file"
+  },
+  "m0483c5d80b4d": {
+    "message": "Supera el límit de 20 MB",
+    "description": "Exceeds the 20 MB limit"
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

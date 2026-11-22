@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.8 - 2026-11-22
+
+Security:
+
+- Text a student writes in the online text or in submission comments is never read as the assignment statement or as its attachments. Before, a `class="intro"` block inside the student's answer could make the extension download another Moodle page with the teacher's session and send it to the AI as assignment material.
+- Only file links that Moodle renders for the submission count as the student's files; links written inside the online text, comments or the statement are ignored, so a student cannot pull another student's file into their own evidence.
+- The service worker downloads with the teacher's session only Moodle file areas that fit the file's role: student evidence from `assignsubmission_file` or `assignsubmission_onlinetext`, assignment material from any `pluginfile.php` file area. Ordinary Moodle pages, such as gradebook reports, are skipped as "not a Moodle file of this assignment" without being requested.
+- In store installations the panel and launcher use closed shadow roots, so Moodle page scripts cannot read the teacher criteria, the AI output or the settings frame. Correct with AI, Apply and **Correct when moving to the next student** respond only to real teacher input; a page script that changes the check box or dispatches clicks has no effect. Unpacked development builds keep the shadow roots open for automated browser checks.
+- The settings page wires its controls only after the frame is authorized; an unauthorized frame never has working controls.
+- Provider error messages shown in the panel mask anything that looks like an API key, bearer token or credential assignment, and are limited to 300 characters.
+
+ZIP archives (fixes for 0.2.7):
+
+- An empty file inside a ZIP, an encrypted entry, an entry over 20 MB, or a nested archive is shown as omitted with its reason (Empty file, Encrypted file, Exceeds the 20 MB limit, Unsupported format) and cannot be checked. Before, an empty `__init__.py` aborted the whole correction, and one encrypted entry discarded the whole archive or sent unreadable bytes as text.
+- The reader reads the ZIP central directory itself: encrypted entries are never extracted, and an extracted file whose CRC-32 does not match is skipped as damaged instead of being sent truncated or padded.
+- A large archive starts with only the files that fit the 40 MB total checked; the rest can still be checked by hand.
+- Empty ZIP archives and archives with a `content.xml` at their root are opened as ZIP archives. `.git`, `.svn` and `.hg` folders are hidden like macOS metadata.
+- When a whole archive cannot be read, each of its selected files is reported as skipped, and unreadable files are reported to the AI as an unsupported format, so it never mistakes them for work that was not submitted.
+- ZIP files the teacher adds count towards the 40 MB total.
+- Correct with AI is disabled from the click, including while a ZIP is still being opened ("Opening the ZIP..."), so repeated clicks send one request.
+- A ZIP whose listing failed (a timeout or an expired session) is opened again when a correction is requested.
+- Clicking a partly selected archive selects all its files. Redrawing the file list keeps the focused check box and the scroll position.
+- Correction of the 0.2.7 notes: a Moodle archive is downloaded when the panel lists it and again when a correction uses it.
+
+Privacy texts:
+
+- The privacy policy, the store description in all eight languages and the dashboard data-use text now say that **Correct when moving to the next student** sends each student's work when the teacher moves to a student who has not been corrected.
+
+- 5 new interface strings in all eight languages.
+
 ## 0.2.7 - 2026-11-09
 
 - Each evidence file has a check box in the panel. Supported files start checked; unchecked files are not sent, and the AI is told that the teacher left them out (`teacher-excluded` in `excludedAttachments`), so it does not penalise their absence. Unsupported files cannot be checked. The choice resets for each student.

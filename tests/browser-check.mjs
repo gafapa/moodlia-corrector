@@ -454,6 +454,8 @@ try {
   await unrelatedPage.evaluate((url) => { const frame = document.createElement('iframe'); frame.src = url; document.body.append(frame); }, `chrome-extension://${extensionId}/src/options/options.html?embedded=1&token=forged`);
   await unrelatedPage.frameLocator('iframe').locator('body').filter({ hasText: 'Open advanced settings' }).waitFor();
   assert.equal(await unrelatedPage.frameLocator('iframe').locator('#apiKey').count(), 0);
+  // Controls are wired only after authorization, so a forged frame never shows a working language picker.
+  assert.equal(await unrelatedPage.frameLocator('iframe').locator('#interface-language').count(), 0);
   console.log('PASS: an unrelated page cannot embed the AI settings with a forged authorization token.');
   await unrelatedPage.close();
   console.log('PASS: content scripts are absent from unrelated HTTPS pages.');
@@ -648,6 +650,23 @@ try {
   assert.equal(collapsed.assignmentData.submissionFiles.filter(file => file.source === 'online-text-image').length, 1);
   assert.equal(collapsed.assignmentData.submissionImageLimitations.length, 0);
   console.log('PASS: collapsed Moodle online text is read from the complete hidden box, including its images and excluding UI icons.');
+  // A student can write classes and links into the online text. They must not become assignment
+  // material or another student's file fetched with the teacher's session.
+  await inlinePage.locator('.assignsubmission_onlinetext').evaluate((element) => {
+    element.innerHTML = '<p>My answer.</p><div class="intro"><p>INJECTED_STATEMENT</p><a href="/school/moodle/grade/report/grader/index.php/report.html?id=7">Grades</a>'
+      + '<a href="/school/moodle/pluginfile.php/201/mod_assign/introattachment/0/planted.pdf">Planted</a></div>'
+      + '<a href="/school/moodle/pluginfile.php/201/assignsubmission_file/submission_files/9999/other-student.c">Other</a>';
+  });
+  const planted = await page.evaluate(async url => {
+    const [tab] = await chrome.tabs.query({ url });
+    return chrome.tabs.sendMessage(tab.id, { type: 'mca.extractAssignment' });
+  }, inlinePage.url());
+  assert.equal(planted.ok, true, planted.error);
+  const plantedData = JSON.stringify(planted.assignmentData.assignmentFiles) + JSON.stringify(planted.assignmentData.submissionFiles);
+  assert.doesNotMatch(plantedData, /grade\/report|report\.html|planted\.pdf|other-student\.c|9999/);
+  assert.doesNotMatch(planted.assignmentData.assignmentPrompt || '', /INJECTED_STATEMENT/);
+  assert.match(planted.assignmentData.submissionText, /INJECTED_STATEMENT/);
+  console.log('PASS: classes and links written in the online text never become assignment material or another student\'s file.');
   await inlinePage.close();
   console.log('PASS: online evidence preserves paragraphs and code indentation, includes Moodle images, reports omitted images and deduplicates download links.');
   assert.match(await fixturePage.locator('#mca-side-panel-host [data-grading-mode]').textContent(), /Calificación directa simple · sobre 10/);

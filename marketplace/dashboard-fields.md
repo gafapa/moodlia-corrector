@@ -1,6 +1,6 @@
 # Chrome Web Store dashboard fields
 
-Version: 0.2.7. Prepared 9 November 2026. These statements describe the actual extension; they are not a claim of store approval.
+Version: 0.2.8. Prepared 22 November 2026. These statements describe the actual extension; they are not a claim of store approval.
 
 ## Store listing
 
@@ -23,7 +23,7 @@ Assist teachers in reviewing Moodle assignment submissions by generating AI feed
 
 Declare website content (assignment/submission text, files, rubric, grades and feedback), personally identifiable information that can be present in that content or local page context, and authentication information for the user-provided AI API key. Do not claim that no user data is handled merely because MoodlIA has no intermediary server. Moodle login passwords are not accessed. The extension does not collect unrelated browsing history, advertising identifiers, analytics, payments or location.
 
-Purpose: user-facing extension functionality only. Correction evidence is transferred directly to the chosen provider on request. Model refresh and connection tests contact that provider separately. State that embedded personal data is not guaranteed to be anonymized. Do not mark all connections as encrypted: remote API mode and Moodle downloads use HTTPS, but local-server mode permits HTTP on loopback or a selected network host.
+Purpose: user-facing extension functionality only. Correction evidence is transferred directly to the chosen provider on request, or, when the teacher turns on automatic correction of the next student, each time the teacher moves to a student who has not been corrected. Model refresh and connection tests contact that provider separately. State that embedded personal data is not guaranteed to be anonymized. Do not mark all connections as encrypted: remote API mode and Moodle downloads use HTTPS, but local-server mode permits HTTP on loopback or a selected network host.
 
 Confirm the dashboard certifications against this behavior: no sale, no unrelated use/transfer, no creditworthiness purpose. The included privacy policy states the Limited Use commitment.
 

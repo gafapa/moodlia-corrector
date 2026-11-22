@@ -133,7 +133,7 @@
         if (isArchive(file) && !reason) {
           const entries = archive?.state === 'ready' ? archive.entries : [];
           const supported = entries.filter(entry => entry.supported);
-          const chosen = supported.filter(entry => selection.checked(`${key}::${entry.path}`, true));
+          const chosen = supported.filter(entry => selection.checked(`${key}::${entry.path}`, entry.selectedByDefault !== false));
           checked = chosen.length > 0;
           partial = checked && chosen.length < supported.length;
           selectable = supported.length > 0;
@@ -155,7 +155,7 @@
               const entryKey = `${key}::${entry.path}`;
               const entryItem = document.createElement('li');
               entryItem.dataset.archiveEntry = entry.path;
-              const entryChecked = entry.supported && selection.checked(entryKey, true);
+              const entryChecked = entry.supported && selection.checked(entryKey, entry.selectedByDefault !== false);
               entryItem.dataset.fileChecked = String(entryChecked);
               const entryName = document.createElement('strong');
               entryName.textContent = entry.path;
@@ -173,7 +173,7 @@
                 entryItem.dataset.fileStatus = 'skipped';
                 const explanation = document.createElement('span');
                 explanation.className = 'file-skip-reason';
-                explanation.textContent = message`Omitido · ${t('Formato no soportado')}`;
+                explanation.textContent = message`Omitido · ${t(entry.reason || 'Formato no soportado')}`;
                 entryItem.appendChild(explanation);
               }
               entriesList.appendChild(entryItem);
@@ -185,7 +185,8 @@
           if (checked) groupIncluded++;
         }
         item.dataset.fileChecked = String(checked);
-        const box = checkbox(key, { checked, disabled: !selectable, label: message`Incluir ${displayName}`, archive: isArchive(file) });
+        // A partly selected archive shows as unchecked and indeterminate, so clicking it selects every file.
+        const box = checkbox(key, { checked: checked && !partial, disabled: !selectable, label: message`Incluir ${displayName}`, archive: isArchive(file) });
         box.indeterminate = partial;
         item.append(box, type, name, meta);
         if (reason) {
@@ -238,7 +239,14 @@
       note.textContent = text;
       fragment.appendChild(note);
     }
+    // A redraw (a ZIP listing arrives, a file is added) keeps the focused check box and the scroll
+    // position of each group's list.
+    const active = container.getRootNode?.()?.activeElement;
+    const focusedKey = active && container.contains(active) && active.matches?.('input.file-check') ? active.dataset.fileKey : null;
+    const scrolls = [...container.querySelectorAll('.file-group > .file-names')].map(list => list.scrollTop);
     container.replaceChildren(fragment);
+    [...container.querySelectorAll('.file-group > .file-names')].forEach((list, position) => { if (scrolls[position]) list.scrollTop = scrolls[position]; });
+    if (focusedKey) [...container.querySelectorAll('input.file-check')].find(candidate => candidate.dataset.fileKey === focusedKey)?.focus();
     // One listener per container: a check box changes the selection, then the list is drawn again
     // and the same check box keeps the keyboard focus.
     container.onchange = (event) => {

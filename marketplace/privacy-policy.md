@@ -1,6 +1,6 @@
 # MoodlIA Corrector privacy policy
 
-Effective date: 20 October 2026. Version covered: 0.2.7. Last reviewed: 9 November 2026.
+Effective date: 20 October 2026. Version covered: 0.2.8. Last reviewed: 22 November 2026.
 
 ## Scope and contact
 
@@ -14,7 +14,7 @@ The extension distinguishes assignment references from student submissions. PDF,
 
 ## AI processing and recipients
 
-When you request a correction, relevant assignment and submission evidence and teacher criteria are sent directly from the extension to the AI endpoint you selected. Available choices include Ollama, LM Studio, llama.cpp, LocalAI, vLLM and other OpenAI-compatible services. Refreshing models or testing a connection contacts that endpoint; the connection test uses fictional data.
+When you request a correction, or when you turn on “Correct when moving to the next student” and move to a student who has not been corrected yet, relevant assignment and submission evidence and teacher criteria are sent directly from the extension to the AI endpoint you selected. Available choices include Ollama, LM Studio, llama.cpp, LocalAI, vLLM and other OpenAI-compatible services. Refreshing models or testing a connection contacts that endpoint; the connection test uses fictional data.
 
 MoodlIA does not run an intermediary AI service and does not receive student work, teacher criteria or API keys. Requests omit selected structured identity fields and original attachment filenames. A filename is included only when your own teacher criteria mention it, so the AI can locate that file. Text and documents can themselves contain personal information. The extension does not guarantee anonymization. Select a provider approved by your institution and only process work you are authorized to use. Provider logging, retention, training and other processing are governed by that provider's terms and your institutional agreement, not by MoodlIA.
 

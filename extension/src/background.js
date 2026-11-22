@@ -4,7 +4,7 @@ const { getLanguageInstruction, getExpectedMaxScore, hasNumericGradeControl, get
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.2.7',
+  version: '0.2.8',
 };
 
 const MOODLE_GRADER_PATH = '/mod/assign/view.php';
@@ -113,6 +113,13 @@ const loadBoundAiSecret = async (config) => {
   } catch { return {}; }
 };
 
+// Provider error text is shown in the panel on the Moodle page. Self-hosted servers and proxies can
+// echo request headers, so anything that looks like a credential is masked and the text is shortened.
+const providerErrorText = (value) => String(value || '')
+  .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, '$1 [redacted]')
+  .replace(/\b(?:sk|pk|rk|gsk|xai|key)[-_][A-Za-z0-9_-]{12,}/g, '[redacted]')
+  .replace(/\b(api[-_]?key|x-api-key|authorization|token)(["']?\s*[:=]\s*["']?)[^\s,;"'}]{6,}/gi, '$1$2[redacted]')
+  .slice(0, 300);
 const fetchAiResource = async (url, init = {}, { signal, timeoutMs = AI_TIMEOUT_MS } = {}) => {
   const controller = new AbortController();
   const cancel = () => controller.abort(signal.reason || new Error('AI request cancelled.'));
@@ -136,7 +143,7 @@ const fetchAiResource = async (url, init = {}, { signal, timeoutMs = AI_TIMEOUT_
     if (!response.ok) {
       let error;
       try { error = JSON.parse(text)?.error; } catch { /* Use the HTTP status for non-JSON errors. */ }
-      throw new Error(`AI request failed (HTTP ${response.status}): ${typeof error === 'string' ? error : error?.message || response.statusText || 'Provider error'}`);
+      throw new Error(`AI request failed (HTTP ${response.status}): ${providerErrorText(typeof error === 'string' ? error : error?.message || response.statusText || 'Provider error')}`);
     }
     return JSON.parse(text);
   } catch (error) {
@@ -187,7 +194,7 @@ const readAiStream = async (response, signal) => {
     if (line.startsWith('data:')) line = line.slice(5).trim();
     if (line === '[DONE]') { complete = true; return; }
     const part = JSON.parse(line);
-    if (part.error) throw new Error(typeof part.error === 'string' ? part.error : part.error.message || 'Provider stream failed.');
+    if (part.error) throw new Error(providerErrorText(typeof part.error === 'string' ? part.error : part.error.message || 'Provider stream failed.'));
     if (part.done && part.done_reason && part.done_reason !== 'stop') throw new Error(`The AI response was interrupted by the provider (${part.done_reason}). No grades were applied.`);
     for (const key of ['done', 'done_reason', 'usage', 'prompt_eval_count', 'eval_count', 'total_duration', 'load_duration', 'prompt_eval_duration', 'eval_duration']) {
       if (part[key] !== undefined) metadata[key] = part[key];
@@ -554,7 +561,25 @@ const normalizeMoodleAttachmentUrl = (fileUrl, pageUrl) => {
   return candidate.href;
 };
 
-// Fetch manually so Moodle cookies never accompany signed external storage requests.
+// Only Moodle file areas are downloaded with the teacher's session. Student evidence must come
+// from the submission file areas; assignment material may come from any Moodle file area, but
+// never from an ordinary Moodle page such as a gradebook report.
+const moodleFileAreaPath = (url) => {
+  if (!/\/pluginfile\.php(?:\/|$)/i.test(url.pathname)) return null;
+  const path = /\/pluginfile\.php$/i.test(url.pathname) ? url.searchParams.get('file') || '' : url.pathname.replace(/^.*?\/pluginfile\.php/i, '');
+  try { return decodeURIComponent(path); } catch { return path; }
+};
+const isMoodleFileForRole = (fileUrl, pageUrl, role) => {
+  let url;
+  try { url = new URL(String(fileUrl || ''), String(pageUrl || '')); } catch { return false; }
+  const path = moodleFileAreaPath(url);
+  if (!path || !/^\/\d+\/[a-z0-9_]+\/[^/]+\//i.test(path)) return false;
+  return role === 'assignment-reference' || /^\/\d+\/assignsubmission_(?:file|onlinetext)\//i.test(path);
+};
+const attachmentRole = (file) => file?.role === 'assignment-reference' ? 'assignment-reference' : 'student-submission';
+
+// Redirects are followed manually: cookies are sent only to the Moodle origin, never the storage
+// host's own cookies to signed external storage, and each hop is checked before it is requested.
 const fetchMoodleAttachment = async (initialUrl, signal) => {
   const moodleOrigin = new URL(initialUrl).origin;
   const extensionOrigin = chrome.runtime.getURL('').replace(/\/$/, '');
@@ -661,6 +686,7 @@ const downloadMoodleArchive = async (file, pageUrl, signal) => {
   else signal?.addEventListener('abort', cancel, { once: true });
   const timer = setTimeout(() => controller.abort(new Error('Attachment download timed out.')), 120_000);
   try {
+    if (!isMoodleFileForRole(file.url, pageUrl, attachmentRole(file))) throw new Error(`Attachment ${attachmentLabel(file, 0)} is not a Moodle file of this assignment.`);
     const response = await fetchMoodleAttachment(normalizeMoodleAttachmentUrl(file.url, pageUrl), controller.signal);
     if (!response.ok) throw new Error(`Attachment ${attachmentLabel(file, 0)} could not be downloaded (HTTP ${response.status}).`);
     const blob = await readLimitedAttachment(response, MAX_ATTACHMENT_BYTES);
@@ -679,12 +705,17 @@ const archiveEntryName = (file, path) => `${file.originalName || file.name || 'a
 const extractArchiveAttachments = async (file, base64Data, signal, role) => {
   const paths = [...new Set((file.archiveEntries || []).filter(path => typeof path === 'string'))];
   if (!paths.length) return [];
-  const { files } = await archiveReaderRequest({ type: 'mca.extractArchive', base64Data, paths }, signal);
-  return files.map(entry => ({
-    id: archiveEntryId(file, entry.path), name: archiveEntryName(file, entry.path), originalName: archiveEntryName(file, entry.path),
-    source: file.source, archive: file.originalName || file.name, role, mimeType: '', sizeBytes: entry.sizeBytes, base64Data: entry.base64Data,
-  }));
+  const { files, skipped = [] } = await archiveReaderRequest({ type: 'mca.extractArchive', base64Data, paths }, signal);
+  return {
+    attachments: files.map(entry => ({
+      id: archiveEntryId(file, entry.path), name: archiveEntryName(file, entry.path), originalName: archiveEntryName(file, entry.path),
+      source: file.source, archive: file.originalName || file.name, role, mimeType: '', sizeBytes: entry.sizeBytes, base64Data: entry.base64Data,
+    })),
+    skipped: skipped.map(entry => ({ id: archiveEntryId(file, entry.path), name: archiveEntryName(file, entry.path), role,
+      reason: archiveSkipReasons[entry.reason] || 'Formato no soportado' })),
+  };
 };
+const archiveSkipReasons = { encrypted: 'Archivo cifrado', empty: 'Archivo vacío', damaged: 'Archivo dañado' };
 // The file lists the model sees name each selected archive file instead of the archive.
 const expandArchiveListings = (list = []) => list.flatMap(file => isArchiveFile(file) && Array.isArray(file.archiveEntries)
   ? file.archiveEntries.map(path => ({ id: archiveEntryId(file, path), name: archiveEntryName(file, path), archive: file.originalName || file.name, source: file.source }))
@@ -694,7 +725,19 @@ const listArchiveForPanel = async (message, signal) => {
   if (!isArchiveFile(file)) throw new Error('Only ZIP archives can be listed.');
   const base64Data = typeof file.base64Data === 'string' ? file.base64Data : await downloadMoodleArchive(file, message.pageUrl, signal);
   const { entries } = await archiveReaderRequest({ type: 'mca.listArchive', base64Data }, signal);
-  return entries.map(entry => ({ ...entry, supported: !isArchiveFile({ name: entry.path }) && MoodliaCorrectorAttachmentSupport.assess({ name: entry.path }).supported !== false }));
+  // Entries that cannot be read are refused while listing, with the reason the panel shows.
+  // Readable entries are selected by default only while they fit the total attachment limit,
+  // so a large archive never starts with a selection that would be rejected.
+  let budget = MAX_TOTAL_ATTACHMENT_BYTES;
+  return entries.map(entry => {
+    const reason = entry.encrypted ? 'Archivo cifrado'
+      : !entry.sizeBytes ? 'Archivo vacío'
+        : entry.sizeBytes > MAX_ATTACHMENT_BYTES ? 'Supera el límite de 20 MB'
+          : isArchiveFile({ name: entry.path }) || MoodliaCorrectorAttachmentSupport.assess({ name: entry.path }).supported === false ? 'Formato no soportado' : '';
+    const selectedByDefault = !reason && entry.sizeBytes <= budget;
+    if (selectedByDefault) budget -= entry.sizeBytes;
+    return { path: entry.path, sizeBytes: entry.sizeBytes, supported: !reason, ...(reason ? { reason } : {}), selectedByDefault };
+  });
 };
 
 const fetchSubmissionFileAttachments = async (submissionFiles = [], pageUrl, signal, skippedFiles = [], onProgress = null) => {
@@ -702,6 +745,10 @@ const fetchSubmissionFileAttachments = async (submissionFiles = [], pageUrl, sig
   let totalBytes = 0;
   for (const [index, file] of submissionFiles.entries()) {
     reportProgress({ onProgress }, { stage: 'download', current: index + 1, total: submissionFiles.length });
+    if (!isMoodleFileForRole(file.url, pageUrl, attachmentRole(file))) {
+      skippedFiles.push({ id: file.id, name: file.name, role: attachmentRole(file), reason: 'No es un archivo de Moodle de la tarea' });
+      continue;
+    }
     if (isArchiveFile(file) && Array.isArray(file.archiveEntries)) {
       const role = file.role === 'assignment-reference' ? 'assignment-reference' : 'student-submission';
       let extracted;
@@ -709,10 +756,13 @@ const fetchSubmissionFileAttachments = async (submissionFiles = [], pageUrl, sig
         extracted = await extractArchiveAttachments(file, await downloadMoodleArchive(file, pageUrl, signal), signal, role);
       } catch (error) {
         if (error.code !== 'UNSUPPORTED_ATTACHMENT') throw error;
-        skippedFiles.push({ id: file.id, name: file.name, role, reason: 'Formato no soportado' });
+        // The model sees each selected entry by name, so each one is reported as skipped.
+        skippedFiles.push({ id: file.id, name: file.name, role, reason: 'Formato no soportado' },
+          ...file.archiveEntries.map(path => ({ id: archiveEntryId(file, path), name: archiveEntryName(file, path), role, reason: 'Formato no soportado' })));
         continue;
       }
-      for (const attachment of extracted) {
+      skippedFiles.push(...extracted.skipped);
+      for (const attachment of extracted.attachments) {
         totalBytes += attachment.sizeBytes;
         if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error('Submission attachments exceed the 20 MB per file or 40 MB total limit.');
         attachments.push(attachment);
@@ -800,10 +850,12 @@ const normalizeExtraFileAttachments = async (extraFiles = [], skippedFiles = [],
         extracted = await extractArchiveAttachments(archive, file.base64Data, signal, 'teacher-additional');
       } catch (error) {
         if (error.code !== 'UNSUPPORTED_ATTACHMENT') throw error;
-        skippedFiles.push({ id: archive.id, name: file.name, role: 'teacher-additional', reason: 'Formato no soportado' });
+        skippedFiles.push({ id: archive.id, name: file.name, role: 'teacher-additional', reason: 'Formato no soportado' },
+          ...file.archiveEntries.map(path => ({ id: archiveEntryId(archive, path), name: archiveEntryName(archive, path), role: 'teacher-additional', reason: 'Formato no soportado' })));
         continue;
       }
-      for (const attachment of extracted) {
+      skippedFiles.push(...extracted.skipped);
+      for (const attachment of extracted.attachments) {
         totalBytes += attachment.sizeBytes;
         if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error('Extra attachments exceed the 20 MB per file or 40 MB total limit.');
         attachments.push(attachment);
@@ -978,7 +1030,15 @@ const prepareDirectAttachments = async (files, signal, skippedFiles = [], { page
       attachment = { ...response.attachment, id: file.id, name: file.name, originalName: file.originalName, source: file.source,
         role: file.role, mimeType: response.attachment.mimeType || file.mimeType, sizeBytes: file.sizeBytes };
     }
-    if (!attachment.textContent?.trim() && !attachment.images?.length) throw new Error(`Attachment ${attachmentLabel(file, index)} has no readable content.`);
+    if (!attachment.textContent?.trim() && !attachment.images?.length) {
+      // A blank file inside a ZIP (an empty __init__.py, a placeholder note) is not the student's
+      // whole submission: skip it and keep correcting with the other files.
+      if (file.archive) {
+        skippedFiles.push({ id: file.id, name: file.name, role: file.role || 'student-submission', reason: 'Archivo vacío' });
+        continue;
+      }
+      throw new Error(`Attachment ${attachmentLabel(file, index)} has no readable content.`);
+    }
     totalText += attachment.textContent?.length || 0;
     imageCount += attachment.images?.length || 0;
     if (totalText > 600_000 || imageCount > 120) throw new Error('Attachments exceed the safe extraction limit of 600,000 characters or 120 images. No evidence was truncated.');
@@ -1453,7 +1513,7 @@ const requestDirectAiCorrection = async (assignmentData, options = {}) => {
       ...skippedFiles.map(file => ({ role: file.role, reason: 'unsupported-format' })),
       ...(Array.isArray(assignmentData.teacherExcludedFiles) ? assignmentData.teacherExcludedFiles : [])
         .filter(file => ['assignment-reference', 'teacher-additional', 'student-submission'].includes(file?.role))
-        .map(file => ({ role: file.role, reason: 'teacher-excluded' })),
+        .map(file => ({ role: file.role, reason: file.unreadable === true ? 'unsupported-format' : 'teacher-excluded' })),
     ],
   };
 
