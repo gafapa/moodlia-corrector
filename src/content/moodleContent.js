@@ -11,7 +11,7 @@ const PAGE_STYLE_ID = 'mca-page-layout-style';
 const APP_INFO = {
   id: 'moodle-correction-assistant',
   name: 'MoodlIA Corrector',
-  version: '0.2.7',
+  version: '0.2.8',
 };
 const ICON_SVG = `
   <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false">
@@ -83,6 +83,11 @@ const getStructuredText = (element, { layoutIndependent = false } = {}) => {
 };
 
 const onlineSubmissionSelectors = ['.assignsubmission_onlinetext', '[class*="assignsubmission_onlinetext"]', '[id*="assignsubmission_onlinetext"]', '.submissiontext'];
+// Students write the online text and submission comments. Classes and links inside them
+// must never be read as the assignment statement or as files the teacher should download.
+const studentAuthoredSelector = [...onlineSubmissionSelectors, '[class*="assignsubmission_comments"]', '.comment-area',
+  '[data-region="submission-text"]', '.attempthistory'].join(', ');
+const isStudentAuthored = (element) => Boolean(element?.closest?.(studentAuthoredSelector));
 // Moodle's grader renders online text in summary mode: a visible summary
 // shortened to 140 characters and the complete text in a CSS-hidden
 // `.hidefull.full_assignsubmission_onlinetext_<id>` box. Read the complete box
@@ -219,6 +224,9 @@ const extractSubmissionFiles = () => {
       let url;
       try { url = new URL(link.href); } catch { return false; }
       if (!isMoodleFileAreaUrl(url, 'assignsubmission_file')) return false;
+      // A link written inside the online text, a comment or the statement could point to
+      // another student's file; only file rows rendered by Moodle are this student's evidence.
+      if (isStudentAuthored(link) || link.closest(assignmentDescriptionSelectors.join(', '))) return false;
       // Previous attempts are listed in Moodle's attempt history, not as current evidence.
       if (link.closest('.attempthistory')) return false;
       const key = new URL(link.href);
@@ -320,7 +328,9 @@ const extractAssignmentFiles = (doc = document, pageUrl = location.href) => {
   const seen = new Set();
   const files = [];
   for (const container of doc.querySelectorAll(assignmentDescriptionSelectors.join(', '))) {
+    if (isStudentAuthored(container)) continue;
     for (const element of container.querySelectorAll('a[href], img[src]')) {
+      if (isStudentAuthored(element)) continue;
       const url = resolveDocumentUrl(element.getAttribute('href') || element.getAttribute('src'), pageUrl);
       if (!url || !['http:', 'https:'].includes(url.protocol)) continue;
       let name;
@@ -374,10 +384,10 @@ const createAssignmentFileList = (files = []) => {
 
 const extractDescriptionFromDocument = (doc) => {
   for (const selector of assignmentDescriptionSelectors) {
-    const element = doc.querySelector(selector);
-    const text = getStructuredText(element);
-    if (text) {
-      return text;
+    for (const element of doc.querySelectorAll(selector)) {
+      if (isStudentAuthored(element)) continue;
+      const text = getStructuredText(element);
+      if (text) return text;
     }
   }
 
@@ -2341,6 +2351,18 @@ const ensurePageLayoutStyle = () => {
   document.documentElement.appendChild(style);
 };
 
+// Store installations close the panel's shadow roots, so Moodle page scripts cannot read the
+// criteria, the AI output or the settings frame. Unpacked development and test builds keep them
+// open for automated browser checks. The extension keeps its own references to both roots.
+const shadowRoots = new WeakMap();
+const shadowMode = 'update_url' in chrome.runtime.getManifest() ? 'closed' : 'open';
+const attachPanelShadow = (host) => {
+  const root = host.attachShadow({ mode: shadowMode });
+  shadowRoots.set(host, root);
+  return root;
+};
+const shadowOf = (host) => (host && shadowRoots.get(host)) || host?.shadowRoot || null;
+
 const createFloatingButton = () => {
   if (document.getElementById(FLOATING_BUTTON_ID)) {
     return;
@@ -2348,7 +2370,7 @@ const createFloatingButton = () => {
 
   const host = document.createElement('div');
   host.id = FLOATING_BUTTON_ID;
-  const shadow = host.attachShadow({ mode: 'open' });
+  const shadow = attachPanelShadow(host);
   shadow.appendChild(createPanelStyles());
 
   const button = document.createElement('button');
@@ -2578,7 +2600,7 @@ const createSidePanel = () => {
 
   const host = document.createElement('div');
   host.id = PANEL_ID;
-  const shadow = host.attachShadow({ mode: 'open' });
+  const shadow = attachPanelShadow(host);
   shadow.appendChild(createPanelStyles());
 
   const panel = document.createElement('aside');
@@ -2772,12 +2794,21 @@ const createSidePanel = () => {
   }
   for (const field of panel.querySelectorAll('.scope-panel textarea')) field.addEventListener('input', updateCriteriaTabs);
 
-  panel.querySelector('[data-correct]').addEventListener('click', () => void requestCorrectionFromPanel().catch(error => setPanelStatus(error.message || String(error))));
+  // Moodle page scripts can reach the panel in development builds and can dispatch synthetic
+  // events: actions that send work to the AI or write grades require a real teacher input.
+  panel.querySelector('[data-correct]').addEventListener('click', (event) => {
+    if (event.isTrusted) void requestCorrectionFromPanel().catch(error => setPanelStatus(error.message || String(error)));
+  });
   panel.querySelector('[data-cancel-correction]').addEventListener('click', () => void cancelCorrectionFromPage().catch((error) => setPanelStatus(error.message)));
   const autoCorrect = panel.querySelector('[data-auto-correct]');
-  void chrome.storage.local.get(AUTO_CORRECT_STORAGE_KEY).then(stored => { autoCorrect.checked = stored[AUTO_CORRECT_STORAGE_KEY] === true; }).catch(() => {});
-  autoCorrect.addEventListener('change', () => void chrome.storage.local.set({ [AUTO_CORRECT_STORAGE_KEY]: autoCorrect.checked }).catch(() => {}));
-  panel.querySelector('[data-apply-correction]').addEventListener('click', () => {
+  void chrome.storage.local.get(AUTO_CORRECT_STORAGE_KEY).then(stored => { autoCorrectEnabled = stored[AUTO_CORRECT_STORAGE_KEY] === true; autoCorrect.checked = autoCorrectEnabled; }).catch(() => {});
+  autoCorrect.addEventListener('change', (event) => {
+    if (!event.isTrusted) { autoCorrect.checked = autoCorrectEnabled; return; }
+    autoCorrectEnabled = autoCorrect.checked;
+    void chrome.storage.local.set({ [AUTO_CORRECT_STORAGE_KEY]: autoCorrectEnabled }).catch(() => {});
+  });
+  panel.querySelector('[data-apply-correction]').addEventListener('click', (event) => {
+    if (!event.isTrusted) return;
     void applyCorrectionFromPanel().catch(error => { setPanelStatus(error.message || String(error)); addPanelDiagnostic('manualCorrection.error', { message: error.message || String(error) }); });
   });
   panel.querySelector('[data-runtime-refresh]').addEventListener('click', () => void refreshAiRuntimeStatus());
@@ -2798,7 +2829,7 @@ const createSidePanel = () => {
 
 const getPanelElements = () => {
   const host = createSidePanel();
-  const root = host.shadowRoot;
+  const root = shadowOf(host);
   return {
     panel: root.querySelector('.panel'),
     status: root.querySelector('[data-status]'),
@@ -2867,7 +2898,8 @@ const loadArchiveListing = (key, file, role) => {
       if (file.size > MoodliaCorrectorAttachmentSupport.MAX_ATTACHMENT_BYTES) throw new Error('The ZIP exceeds the 20 MB limit.');
       request = { name: file.name, base64Data: MoodliaCorrectorAttachmentSupport.bytesToBase64(await file.arrayBuffer()) };
     } else {
-      request = { id: file.id, name: file.name, originalName: file.originalName, url: file.url };
+      // The role decides which Moodle file areas the service worker may download.
+      request = { id: file.id, name: file.name, originalName: file.originalName, url: file.url, role };
     }
     const response = await sendBackgroundMessage({ type: 'mca.listArchive', pageUrl: location.href, file: request });
     if (!response?.ok) throw new Error(response?.error || 'The ZIP archive could not be opened.');
@@ -2896,8 +2928,12 @@ const applyEvidenceSelection = (list = [], role, excluded) => {
       // An archive that could not be listed is sent as is and reported as unsupported.
       if (listing?.state !== 'ready') { kept.push(file); continue; }
       const supported = listing.entries.filter(entry => entry.supported);
-      const paths = supported.filter(entry => evidenceSelection.checked(`${key}::${entry.path}`, true)).map(entry => entry.path);
+      const paths = supported.filter(entry => evidenceSelection.checked(`${key}::${entry.path}`, entry.selectedByDefault !== false)).map(entry => entry.path);
       for (const entry of supported) if (!paths.includes(entry.path)) excluded.push({ role, name: `${file.originalName || file.name}/${entry.path}` });
+      // Files the student submitted that cannot be read, and an archive with no files at all, are
+      // still reported, so the AI never mistakes them for work that was not submitted.
+      for (const entry of listing.entries) if (!entry.supported) excluded.push({ role, name: `${file.originalName || file.name}/${entry.path}`, unreadable: true });
+      if (!listing.entries.length) excluded.push({ role, name: file.originalName || file.name, unreadable: true });
       if (paths.length) kept.push({ ...file, archiveEntries: paths });
       continue;
     }
@@ -2942,16 +2978,22 @@ const readExtraFilesFromPanel = async (excluded = []) => {
   const { extraFiles } = getPanelElements();
   const attachments = [];
   const chosen = [];
+  const { MAX_ATTACHMENT_BYTES, MAX_TOTAL_ATTACHMENT_BYTES } = MoodliaCorrectorAttachmentSupport;
+  const limitError = 'Los archivos adicionales superan el límite de 20 MB por archivo o 40 MB en total.';
+  // ZIP archives count towards the same 40 MB total as the other added files.
+  let archiveBytes = 0;
   for (const [index, file] of [...(extraFiles?.files || [])].entries()) {
     const key = evidenceSelection.key('teacher-additional', file, index);
     if (MoodliaCorrectorFilePreview.isArchive(file)) {
       const listing = archiveListings.get(key);
       if (listing?.state !== 'ready') { chosen.push({ file, index }); continue; }
       const supported = listing.entries.filter(entry => entry.supported);
-      const paths = supported.filter(entry => evidenceSelection.checked(`${key}::${entry.path}`, true)).map(entry => entry.path);
+      const paths = supported.filter(entry => evidenceSelection.checked(`${key}::${entry.path}`, entry.selectedByDefault !== false)).map(entry => entry.path);
       for (const entry of supported) if (!paths.includes(entry.path)) excluded.push({ role: 'teacher-additional', name: `${file.name}/${entry.path}` });
+      for (const entry of listing.entries) if (!entry.supported) excluded.push({ role: 'teacher-additional', name: `${file.name}/${entry.path}`, unreadable: true });
       if (!paths.length) continue;
-      if (file.size > MoodliaCorrectorAttachmentSupport.MAX_ATTACHMENT_BYTES) throw new Error('Los archivos adicionales superan el límite de 20 MB por archivo o 40 MB en total.');
+      archiveBytes += file.size;
+      if (file.size > MAX_ATTACHMENT_BYTES || archiveBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error(limitError);
       attachments.push({ index, attachment: { id: `extra-file-${index + 1}`, name: file.name, mimeType: file.type || 'application/zip', sizeBytes: file.size,
         source: 'manual-upload', archiveEntries: paths, base64Data: MoodliaCorrectorAttachmentSupport.bytesToBase64(await file.arrayBuffer()) } });
       continue;
@@ -2962,6 +3004,8 @@ const readExtraFilesFromPanel = async (excluded = []) => {
     }
     chosen.push({ file, index });
   }
+  const otherBytes = chosen.reduce((sum, entry) => sum + (MoodliaCorrectorAttachmentSupport.assess(entry.file).supported !== false ? entry.file.size : 0), 0);
+  if (archiveBytes + otherBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error(limitError);
   const read = await MoodliaCorrectorAttachmentSupport.readSelectedFiles(chosen.map(entry => entry.file));
   read.forEach((attachment, position) => attachments.push({ index: chosen[position].index, attachment: { ...attachment, id: `extra-file-${chosen[position].index + 1}` } }));
   updateExtraFilesSummary();
@@ -2971,6 +3015,11 @@ const readExtraFilesFromPanel = async (excluded = []) => {
 const buildPanelAssignmentData = async () => {
   await savedInstructionsReady;
   const teacherCriteria = await instructionsController.getValues();
+  // A ZIP that could not be opened (a timeout, an expired session) is opened again: drawing the
+  // file list starts a new listing for every archive without one.
+  let failedListings = 0;
+  for (const [key, listing] of archiveListings) if (listing.state === 'error') { archiveListings.delete(key); failedListings++; }
+  if (failedListings) updateExtraFilesSummary();
   // A ZIP still being listed is waited for, so its selection applies.
   await Promise.all([...archiveListings.values()].map(listing => listing.promise).filter(Boolean));
   const teacherExcludedFiles = [];
@@ -3061,7 +3110,7 @@ const closePanel = () => {
   navigationWatcher?.pause();
   setPageShift(false);
   // Keyboard focus returns to the launcher, which reappears when the panel closes.
-  if (focusWasInPanel && launcher && !launcher.hidden) launcher.shadowRoot?.querySelector('button')?.focus();
+  if (focusWasInPanel && launcher && !launcher.hidden) shadowOf(launcher)?.querySelector('button')?.focus();
 };
 
 const updateDetectedList = (assignmentData) => {
@@ -3467,14 +3516,25 @@ chrome.storage.onChanged?.addListener((changes, area) => {
 
 const requestCorrectionFromPanel = async () => {
   const revision = gradingPageRevision;
-  if (!currentAssignmentData) {
-    await refreshPanelData();
-  }
-  if (revision !== gradingPageRevision) return;
-
   const { correction, correctButton, cancelButton } = getPanelElements();
-  const assignmentForCorrection = await buildPanelAssignmentData();
-  if (revision !== gradingPageRevision) return;
+  // The button stays disabled from the click until the correction ends, including while a ZIP is
+  // still being opened, so repeated clicks never send more than one request.
+  if (correctButton.disabled) return;
+  correctButton.disabled = true;
+  // Re-enabled only when no correction is running for the page now shown.
+  const releaseButton = () => { if (cancelButton.hidden) correctButton.disabled = false; };
+  let assignmentForCorrection;
+  try {
+    if (!currentAssignmentData) await refreshPanelData();
+    if (revision !== gradingPageRevision) { releaseButton(); return; }
+    if ([...archiveListings.values()].some(listing => listing.promise)) setPanelStatus(MoodliaCorrectorI18n.t('Abriendo el ZIP...'));
+    assignmentForCorrection = await buildPanelAssignmentData();
+  } catch (error) {
+    if (revision === gradingPageRevision) setPanelStatus(error.message || String(error));
+    releaseButton();
+    return;
+  }
+  if (revision !== gradingPageRevision) { releaseButton(); return; }
   setPanelStatus(MoodliaCorrectorI18n.t('Solicitando corrección a la IA...'));
   addPanelDiagnostic('correction.click', {
     files: assignmentForCorrection.submissionFiles.length,
@@ -3594,6 +3654,8 @@ const getNavigationIdentity = () => JSON.stringify({
 // reloads the same student), and nothing is saved: the teacher still reviews and
 // saves each grade.
 const AUTO_CORRECT_STORAGE_KEY = 'mca.autoCorrectNext';
+// The teacher's choice, changed only by a real input; the check box can be changed by page scripts.
+let autoCorrectEnabled = false;
 const correctedStudents = new Set();
 // Moodle's grader loads the next student in steps (user, then submission and files), and
 // each step resets the panel. The pending start survives those resets for the same student.
@@ -3662,7 +3724,7 @@ const resetAssistantForNavigation = (refresh = true) => {
     const revision = gradingPageRevision;
     const studentKey = lastStudentKey;
     if (previousStudentKey !== null && studentKey !== previousStudentKey) {
-      pendingAutoCorrectKey = elements.panel.querySelector('[data-auto-correct]')?.checked && !correctedStudents.has(studentKey) ? studentKey : null;
+      pendingAutoCorrectKey = autoCorrectEnabled && !correctedStudents.has(studentKey) ? studentKey : null;
     }
     panelRefreshTimer = setTimeout(() => {
       void refreshPanelData().then(() => {

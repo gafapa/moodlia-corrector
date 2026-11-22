@@ -1,18 +1,8 @@
 void (async () => {
   await MoodliaCorrectorI18n.init();
   MoodliaCorrectorI18n.localize(document);
-  const languagePicker = document.getElementById('interface-language');
-  languagePicker.value = MoodliaCorrectorI18n.preference;
-  languagePicker.addEventListener('change', async () => {
-    await chrome.storage.local.set({ 'mca.uiLanguage': languagePicker.value });
-    location.reload();
-  });
-  const pageImagesPicker = document.getElementById('document-page-images');
-  pageImagesPicker.value = (await chrome.storage.local.get('mca.documentPageImages'))['mca.documentPageImages'] === 'all' ? 'all' : 'visual';
-  pageImagesPicker.addEventListener('change', () => void chrome.storage.local.set({ 'mca.documentPageImages': pageImagesPicker.value }));
-  const pseudonymizePicker = document.getElementById('pseudonymize-student');
-  pseudonymizePicker.value = (await chrome.storage.local.get('mca.pseudonymizeStudent'))['mca.pseudonymizeStudent'] === false ? 'off' : 'on';
-  pseudonymizePicker.addEventListener('change', () => void chrome.storage.local.set({ 'mca.pseudonymizeStudent': pseudonymizePicker.value === 'on' }));
+  // The page decides first whether it may run here: embedded only after the correction panel
+  // authorized this frame, otherwise only as a top-level extension page. No control is active before.
   const parameters = new URLSearchParams(location.search);
   if (parameters.get('embedded') === '1') {
     const token = parameters.get('token');
@@ -38,5 +28,17 @@ void (async () => {
     document.body.textContent = MoodliaCorrectorI18n.t('Open settings from the extension.');
     return;
   }
+  const languagePicker = document.getElementById('interface-language');
+  languagePicker.value = MoodliaCorrectorI18n.preference;
+  languagePicker.addEventListener('change', async () => {
+    await chrome.storage.local.set({ 'mca.uiLanguage': languagePicker.value });
+    location.reload();
+  });
+  const pageImagesPicker = document.getElementById('document-page-images');
+  pageImagesPicker.value = (await chrome.storage.local.get('mca.documentPageImages'))['mca.documentPageImages'] === 'all' ? 'all' : 'visual';
+  pageImagesPicker.addEventListener('change', () => void chrome.storage.local.set({ 'mca.documentPageImages': pageImagesPicker.value }));
+  const pseudonymizePicker = document.getElementById('pseudonymize-student');
+  pseudonymizePicker.value = (await chrome.storage.local.get('mca.pseudonymizeStudent'))['mca.pseudonymizeStudent'] === false ? 'off' : 'on';
+  pseudonymizePicker.addEventListener('change', () => void chrome.storage.local.set({ 'mca.pseudonymizeStudent': pseudonymizePicker.value === 'on' }));
   await import('./options.js');
 })().catch(error => { document.body.textContent = error.message || String(error); });

@@ -804,19 +804,66 @@ const scheduleIdleCheck = () => {
 // Folders, macOS metadata and thumbnails are not listed. Sizes are the archive's declared
 // sizes; extraction checks the real sizes again, so a forged header cannot exceed the limits.
 const MAX_ARCHIVE_ENTRIES = 500;
-const isArchiveNoise = (path) => path.endsWith('/') || /(^|\/)__MACOSX\//.test(path) || /(^|\/)(\._[^/]*|\.DS_Store|Thumbs\.db|desktop\.ini)$/i.test(path);
+const isArchiveNoise = (path) => path.endsWith('/') || path.endsWith('\\') || /(^|\/)(__MACOSX|\.git|\.svn|\.hg)\//.test(path)
+  || /(^|\/)(\._[^/]*|\.DS_Store|Thumbs\.db|desktop\.ini)$/i.test(path);
+// The central directory records each entry's encryption flag and CRC-32. fflate ignores the
+// encryption flag and inflates into a buffer of the declared size, so the reader checks both:
+// encrypted entries are never offered, and an entry whose content does not match its CRC is refused.
+const crcTable = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+const crc32 = (bytes) => {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+};
+const findEndOfCentralDirectory = (bytes) => {
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
+    if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x05 && bytes[i + 3] === 0x06) return i;
+  }
+  return -1;
+};
+// Names are decoded as fflate does: UTF-8 when the entry says so, otherwise one byte per character.
+const readCentralDirectory = (bytes) => {
+  const records = new Map();
+  const end = findEndOfCentralDirectory(bytes);
+  if (end < 0) return records;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const count = view.getUint16(end + 10, true);
+  let offset = view.getUint32(end + 16, true);
+  for (let i = 0; i < count && offset + 46 <= bytes.length && view.getUint32(offset, true) === 0x02014b50; i++) {
+    const flags = view.getUint16(offset + 8, true);
+    const nameLength = view.getUint16(offset + 28, true);
+    const raw = bytes.subarray(offset + 46, offset + 46 + nameLength);
+    const name = flags & 0x800 ? new TextDecoder().decode(raw) : String.fromCharCode(...raw);
+    records.set(name, { encrypted: Boolean(flags & 1), crc: view.getUint32(offset + 16, true) });
+    offset += 46 + nameLength + view.getUint16(offset + 30, true) + view.getUint16(offset + 32, true);
+  }
+  return records;
+};
+// A ZIP starts with a "PK" record and ends with an end-of-central-directory record. Empty archives
+// and archives with an OpenDocument-like content.xml are still ZIP archives.
 const archiveBytes = (base64Data) => {
   if (typeof base64Data !== 'string' || base64Data.length > Math.ceil(MAX_READER_ATTACHMENT_BYTES / 3) * 4) throw new Error('Invalid or oversized archive.');
   const bytes = base64ToBytes(base64Data);
-  if (sniffFormat(bytes) !== 'zip') throw unsupportedAttachment('The file is not a ZIP archive that can be opened.');
+  if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || findEndOfCentralDirectory(bytes) < 0) {
+    throw unsupportedAttachment('The file is not a ZIP archive that can be opened.');
+  }
   return bytes;
 };
 export const listArchive = (base64Data) => {
   const bytes = archiveBytes(base64Data);
+  const records = readCentralDirectory(bytes);
   const entries = [];
   try {
     unzipSync(bytes, { filter: (entry) => {
-      if (!isArchiveNoise(entry.name)) entries.push({ path: entry.name, sizeBytes: entry.originalSize });
+      if (!isArchiveNoise(entry.name)) entries.push({ path: entry.name, sizeBytes: entry.originalSize, encrypted: records.get(entry.name)?.encrypted === true });
       if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error(`The ZIP contains more than ${MAX_ARCHIVE_ENTRIES} files.`);
       return false;
     } });
@@ -825,14 +872,22 @@ export const listArchive = (base64Data) => {
   }
   return entries;
 };
+// Returns the readable selected files and, separately, the selected files that were skipped
+// (encrypted, empty, or not matching their CRC), so one bad entry never discards the others.
 export const extractArchive = (base64Data, paths = []) => {
   const bytes = archiveBytes(base64Data);
+  const records = readCentralDirectory(bytes);
   const wanted = new Set(Array.isArray(paths) ? paths.filter(path => typeof path === 'string' && !isArchiveNoise(path)) : []);
+  const skipped = [];
   let declared = 0;
   let entries;
   try {
     entries = unzipSync(bytes, { filter: (entry) => {
       if (!wanted.has(entry.name)) return false;
+      if (records.get(entry.name)?.encrypted) {
+        skipped.push({ path: entry.name, reason: 'encrypted' });
+        return false;
+      }
       if (entry.originalSize > MAX_READER_ATTACHMENT_BYTES) throw new Error(`${entry.name} in the ZIP exceeds the 20 MB limit.`);
       declared += entry.originalSize;
       if (declared > MAX_EXPANDED_BYTES) throw new Error('The selected ZIP files exceed the decompressed size limit.');
@@ -842,12 +897,17 @@ export const extractArchive = (base64Data, paths = []) => {
     throw /limit/.test(error.message) ? error : unsupportedAttachment('The ZIP archive is damaged, encrypted or uses an unsupported format.');
   }
   let total = 0;
-  return [...wanted].filter(path => entries[path]).map((path) => {
+  const files = [];
+  for (const path of [...wanted].filter(path => entries[path])) {
     const content = entries[path];
+    const record = records.get(path);
+    if (!content.length) { skipped.push({ path, reason: 'empty' }); continue; }
+    if (record && crc32(content) !== record.crc) { skipped.push({ path, reason: 'damaged' }); continue; }
     total += content.length;
     if (content.length > MAX_READER_ATTACHMENT_BYTES || total > MAX_EXPANDED_BYTES) throw new Error('The selected ZIP files exceed the decompressed size limit.');
-    return { path, sizeBytes: content.length, base64Data: bytesToBase64(content) };
-  });
+    files.push({ path, sizeBytes: content.length, base64Data: bytesToBase64(content) });
+  }
+  return { files, skipped };
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -857,7 +917,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       sendResponse(message.type === 'mca.listArchive'
         ? { ok: true, entries: listArchive(message.base64Data) }
-        : { ok: true, files: extractArchive(message.base64Data, message.paths) });
+        : { ok: true, ...extractArchive(message.base64Data, message.paths) });
     } catch (error) {
       sendResponse({ ok: false, error: error.message || 'The ZIP archive could not be opened.', errorCode: error.code });
     }

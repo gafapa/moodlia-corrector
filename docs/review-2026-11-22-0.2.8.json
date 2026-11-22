@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-22",
+  "version": "0.2.8",
+  "unit_tests_passed": 106,
+  "browser_checks_passed": 127,
+  "locale_browser_checks_passed": 10,
+  "archive_files": 240,
+  "archive_uncompressed_bytes": 6117451,
+  "archive_matches_source": true,
+  "archive_sha256": "83ac64ab8f4f89c71fda27dcc6ca0b3410e0b62591b224f86643e345ada71a4d",
+  "validation_scope": "Security and correctness review of 0.2.7 with fixes: online text and comments excluded from statement and file discovery, per-role Moodle file-area checks before teacher-session downloads, closed shadow roots in store builds, trusted-input checks, settings controls wired after authorization, provider error masking, ZIP encryption, CRC, empty and oversize handling, default selection within the total limit, and Correct button and listing retry fixes. Checked with synthetic Chromium fixtures, unit tests and reader checks. The 0.2.1 live inference, fidelity corpus and real-Moodle lab checks were not repeated for this build.",
+  "npm_audit_vulnerabilities": 0,
+  "sizes": {
+    "content_script_bytes": 457260,
+    "previous_content_script_bytes": 449798
+  },
+  "deferred": [
+    "https://*/* remains a required host permission; making it optional changes site activation, Moodle downloads through external storage and AI endpoint access, and needs real-site verification.",
+    "The settings page stays web accessible without use_dynamic_url, so a website can detect that the extension is installed; the dynamic URL broke the authorized settings frame in Chromium checks."
+  ],
+  "store_metadata": {
+    "locales": ["en", "es", "fr", "de", "pt_BR", "it", "gl", "ca"],
+    "screenshots_regenerated": false,
+    "store_dashboard_updated": false,
+    "store_submitted_for_review": null,
+    "store_acceptance_verified": false
+  },
+  "computer_configuration_changed": false,
+  "live_moodle_tab_changed": false
+}

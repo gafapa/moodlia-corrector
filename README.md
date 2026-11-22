@@ -6,7 +6,7 @@ MoodlIA Corrector is a Chrome extension that helps teachers review Moodle assign
 
 ## Status
 
-Implemented Chrome extension. Current source version: `0.2.7`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
+Implemented Chrome extension. Current source version: `0.2.8`. Prepared submission materials do not imply a tagged release or Chrome Web Store approval. Teachers review and save Moodle grades themselves.
 
 The Moodle entry point is now self-contained, including localization. It also works with old automatic-activation registrations that do not list the translation scripts. Assignment overview pages are ignored before initialization. After updating the extension, reload it in `chrome://extensions` and refresh Moodle to replace scripts already running in open tabs.
 
@@ -33,6 +33,14 @@ Model discovery now shows a sorted, searchable, keyboard-operable list. Friendly
 HTTP servers outside loopback require an optional Chrome permission for that specific hostname. The browser permission applies to the host, across ports; request headers are adjusted only for this extension's requests to the configured server origin. No host service, firewall, environment, or CORS configuration is changed.
 
 ### Assignment supervision
+
+Version 0.2.8 fixes a security review: text a student writes can no longer make the
+extension fetch other Moodle pages or another student's files, downloads with the
+teacher's session are limited to Moodle file areas that fit each file's role, and
+store installations close the panel to Moodle page scripts. Empty, encrypted,
+oversized or damaged files inside a ZIP are omitted with their reason instead of
+stopping the correction. The privacy texts now describe automatic correction of
+the next student.
 
 Version 0.2.7 adds a check box to each evidence file, so the teacher chooses
 what is sent (supported files start checked), and opens ZIP archives to send
@@ -207,7 +215,7 @@ See [the 2026-10-19 review](docs/review-2026-10-19.md) for reproduction and vali
 
 ### Rebuild publication materials
 
-After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-0.2.6/index.html`. Generated archives and folders are not committed. Run `node scripts/validate-store-materials.mjs --artifacts` to verify the current kit and copy page, including all eight corrected descriptions.
+After installing dependencies, run `npm run check`, `npm run test:browser`, `npm run test:locales`, `node scripts/generate-store-assets.mjs`, `node scripts/generate-store-listings.mjs`, `npm run package`, `node scripts/package-store-kit.mjs`, and `node scripts/generate-submission-page.mjs`. The final command extracts the kit when needed and creates an English copy-and-download page at `release/publicar-moodlia-corrector-<version>/index.html`. Generated archives and folders are not committed. Run `node scripts/validate-store-materials.mjs --artifacts` to verify the current kit and copy page, including all eight corrected descriptions.
 
 The store-ready extension policy is hosted at `https://moodlia.com/privacy/corrector.html`; Rubrics uses `https://moodlia.com/privacy/rubrics.html`. Both public policies were checked against the website project's source on 24 October 2026. The published policy retains its original effective date; its "Version covered" line names the current build. The website project owns these stable routes across redesigns. Source publication on GitHub is separate from a tagged extension release or Chrome Web Store approval; a prepared build is not a claim of store publication.
 

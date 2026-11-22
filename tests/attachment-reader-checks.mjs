@@ -38,13 +38,45 @@ export async function checkAttachmentReader(page, extensionId) {
   const sample = zip64({ 'answers/a.txt': strToU8('First answer'), 'b.txt': strToU8('Second answer'), 'answers/': new Uint8Array(0), '__MACOSX/._b.txt': strToU8('x'), '.DS_Store': strToU8('x') });
   assert.deepEqual((await archive('list', sample)).value.map(entry => entry.path).sort(), ['answers/a.txt', 'b.txt']);
   const extracted = (await archive('extract', sample, ['b.txt', 'missing.txt', '__MACOSX/._b.txt'])).value;
-  assert.deepEqual(extracted.map(entry => [entry.path, Buffer.from(entry.base64Data, 'base64').toString()]), [['b.txt', 'Second answer']]);
+  assert.deepEqual(extracted.files.map(entry => [entry.path, Buffer.from(entry.base64Data, 'base64').toString()]), [['b.txt', 'Second answer']]);
+  assert.deepEqual(extracted.skipped, []);
   const crowded = zip64(Object.fromEntries(Array.from({ length: 501 }, (_, index) => [`file-${index}.txt`, strToU8('x')])));
   assert.match((await archive('list', crowded)).error, /more than 500 files/);
   const archiveBomb = zip64({ 'huge.txt': new Uint8Array(21 * 1024 * 1024) });
   assert.match((await archive('extract', archiveBomb, ['huge.txt'])).error, /exceeds the 20 MB limit/);
   assert.equal((await archive('list', Buffer.from('not an archive').toString('base64'))).code, 'UNSUPPORTED_ATTACHMENT');
   console.log('PASS: ZIP archives list their files without metadata, extract only the requested files and refuse oversized or crowded archives.');
+
+  // Changes one entry's central-directory record (and, for encryption, its local header) the way a
+  // real encrypted or damaged archive would differ from a clean one.
+  const patchEntry = (base64Data, name, { encrypt = false, crc = null } = {}) => {
+    const bytes = Buffer.from(base64Data, 'base64');
+    for (let offset = 0; offset + 46 <= bytes.length; offset++) {
+      if (bytes.readUInt32LE(offset) === 0x02014b50 && bytes.toString('utf8', offset + 46, offset + 46 + bytes.readUInt16LE(offset + 28)) === name) {
+        if (encrypt) {
+          bytes.writeUInt16LE(bytes.readUInt16LE(offset + 8) | 1, offset + 8);
+          const local = bytes.readUInt32LE(offset + 42);
+          bytes.writeUInt16LE(bytes.readUInt16LE(local + 6) | 1, local + 6);
+        }
+        if (crc !== null) bytes.writeUInt32LE(crc, offset + 16);
+      }
+    }
+    return bytes.toString('base64');
+  };
+  const stored = (text) => [strToU8(text), { level: 0 }];
+  const mixedArchive = zip64({ 'secret.txt': stored('ciphertext bytes'), 'plain.txt': stored('Readable answer'), 'empty.py': new Uint8Array(0),
+    'altered.txt': stored('Altered answer'), '.git/HEAD': strToU8('ref: refs/heads/main'), 'repo\\': new Uint8Array(0) });
+  const encryptedArchive = patchEntry(patchEntry(mixedArchive, 'secret.txt', { encrypt: true }), 'altered.txt', { crc: 12345 });
+  const mixedListing = (await archive('list', encryptedArchive)).value;
+  assert.deepEqual(mixedListing.map(entry => [entry.path, entry.encrypted]).sort(),
+    [['altered.txt', false], ['empty.py', false], ['plain.txt', false], ['secret.txt', true]]);
+  const mixedExtraction = (await archive('extract', encryptedArchive, ['secret.txt', 'plain.txt', 'empty.py', 'altered.txt'])).value;
+  assert.deepEqual(mixedExtraction.files.map(entry => [entry.path, Buffer.from(entry.base64Data, 'base64').toString()]), [['plain.txt', 'Readable answer']]);
+  assert.deepEqual(mixedExtraction.skipped.map(entry => [entry.path, entry.reason]).sort(), [['altered.txt', 'damaged'], ['empty.py', 'empty'], ['secret.txt', 'encrypted']]);
+  assert.deepEqual((await archive('list', zip64({}))).value, []);
+  const rootContent = zip64({ 'content.xml': strToU8('<notes>student data model</notes>'), 'main.c': strToU8('int main(void) { return 0; }') });
+  assert.deepEqual((await archive('list', rootContent)).value.map(entry => entry.path).sort(), ['content.xml', 'main.c']);
+  console.log('PASS: ZIP entries that are encrypted, empty or fail their CRC are skipped one by one, repository metadata is hidden, and empty or content.xml archives open.');
 
   const maxText = await page.evaluate(() => MoodliaCorrectorAttachmentSupport.MAX_TEXT);
   const exact = await read(odtFile(`<text:p>A<text:s text:c="${maxText - 3}"/></text:p><text:p>B</text:p>`));

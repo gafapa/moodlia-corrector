@@ -1883,6 +1883,26 @@
     "message": "Impossibile aprire lo ZIP.",
     "description": "The ZIP could not be opened."
   },
+  "m4d72a361fe42": {
+    "message": "Non è un file Moodle di questo compito",
+    "description": "Not a Moodle file of this assignment"
+  },
+  "m99c9d746bf5c": {
+    "message": "File cifrato",
+    "description": "Encrypted file"
+  },
+  "mca42aa7373dd": {
+    "message": "File vuoto",
+    "description": "Empty file"
+  },
+  "mf17822fa742f": {
+    "message": "File danneggiato",
+    "description": "Damaged file"
+  },
+  "m0483c5d80b4d": {
+    "message": "Supera il limite di 20 MB",
+    "description": "Exceeds the 20 MB limit"
+  },
   "extensionName": {
     "message": "MoodlIA Corrector"
   },

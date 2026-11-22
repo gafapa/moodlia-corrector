@@ -10,7 +10,7 @@ The extension reads common document, spreadsheet, presentation, text, source cod
 
 Available in eight interface languages, with browser detection and manual language selection.
 
-Moodle context is sent directly to the selected AI provider only when you request a correction. MoodlIA receives no student work. Content may contain personal data: use a provider approved by your institution and review every suggestion. Independent open-source project, not affiliated with Moodle HQ.`,
+Moodle context is sent directly to the selected AI provider only when you request a correction or, if you turn on “Correct when moving to the next student”, each time you move to a student who has not been corrected. MoodlIA receives no student work. Content may contain personal data: use a provider approved by your institution and review every suggestion. Independent open-source project, not affiliated with Moodle HQ.`,
   es: `Asistencia de IA para corregir tareas de Moodle, con el docente al mando.
 
 Abre el panel lateral desde el icono. Revisa el modo de evaluación, los documentos del enunciado y las entregas. Añade criterios docentes por curso, por tarea y por caso concreto. Solicita una sugerencia y revisa los comentarios, la nota o los niveles de rúbrica en el formulario editable de Moodle. La extensión nunca guarda ni envía ese formulario: tú decides qué guardar.
@@ -21,7 +21,7 @@ Lee documentos, hojas de cálculo, presentaciones, texto, código fuente e imág
 
 Interfaz disponible en ocho idiomas, con detección del idioma del navegador y selección manual.
 
-El contexto de Moodle se envía directamente al proveedor elegido solo al solicitar una corrección. MoodlIA no recibe trabajos del alumnado. El contenido puede incluir datos personales: usa un proveedor autorizado por tu centro y revisa cada sugerencia. Proyecto independiente de código abierto, sin afiliación con Moodle HQ.`,
+El contexto de Moodle se envía directamente al proveedor elegido solo al solicitar una corrección o, si activas «Corregir al pasar al siguiente alumno», cada vez que pasas a un alumno sin corregir. MoodlIA no recibe trabajos del alumnado. El contenido puede incluir datos personales: usa un proveedor autorizado por tu centro y revisa cada sugerencia. Proyecto independiente de código abierto, sin afiliación con Moodle HQ.`,
   fr: `Une aide IA à la correction des devoirs Moodle, sous le contrôle de l’enseignant.
 
 Ouvrez le panneau latéral depuis l’icône. Vérifiez la méthode d’évaluation, les documents de référence et les travaux remis. Définissez des critères pour le cours, le devoir et le cas individuel. Demandez une suggestion puis vérifiez les commentaires, la note ou les niveaux de grille dans le formulaire Moodle modifiable. L’extension n’enregistre et n’envoie jamais ce formulaire : vous décidez.
@@ -32,7 +32,7 @@ L’extension lit les documents, tableurs, présentations, textes, codes sources
 
 Interface disponible en huit langues, avec détection de la langue du navigateur et choix manuel.
 
-Le contexte est envoyé directement au fournisseur choisi uniquement lors d’une demande de correction. MoodlIA ne reçoit aucun travail d’élève. Utilisez un fournisseur autorisé par votre établissement et vérifiez chaque suggestion. Projet libre indépendant, sans affiliation avec Moodle HQ.`,
+Le contexte est envoyé directement au fournisseur choisi uniquement lors d’une demande de correction ou, si vous activez « Corriger en passant à l’élève suivant », chaque fois que vous passez à un élève non corrigé. MoodlIA ne reçoit aucun travail d’élève. Utilisez un fournisseur autorisé par votre établissement et vérifiez chaque suggestion. Projet libre indépendant, sans affiliation avec Moodle HQ.`,
   de: `KI-Unterstützung für die Bewertung von Moodle-Aufgaben. Die Lehrkraft entscheidet.
 
 Öffnen Sie die Seitenleiste über das Erweiterungssymbol. Prüfen Sie Bewertungsmethode, Aufgabenreferenzen und abgegebene Dateien. Legen Sie Vorgaben für Kurs, Aufgabe und Einzelfall fest. Fordern Sie einen Vorschlag an und prüfen Sie Feedback, Note oder Rasterstufen im bearbeitbaren Moodle-Formular. Die Erweiterung speichert oder sendet dieses Formular niemals automatisch.
@@ -43,7 +43,7 @@ Gängige Dokumente, Tabellen, Präsentationen, Textdateien, Quellcode und Bilder
 
 Oberfläche in acht Sprachen, mit Erkennung der Browsersprache und manueller Auswahl.
 
-Moodle-Inhalte werden nur bei einer Korrekturanforderung direkt an den gewählten Anbieter gesendet. MoodlIA erhält keine Schülerarbeiten. Nutzen Sie einen von Ihrer Einrichtung zugelassenen Anbieter und prüfen Sie jeden Vorschlag. Unabhängiges Open-Source-Projekt ohne Verbindung zu Moodle HQ.`,
+Moodle-Inhalte werden nur bei einer Korrekturanforderung direkt an den gewählten Anbieter gesendet oder, wenn Sie „Beim Wechsel zur nächsten Person korrigieren“ aktivieren, bei jedem Wechsel zu einer noch nicht korrigierten Person. MoodlIA erhält keine Schülerarbeiten. Nutzen Sie einen von Ihrer Einrichtung zugelassenen Anbieter und prüfen Sie jeden Vorschlag. Unabhängiges Open-Source-Projekt ohne Verbindung zu Moodle HQ.`,
   pt_BR: `Assistência de IA para avaliar tarefas do Moodle, com o professor no controle.
 
 Abra o painel lateral pelo ícone. Confira o método de avaliação, as referências da tarefa e os arquivos enviados. Defina critérios por curso, tarefa e caso específico. Solicite uma sugestão e revise comentários, nota ou níveis da rubrica no formulário editável do Moodle. A extensão nunca salva nem envia esse formulário automaticamente.
@@ -54,7 +54,7 @@ Lê documentos, planilhas, apresentações, texto, código-fonte e imagens comun
 
 Interface disponível em oito idiomas, com detecção do idioma do navegador e seleção manual.
 
-O contexto do Moodle é enviado diretamente ao provedor escolhido somente ao solicitar uma correção. O MoodlIA não recebe trabalhos dos alunos. Use um provedor autorizado pela sua instituição e revise cada sugestão. Projeto independente de código aberto, sem vínculo com o Moodle HQ.`,
+O contexto do Moodle é enviado diretamente ao provedor escolhido somente ao solicitar uma correção ou, se você ativar “Corrigir ao passar para o próximo aluno”, sempre que passar para um aluno ainda não corrigido. O MoodlIA não recebe trabalhos dos alunos. Use um provedor autorizado pela sua instituição e revise cada sugestão. Projeto independente de código aberto, sem vínculo com o Moodle HQ.`,
   it: `Assistenza IA per valutare i compiti Moodle, con il docente al controllo.
 
 Apri il pannello laterale dall’icona. Controlla il metodo di valutazione, i riferimenti del compito e i file consegnati. Imposta criteri per corso, compito e caso individuale. Richiedi un suggerimento e controlla commenti, voto o livelli della rubrica nel modulo Moodle modificabile. L’estensione non salva né invia mai automaticamente il modulo.
@@ -65,7 +65,7 @@ Legge documenti, fogli di calcolo, presentazioni, testo, codice sorgente e immag
 
 Interfaccia disponibile in otto lingue, con rilevamento della lingua del browser e scelta manuale.
 
-Il contesto viene inviato direttamente al provider scelto solo quando richiedi una correzione. MoodlIA non riceve lavori degli studenti. Usa un provider autorizzato dall’istituto e verifica ogni suggerimento. Progetto open source indipendente, non affiliato a Moodle HQ.`,
+Il contesto viene inviato direttamente al provider scelto solo quando richiedi una correzione o, se attivi «Correggi passando allo studente successivo», ogni volta che passi a uno studente non ancora corretto. MoodlIA non riceve lavori degli studenti. Usa un provider autorizzato dall’istituto e verifica ogni suggerimento. Progetto open source indipendente, non affiliato a Moodle HQ.`,
   gl: `Asistencia de IA para corrixir tarefas de Moodle, co docente ao mando.
 
 Abre o panel lateral desde a icona. Revisa o método de avaliación, os documentos de referencia e as entregas. Engade criterios por curso, tarefa e caso concreto. Solicita unha suxestión e revisa os comentarios, a nota ou os niveis da rúbrica no formulario editable de Moodle. A extensión nunca garda nin envía ese formulario automaticamente.
@@ -76,7 +76,7 @@ Le documentos, follas de cálculo, presentacións, texto, código fonte e imaxes
 
 Interface dispoñible en oito idiomas, con detección do idioma do navegador e selección manual.
 
-O contexto de Moodle envíase directamente ao provedor elixido só ao pedir unha corrección. MoodlIA non recibe traballos do alumnado. Usa un provedor autorizado polo centro e revisa cada suxestión. Proxecto independente de código aberto, sen afiliación con Moodle HQ.`,
+O contexto de Moodle envíase directamente ao provedor elixido só ao pedir unha corrección ou, se activas «Corrixir ao pasar ao seguinte alumno», cada vez que pasas a un alumno sen corrixir. MoodlIA non recibe traballos do alumnado. Usa un provedor autorizado polo centro e revisa cada suxestión. Proxecto independente de código aberto, sen afiliación con Moodle HQ.`,
   ca: `Assistència d’IA per avaluar tasques de Moodle, amb el docent al capdavant.
 
 Obre el tauler lateral des de la icona. Revisa el mètode d’avaluació, els documents de referència i els lliuraments. Afegeix criteris per curs, tasca i cas concret. Demana un suggeriment i revisa els comentaris, la nota o els nivells de rúbrica al formulari editable de Moodle. L’extensió mai no desa ni envia automàticament aquest formulari.
@@ -87,7 +87,7 @@ Llegeix documents, fulls de càlcul, presentacions, text, codi font i imatges ha
 
 Interfície disponible en vuit idiomes, amb detecció de l’idioma del navegador i selecció manual.
 
-El context de Moodle s’envia directament al proveïdor triat només quan demanes una correcció. MoodlIA no rep treballs de l’alumnat. Fes servir un proveïdor autoritzat pel centre i revisa cada suggeriment. Projecte independent de codi obert, sense afiliació amb Moodle HQ.`,
+El context de Moodle s’envia directament al proveïdor triat només quan demanes una correcció o, si actives «Corregeix en passar a l’alumne següent», cada vegada que passes a un alumne sense corregir. MoodlIA no rep treballs de l’alumnat. Fes servir un proveïdor autoritzat pel centre i revisa cada suggeriment. Projecte independent de codi obert, sense afiliació amb Moodle HQ.`,
 };
 for (const [locale, detailedDescription] of Object.entries(descriptions)) {
   const catalog = JSON.parse(await fs.readFile(`extension/_locales/${locale}/messages.json`, 'utf8'));

@@ -391,7 +391,7 @@ test('source files preserve literal code in manual uploads and Moodle downloads 
   assert.equal(decodeText(new TextEncoder().encode('Olá')), 'Olá');
   const api = await loadBackgroundApi({ fetchImpl: async () => new Response(text, { headers: { 'content-type': 'application/octet-stream' } }) });
   const downloaded = await api.fetchSubmissionFileAttachments([
-    { id: 'source-1', name: 'answer.hpp', url: 'https://moodle.example/pluginfile.php/answer.hpp', role: 'assignment-reference' },
+    { id: 'source-1', name: 'answer.hpp', url: 'https://moodle.example/pluginfile.php/12/mod_assign/introattachment/0/answer.hpp', role: 'assignment-reference' },
   ], 'https://moodle.example/mod/assign/view.php?id=1');
   assert.equal(downloaded[0].textContent, text);
   assert.equal(downloaded[0].role, 'assignment-reference');
@@ -671,9 +671,9 @@ test('inaccessible assignment references stop before provider generation', async
   });
   await assert.rejects(api.requestDirectAiCorrection({
     page: { url: 'https://moodle.example/mod/assign/view.php?id=1&action=grader' },
-    assignmentFiles: [{ url: 'https://moodle.example/pluginfile.php/reference.pdf', name: 'reference.pdf' }],
+    assignmentFiles: [{ url: 'https://moodle.example/pluginfile.php/12/mod_assign/introattachment/0/reference.pdf', name: 'reference.pdf' }],
   }), /could not be downloaded/);
-  assert.deepEqual(requested, ['https://moodle.example/pluginfile.php/reference.pdf']);
+  assert.deepEqual(requested, ['https://moodle.example/pluginfile.php/12/mod_assign/introattachment/0/reference.pdf']);
 });
 
 test('an incomplete correction is rejected after repair instead of applying fallback grades', async () => {
@@ -853,7 +853,7 @@ function sampleAssignment() {
 const modelEndpoints = (fetchImpl) => async (url, init) => /\/api\/ps$/.test(String(url)) ? Response.json({ models: [] })
   : /\/api\/show$/.test(String(url)) ? Response.json({}) : fetchImpl(url, init);
 
-async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionData = {}, actionApi, permissionsApi, dnrApi, localGet } = {}) {
+async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionData = {}, actionApi, permissionsApi, dnrApi, localGet, readerHandler } = {}) {
   const source = await fs.readFile(path.join(root, 'extension', 'src', 'background.js'), 'utf8');
   const supportSource = await fs.readFile(path.join(root, 'extension', 'src', 'attachmentSupport.js'), 'utf8');
   const event = { addListener() {} };
@@ -862,7 +862,10 @@ async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionDat
     declarativeNetRequest: dnrApi,
     action: actionApi || { enable() {}, disable() {}, setTitle() {} },
     management: { getAll(callback) { callback([]); } },
-    runtime: { id: 'test-extension', getURL: (file) => `chrome-extension://test-extension/${file}`, lastError: null, onMessage: event, connect() { throw new Error('Not available in unit tests.'); } },
+    runtime: { id: 'test-extension', getURL: (file) => `chrome-extension://test-extension/${file}`, lastError: null, onMessage: event, connect() { throw new Error('Not available in unit tests.'); },
+      // The offscreen document reader is replaced by readerHandler when a test needs it.
+      async getContexts() { return [{}]; },
+      async sendMessage(message) { return readerHandler ? readerHandler(message) : { ok: false, error: 'No attachment reader in unit tests.' }; } },
     storage: {
       local: { async get(key) { return localGet ? localGet(key) : { [key]: localData[key] }; }, async set(value) { Object.assign(localData, value); } },
       session: { async get(key) { return { [key]: sessionData[key] }; }, async set(value) { Object.assign(sessionData, value); } },
@@ -882,7 +885,7 @@ async function loadBackgroundApi({ fetchImpl = fetch, localData = {}, sessionDat
     'createDirectChatRequest', 'buildCorrectionResponseSchema',
     'isCorrectionComplete',
     'isSupportedGraderUrl',
-    'normalizeMoodleAttachmentUrl', 'fetchMoodleAttachment', 'fetchSubmissionFileAttachments',
+    'normalizeMoodleAttachmentUrl', 'fetchMoodleAttachment', 'fetchSubmissionFileAttachments', 'listArchiveForPanel', 'isMoodleFileForRole', 'providerErrorText',
     'parseCorrectionResponse',
     'requestDirectChat',
     'sanitizeAiConfig', 'saveAiConfig', 'loadAiConfig', 'loadBoundAiSecret', 'getDirectAiStatus', 'createDirectMessages',
@@ -1110,7 +1113,7 @@ test('document receipt preserves student and reference roles without inventing m
 });
 
 test('PDF downloads reject HTML access pages and retain binary PDF evidence despite a text MIME type', async () => {
-  const file = { name: 'submission-file-1.pdf', originalName: 'TeacherSelected.pdf', url: 'https://moodle.example/pluginfile.php/answer.pdf' };
+  const file = { name: 'submission-file-1.pdf', originalName: 'TeacherSelected.pdf', url: 'https://moodle.example/pluginfile.php/9/assignsubmission_file/submission_files/77/answer.pdf' };
   const html = await loadBackgroundApi({ fetchImpl: async () => new Response('<html><form>Sign in</form></html>', { headers: { 'content-type': 'text/html' } }) });
   await assert.rejects(html.fetchSubmissionFileAttachments([file], 'https://moodle.example/mod/assign/view.php'), /did not return a valid PDF/);
   const pdf = makePdf();
@@ -1120,7 +1123,7 @@ test('PDF downloads reject HTML access pages and retain binary PDF evidence desp
   assert.equal(attachment.textContent, undefined);
   assert.equal(attachment.base64Data, pdf.toString('base64'));
   assert.equal(attachment.originalName, 'TeacherSelected.pdf');
-  const opaqueFile = { name: 'submission-file-1', url: 'https://moodle.example/pluginfile.php/opaque' };
+  const opaqueFile = { name: 'submission-file-1', url: 'https://moodle.example/pluginfile.php/9/assignsubmission_file/submission_files/77/opaque' };
   const opaque = await loadBackgroundApi({ fetchImpl: async () => new Response(pdf, { headers: { 'content-type': 'application/octet-stream', 'content-disposition': "attachment; filename*=UTF-8''Teacher%20Selected.pdf" } }) });
   const [resolved] = await opaque.fetchSubmissionFileAttachments([opaqueFile], 'https://moodle.example/');
   assert.equal(resolved.name, 'submission-file-1.pdf');
@@ -1625,4 +1628,74 @@ test('scale grades are chosen from the visible Moodle scale labels', async () =>
   }
   // "No grade" (-1) is never offered to the AI.
   assert.deepEqual(json(api.getScaleOptions({ ...assignment, gradeScaleOptions: [{ value: '-1', label: 'No grade' }, ...assignment.gradeScaleOptions] }).map(option => option.value)), ['1', '2', '3']);
+});
+
+test('teacher-session downloads accept only Moodle file areas that fit the attachment role', async () => {
+  const api = await loadBackgroundApi();
+  const page = 'https://moodle.example/mod/assign/view.php?id=4&action=grader';
+  const file = (area) => `https://moodle.example/pluginfile.php/12/${area}/answer.pdf`;
+  assert.equal(api.isMoodleFileForRole(file('assignsubmission_file/submission_files/7'), page, 'student-submission'), true);
+  assert.equal(api.isMoodleFileForRole(file('assignsubmission_onlinetext/submissions_onlinetext/7'), page, 'student-submission'), true);
+  assert.equal(api.isMoodleFileForRole(file('mod_assign/introattachment/0'), page, 'student-submission'), false);
+  assert.equal(api.isMoodleFileForRole(file('mod_assign/introattachment/0'), page, 'assignment-reference'), true);
+  assert.equal(api.isMoodleFileForRole(file('mod_resource/content/1'), page, 'assignment-reference'), true);
+  for (const role of ['student-submission', 'assignment-reference']) {
+    assert.equal(api.isMoodleFileForRole('https://moodle.example/grade/report/grader/index.php/x.html?id=3', page, role), false);
+    assert.equal(api.isMoodleFileForRole('https://moodle.example/user/index.php/list.pdf?id=3', page, role), false);
+    assert.equal(api.isMoodleFileForRole('https://moodle.example/pluginfile.php/answer.pdf', page, role), false);
+  }
+  // A page link planted as assignment material is skipped without being requested.
+  const requested = [];
+  const guarded = await loadBackgroundApi({ fetchImpl: async (url) => { requested.push(String(url)); return new Response('secret gradebook', { headers: { 'content-type': 'text/html' } }); } });
+  const skippedFiles = [];
+  const downloaded = await guarded.fetchSubmissionFileAttachments([
+    { id: 'assignment-file-1', name: 'x.html', url: 'https://moodle.example/grade/report/grader/index.php/x.html?id=3', role: 'assignment-reference' },
+  ], page, undefined, skippedFiles);
+  assert.deepEqual(json(downloaded), []);
+  assert.deepEqual(requested, []);
+  assert.deepEqual(json(skippedFiles), [{ id: 'assignment-file-1', name: 'x.html', role: 'assignment-reference', reason: 'No es un archivo de Moodle de la tarea' }]);
+});
+
+test('ZIP listings explain unreadable entries and preselect only what fits the total limit', async () => {
+  const MB = 1024 * 1024;
+  const entries = [
+    { path: 'secret.txt', sizeBytes: 10, encrypted: true },
+    { path: 'empty.py', sizeBytes: 0, encrypted: false },
+    { path: 'video.csv', sizeBytes: 25 * MB, encrypted: false },
+    { path: 'nested.zip', sizeBytes: 100, encrypted: false },
+    { path: 'part1.csv', sizeBytes: 19 * MB, encrypted: false },
+    { path: 'part2.csv', sizeBytes: 19 * MB, encrypted: false },
+    { path: 'part3.csv', sizeBytes: 5 * MB, encrypted: false },
+  ];
+  const api = await loadBackgroundApi({ readerHandler: async (message) => message.type === 'mca.listArchive' ? { ok: true, entries } : { ok: false } });
+  const listing = await api.listArchiveForPanel({ file: { name: 'work.zip', base64Data: 'UEs=' } });
+  assert.deepEqual(json(listing.map(entry => [entry.path, entry.supported, entry.reason || '', entry.selectedByDefault])), [
+    ['secret.txt', false, 'Archivo cifrado', false],
+    ['empty.py', false, 'Archivo vacío', false],
+    ['video.csv', false, 'Supera el límite de 20 MB', false],
+    ['nested.zip', false, 'Formato no soportado', false],
+    ['part1.csv', true, '', true],
+    ['part2.csv', true, '', true],
+    ['part3.csv', true, '', false],
+  ]);
+});
+
+test('a ZIP that cannot be opened reports every selected entry as skipped', async () => {
+  const api = await loadBackgroundApi({
+    fetchImpl: async () => new Response(new Uint8Array([0x50, 0x4b, 0x05, 0x06]), { headers: { 'content-type': 'application/zip' } }),
+    readerHandler: async () => ({ ok: false, error: 'The ZIP archive is damaged.', errorCode: 'UNSUPPORTED_ATTACHMENT' }),
+  });
+  const skippedFiles = [];
+  const files = await api.fetchSubmissionFileAttachments([{ id: 'submission-file-1', name: 'work.zip', archiveEntries: ['a.c', 'b.c'],
+    url: 'https://moodle.example/pluginfile.php/9/assignsubmission_file/submission_files/77/work.zip' }], 'https://moodle.example/mod/assign/view.php?id=4', undefined, skippedFiles);
+  assert.deepEqual(json(files), []);
+  assert.deepEqual(skippedFiles.map(file => file.id), ['submission-file-1', 'submission-file-1::a.c', 'submission-file-1::b.c']);
+});
+
+test('provider error text shown on the Moodle page masks credentials and stays short', async () => {
+  const api = await loadBackgroundApi();
+  const text = api.providerErrorText('Incorrect API key provided: sk-proj-abcdefghijklmnopqrstuvwx. Authorization: Bearer abcdef123456789 api_key=supersecretvalue');
+  assert.doesNotMatch(text, /sk-proj-abcdef|abcdef123456789|supersecretvalue/);
+  assert.match(text, /Incorrect API key provided/);
+  assert.ok(api.providerErrorText('x'.repeat(1000)).length <= 300);
 });

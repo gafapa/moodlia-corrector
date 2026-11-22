@@ -377,3 +377,8 @@ Include $1|Incluir $1|Inclure $1|$1 einbeziehen|Incluir $1|Includi $1|Incluír $
 Opening the ZIP...|Abriendo el ZIP...|Ouverture du ZIP...|ZIP wird geöffnet...|Abrindo o ZIP...|Apertura dello ZIP...|Abrindo o ZIP...|S’està obrint el ZIP...
 The ZIP contains no files.|El ZIP no contiene archivos.|Le ZIP ne contient aucun fichier.|Das ZIP enthält keine Dateien.|O ZIP não contém arquivos.|Lo ZIP non contiene file.|O ZIP non contén ficheiros.|El ZIP no conté cap fitxer.
 The ZIP could not be opened.|No se pudo abrir el ZIP.|Impossible d’ouvrir le ZIP.|Das ZIP konnte nicht geöffnet werden.|Não foi possível abrir o ZIP.|Impossibile aprire lo ZIP.|Non se puido abrir o ZIP.|No s’ha pogut obrir el ZIP.
+Not a Moodle file of this assignment|No es un archivo de Moodle de la tarea|Ce n’est pas un fichier Moodle de ce devoir|Keine Moodle-Datei dieser Aufgabe|Não é um arquivo do Moodle desta tarefa|Non è un file Moodle di questo compito|Non é un ficheiro de Moodle da tarefa|No és un fitxer de Moodle de la tasca
+Encrypted file|Archivo cifrado|Fichier chiffré|Verschlüsselte Datei|Arquivo criptografado|File cifrato|Ficheiro cifrado|Fitxer xifrat
+Empty file|Archivo vacío|Fichier vide|Leere Datei|Arquivo vazio|File vuoto|Ficheiro baleiro|Fitxer buit
+Damaged file|Archivo dañado|Fichier endommagé|Beschädigte Datei|Arquivo danificado|File danneggiato|Ficheiro danado|Fitxer malmès
+Exceeds the 20 MB limit|Supera el límite de 20 MB|Dépasse la limite de 20 Mo|Überschreitet die Grenze von 20 MB|Excede o limite de 20 MB|Supera il limite di 20 MB|Supera o límite de 20 MB|Supera el límit de 20 MB
