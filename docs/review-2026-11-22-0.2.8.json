@@ -21,7 +21,15 @@
   "store_metadata": {
     "locales": ["en", "es", "fr", "de", "pt_BR", "it", "gl", "ca"],
     "screenshots_regenerated": false,
-    "store_dashboard_updated": false,
+    "store_dashboard_updated": true,
+    "store_dashboard_draft": {
+      "checked": "2026-11-25",
+      "published_version": "0.2.6",
+      "draft_package_version": "0.2.8",
+      "descriptions_updated": ["en", "es", "de", "ca", "fr", "it", "pt_BR"],
+      "data_use_types_declared": [],
+      "data_use_types_recommended": ["website content", "personally identifiable information", "authentication information"]
+    },
     "store_submitted_for_review": null,
     "store_acceptance_verified": false
   },

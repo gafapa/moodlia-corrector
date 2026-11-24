@@ -1,6 +1,6 @@
 # Chrome Web Store submission kit — MoodlIA Corrector 0.2.8
 
-Prepared 28 October 2026. This is a local submission candidate, not a store-approved release. GitHub publication is separate from store submission.
+Prepared 22 November 2026. This is a local submission candidate, not a store-approved release. GitHub publication is separate from store submission.
 
 ## Files to upload and copy
 
@@ -49,6 +49,44 @@ The official [violation guide](https://developer.chrome.com/docs/webstore/troubl
 6. Complete Privacy practices using `dashboard-fields.md`. Declare handled content/personal data and the session API key; explain direct selected-provider transfer, broad required HTTPS access, optional HTTP host grants and HTTP encryption limits honestly. Confirm the dashboard certifications only after checking they match your publisher's practice.
 7. Fill the private reviewer instructions with a dedicated, reachable non-production Moodle teacher account and a usable AI endpoint/model or restricted review key. Keep those services available through review. No hosted review environment or credentials are provisioned by this kit, and no secrets should be committed or placed in public descriptions.
 8. Choose visibility, countries and any dashboard-specific settings, then submit for review. Review acceptance, timing and later publication remain controlled by Google and the publisher.
+
+## Dashboard status
+
+Checked on 25 November 2026 in the developer dashboard of item
+`lppkkhjfjpjkaaacbjhillopodeekekf` (publisher `gallego.top`):
+
+- Published: 0.2.6. Draft: package 0.2.8, uploaded by the publisher.
+- Store listing: the descriptions for English (default), Spanish, German,
+  Catalan, French, Italian and Brazilian Portuguese were replaced with the 0.2.8
+  text of `marketplace/listings/*.json`, saved as draft and read back after a
+  page reload. The store has no Galician listing; `gl.json` is used only by the
+  copy page.
+- Privacy: single purpose, permission justifications and the privacy-policy URL
+  match `dashboard-fields.md`. The data-use section has none of the data types
+  checked, while `dashboard-fields.md` asks to declare website content,
+  personally identifiable information and authentication information. The
+  publisher decides this declaration before submitting.
+- Not submitted for review.
+
+### Editing the dashboard from automation
+
+Chrome does not let extensions script `chrome.google.com/webstore`, so browser
+extensions (including Claude in Chrome) can open the dashboard but cannot read
+or change it. Two approaches work:
+
+- Start the installed Chrome with a separate profile and a debugging port
+  (`chrome.exe --user-data-dir=<profile> --remote-debugging-port=<port>`), let
+  the publisher sign in by hand, then attach a CDP client such as
+  `agent-browser connect <port>`. Google refuses sign-in in Chrome for Testing
+  and in browsers launched by automation, so do not sign in there.
+- Drive the publisher's normal Chrome window through operating-system
+  accessibility (for example Orca computer use). Material dropdowns, such as the
+  listing language, do not open with background accessibility clicks.
+
+On Windows, command-line arguments pass through the ANSI code page and corrupt
+characters such as „ “ ” ’. Insert descriptions with a script that carries the
+text as ASCII JSON escapes (for example `document.execCommand('insertText', …)`
+in the focused textarea) and read every field back after saving.
 
 ## Localization and evidence
 
