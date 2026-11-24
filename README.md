@@ -6,7 +6,7 @@ MoodlIA Corrector is a Chrome extension that helps teachers review Moodle assign
 
 ## Status
 
-Implemented Chrome extension. Current source version: `0.2.8`. 0.2.8 is published as GitHub release `v0.2.8` (22 November 2026) and its privacy policy is live at https://moodlia.com/privacy/corrector.html. The Chrome Web Store lists 0.2.6 until 0.2.8 is submitted and approved. Teachers review and save Moodle grades themselves.
+Implemented Chrome extension. Current source version: `0.2.8`. 0.2.8 is published as GitHub release `v0.2.8` (22 November 2026) and its privacy policy is live at https://moodlia.com/privacy/corrector.html. The Chrome Web Store lists 0.2.6; the store dashboard holds a 0.2.8 draft with the package and the seven store descriptions, not yet submitted for review (see [marketplace/SUBMISSION.md](marketplace/SUBMISSION.md#dashboard-status)). Teachers review and save Moodle grades themselves.
 
 The Moodle entry point is now self-contained, including localization. It also works with old automatic-activation registrations that do not list the translation scripts. Assignment overview pages are ignored before initialization. After updating the extension, reload it in `chrome://extensions` and refresh Moodle to replace scripts already running in open tabs.
 
@@ -151,7 +151,7 @@ npm run test:locales
 
 The browser checks use a temporary profile, fictional submissions, and a loopback test provider. `npm run test:fidelity` compares our DOCX and ODT pages with LibreOffice PDFs over a fictional corpus ([`docs/rendering-fidelity.md`](docs/rendering-fidelity.md)). `node tests/live-pdf-check.mjs` and `node tests/live-office-check.mjs` are opt-in checks against an installed local Ollama model (`gemma4:e4b` by default) with fictional documents. `tests/moodle-lab-check.mjs` runs the extension against a real disposable Moodle site; the **Moodle lab** GitHub Actions workflow (`.github/workflows/moodle-lab.yml`, manual or weekly) runs it on Moodle 4.5 to 5.3 with the public lab images. To also verify the existing local Ollama installation with `gemma3:4b`, run `node tests/browser-check.mjs --live`. This sends a fictional connection probe and an arithmetic correction with one rubric criterion, not student work. It does not modify the machine's Ollama configuration.
 
-Run `npm run package` to create `release/moodlia-corrector-0.2.7.zip` with the manifest at the archive root and all local parsing dependencies included.
+Run `npm run package` to create `release/moodlia-corrector-0.2.8.zip` with the manifest at the archive root and all local parsing dependencies included.
 
 Version 0.1.46 binds a correction to the Moodle assignment, student, attempt,
 and extracted submission before requesting AI and before changing form fields.
@@ -241,6 +241,7 @@ AI-assisted review of assignment submissions; [Rubrics](https://github.com/gafap
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/review-2026-10-24-0.1.71.md](docs/review-2026-10-24-0.1.71.md)
 - [docs/office-page-rendering.md](docs/office-page-rendering.md)
+- [docs/review-2026-11-22-0.2.8.md](docs/review-2026-11-22-0.2.8.md)
 - [docs/review-2026-11-09-0.2.7.md](docs/review-2026-11-09-0.2.7.md)
 - [docs/review-2026-11-09-0.2.6.md](docs/review-2026-11-09-0.2.6.md)
 - [docs/review-2026-11-09-0.2.5.md](docs/review-2026-11-09-0.2.5.md)
